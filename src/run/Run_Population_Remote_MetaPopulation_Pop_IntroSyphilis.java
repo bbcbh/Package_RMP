@@ -86,7 +86,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis {
         360 - (28 + 60 + 140),
         720 - (21 + 45 + 100),
         // 18-19: Remission
-        60*30,
+        6*30,
         0,
         // 20-21: Recurrent
         90,
