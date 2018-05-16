@@ -60,18 +60,44 @@ public class Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis {
 
     public double[] DEFAULT_PARAM_VALUES = {
         // Tranmission Prob 
-        // Male to Female,
+        // 0 - 4: Male to Female,
         0.18,
         0.18,
         0.18,
         0.09,
         0.18,
-        // Female to Male
+        // 5 - 9: Female to Male
         0.15,
         0.15,
         0.15,
         0.075,
-        0.15,};
+        0.15,
+        // Duration parameter
+        // 10-11: Incubation 
+        21,
+        28,
+        // 12-13: Primary
+        45,
+        60,
+        // 14-15: Secondary
+        100,
+        140,
+        // 16-17: Early Latent
+        360 - (28 + 60 + 140),
+        720 - (21 + 45 + 100),
+        // 18-19: Remission
+        60*30,
+        0,
+        // 20-21: Recurrent
+        90,
+        0,              
+        // 22-23: Latent
+        15*360,
+        0,
+        // 24-25: Immunity
+        5 * 360,
+        0,    
+    };
 
     protected double[] paramValues;
 
@@ -85,6 +111,22 @@ public class Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis {
     public static final int PARAM_INDEX_TRAN_FM_SEC = PARAM_INDEX_TRAN_FM_PRI + 1;
     public static final int PARAM_INDEX_TRAN_FM_EARLY_LT = PARAM_INDEX_TRAN_FM_SEC + 1;
     public static final int PARAM_INDEX_TRAN_FM_RECURRENT = PARAM_INDEX_TRAN_FM_EARLY_LT + 1;
+    public static final int PARAM_INDEX_DURATION_INCUBATION_MIN =  PARAM_INDEX_TRAN_FM_RECURRENT + 1;
+    public static final int PARAM_INDEX_DURATION_INCUBATION_MAX =  PARAM_INDEX_DURATION_INCUBATION_MIN + 1;
+    public static final int PARAM_INDEX_DURATION_PRIMARY_MIN =  PARAM_INDEX_DURATION_INCUBATION_MAX + 1;
+    public static final int PARAM_INDEX_DURATION_PRIMARY_MAX =  PARAM_INDEX_DURATION_PRIMARY_MIN + 1;
+    public static final int PARAM_INDEX_DURATION_SECONDARY_MIN =  PARAM_INDEX_DURATION_PRIMARY_MAX + 1;
+    public static final int PARAM_INDEX_DURATION_SECONDARY_MAX =  PARAM_INDEX_DURATION_SECONDARY_MIN + 1;
+    public static final int PARAM_INDEX_DURATION_EARLY_LATENT_MIN =  PARAM_INDEX_DURATION_SECONDARY_MAX + 1;
+    public static final int PARAM_INDEX_DURATION_EARLY_LATENT_MAX =  PARAM_INDEX_DURATION_EARLY_LATENT_MIN + 1;
+    public static final int PARAM_INDEX_DURATION_REMISSION_MIN =  PARAM_INDEX_DURATION_EARLY_LATENT_MAX + 1;
+    public static final int PARAM_INDEX_DURATION_REMISSION_MAX =  PARAM_INDEX_DURATION_REMISSION_MIN + 1;    
+    public static final int PARAM_INDEX_DURATION_RECURRENT_MIN =  PARAM_INDEX_DURATION_REMISSION_MAX + 1;
+    public static final int PARAM_INDEX_DURATION_RECURRENT_MAX =  PARAM_INDEX_DURATION_RECURRENT_MIN + 1;   
+    public static final int PARAM_INDEX_DURATION_LATENT_MIN =  PARAM_INDEX_DURATION_RECURRENT_MAX + 1;
+    public static final int PARAM_INDEX_DURATION_LATENT_MAX =  PARAM_INDEX_DURATION_LATENT_MIN + 1;    
+    public static final int PARAM_INDEX_DURATION_IMMUN_MIN =  PARAM_INDEX_DURATION_LATENT_MAX + 1;
+    public static final int PARAM_INDEX_DURATION_IMMUN_MAX =  PARAM_INDEX_DURATION_IMMUN_MIN + 1;  
 
     public Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis(String[] arg) {
         // 0: Base Dir
@@ -413,24 +455,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis {
             executor = null;
             exportCollectionFiles(exportDir, collectionsArray, collection_InfectionHistory);
         }
-
-        /*
-
-        PrintWriter pri;
-        try {
-            pri = new PrintWriter(new FileWriter(new File(exportDir, FILENAME_NUM_IN_POP_CSV)));
-            collectionToCSV(collectionsArray[0], pri);
-            pri = new PrintWriter(new FileWriter(new File(exportDir, FILENAME_NUM_INFECTED_CSV)));
-            collectionToCSV(collectionsArray[1], pri);
-            pri = new PrintWriter(new FileWriter(new File(exportDir, FILENAME_NUM_INFECTIOUS_CSV)));
-            collectionToCSV(collectionsArray[2], pri);
-            pri = new PrintWriter(new FileWriter(new File(exportDir, FILENAME_NEW_INFECT_CSV)));
-            collectionToCSV(collectionsArray[3], pri);
-        } catch (IOException ex) {
-            ex.printStackTrace(System.err);
-
-        }
-         */
+        
     }
 
     public void exportCollectionFiles(
@@ -582,6 +607,26 @@ public class Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis {
         syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_TRAN_FM_RECURRENT], 0});
         key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_TRANS_EARLY_LATENT_FM));
         syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_TRAN_FM_EARLY_LT], 0});
+        
+        // Duration
+        key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_DURATION_INCUBATION));
+        syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_DURATION_INCUBATION_MIN], paramValues[PARAM_INDEX_DURATION_INCUBATION_MAX]});
+        key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_DURATION_PRIMARY));
+        syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_DURATION_PRIMARY_MIN], paramValues[PARAM_INDEX_DURATION_PRIMARY_MAX]});
+        key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_DURATION_SECONDARY));
+        syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_DURATION_SECONDARY_MIN], paramValues[PARAM_INDEX_DURATION_SECONDARY_MAX]});
+        key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_DURATION_EARLY_LATENT));
+        syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_DURATION_EARLY_LATENT_MIN], paramValues[PARAM_INDEX_DURATION_EARLY_LATENT_MAX]});
+        key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_DURATION_LATENT));
+        syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_DURATION_LATENT_MIN], paramValues[PARAM_INDEX_DURATION_LATENT_MAX]});
+        key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_DURATION_REMISSION));
+        syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_DURATION_REMISSION_MIN], paramValues[PARAM_INDEX_DURATION_REMISSION_MAX]});
+        key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_DURATION_RECURRENT));
+        syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_DURATION_RECURRENT_MIN], paramValues[PARAM_INDEX_DURATION_RECURRENT_MAX]});
+        key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_DURATION_IMMUN));
+        syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_DURATION_IMMUN_MIN], paramValues[PARAM_INDEX_DURATION_IMMUN_MAX]});
+        
+        
 
         CLASSIFIER_SYPHILIS_PREVAL prevalClass
                 = new CLASSIFIER_SYPHILIS_PREVAL((AbstractFieldsArrayPopulation) thread.getPop());

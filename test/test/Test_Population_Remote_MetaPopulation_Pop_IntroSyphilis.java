@@ -15,13 +15,13 @@ public class Test_Population_Remote_MetaPopulation_Pop_IntroSyphilis {
 
         String[] rArg = new String[]{
             // Base Dir            
-            "C:\\Users\\Bhui\\OneDrive - UNSW\\RMP\\Gen_Results_1000_Syphilis_Input_Param",
+            "C:\\Users\\Bhui\\OneDrive - UNSW\\RMP\\Gen_Results_500_Syphilis_DoubleDuration",
             // Import Dir
             "C:\\Users\\Bhui\\OneDrive - UNSW\\RMP\\ImportDir",
             // Num threads
             "8",
             // Num sim
-            "1000",};
+            "500",};
 
         Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis run = new Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis(rArg);
         run.runSimulation();
