@@ -33,6 +33,14 @@ import util.PersonClassifier;
 /**
  *
  * @author Ben Hui
+ * @version 20180517
+ * 
+ * <pre>
+ * History
+ *
+ * 20180517
+ *  - Randomising the age a candidate is removed from the population
+ * </pre>
  */
 public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
 
@@ -117,6 +125,9 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
 
     // A matrix of ArrayList of AbstractIndividualInterface, index by home_loc, gender + age, at home or not    
     protected transient ArrayList<AbstractIndividualInterface>[][][] home_loc_age_gender_home_or_away_collection = null;
+    
+    // A HashMap of ArrayList of indivudal for removal 
+    protected transient HashMap<Integer, ArrayList<AbstractIndividualInterface>> timeSpecificAgeOutCandidates = null; 
 
     public Population_Remote_MetaPopulation(long seed) {
         super();
@@ -362,8 +373,14 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
         AbstractIndividualInterface[][][] availableAllLocation
                 = new AbstractIndividualInterface[pop_decom_collection.length][2][getPop().length];
         int[][] availablePt = new int[pop_decom_collection.length][2];
+        
+        if(timeSpecificAgeOutCandidates == null){
+            timeSpecificAgeOutCandidates = new HashMap<>();
+        }        
+        
+        int ageOutFreq = AbstractIndividualInterface.ONE_YEAR_INT ;
 
-        if (getGlobalTime() % 360 == 0) { // Update yearly
+        if (getGlobalTime() % ageOutFreq == 0) { // Update yearly
 
             updateCollectionHomeLocGenderAge();
 
@@ -380,22 +397,39 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
                     if (diffDemographpic < 0) {
                         candidate = ArrayUtilsRandomGenerator.randomSelect(candidate, -diffDemographpic, getRNG());
                         for (AbstractIndividualInterface toBeRemove : candidate) {
-                            toBeRemove.setAge(Double.POSITIVE_INFINITY); // Set to INF age, and remove in the iteration
+                            int offset = getRNG().nextInt(ageOutFreq);
+                            ArrayList<AbstractIndividualInterface> preEnt = timeSpecificAgeOutCandidates.get(this.getGlobalTime() + offset);
+                            if(preEnt == null){
+                                preEnt = new ArrayList<>();
+                            };
+                            preEnt.add(toBeRemove);
+                            timeSpecificAgeOutCandidates.put(this.getGlobalTime() + offset, preEnt);                            
                         }
                     }
-
                 }
-
             }
         }
+        
+        // Set age out person as inf age 
+        if(timeSpecificAgeOutCandidates.containsKey(this.getGlobalTime())){                        
+            AbstractIndividualInterface[] ageOutCandidate 
+                    = timeSpecificAgeOutCandidates.get(this.getGlobalTime()).toArray(new AbstractIndividualInterface[0]);
+            for(AbstractIndividualInterface toBeRemove: ageOutCandidate){                
+                toBeRemove.setAge(Double.POSITIVE_INFINITY); // Set to INF age, and remove in the iteration
+            }
+            timeSpecificAgeOutCandidates.remove(this.getGlobalTime());
+        }                
+        
 
         // Remove age out person
         for (int index = 0; index < getPop().length; index++) {
             getPop()[index].incrementTime(deltaT, getInfList());
 
             Person_Remote_MetaPopulation removeCandidate = (Person_Remote_MetaPopulation) getPop()[index];
+            
+            double ageoffset = getRNG().nextInt(5*AbstractIndividualInterface.ONE_YEAR_INT);
 
-            if (removeCandidate.getAge() > 35 * AbstractIndividualInterface.ONE_YEAR_INT) {
+            if (removeCandidate.getAge() > (35 * AbstractIndividualInterface.ONE_YEAR_INT + ageoffset)) {
                 AbstractIndividualInterface addedPerson;
                 int nextId = (int) getFields()[FIELDS_NEXT_ID];
                 addedPerson = replacePerson(removeCandidate, nextId);

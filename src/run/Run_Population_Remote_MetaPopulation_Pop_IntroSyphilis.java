@@ -36,7 +36,16 @@ import util.PersonClassifier;
 
 /**
  *
- * @author Bhui
+ * @author Ben Hui
+ * @version 20180517
+ *
+ * <pre>
+ * History
+ *
+ * 20180517
+ *  - Change the ordering of import file name by numberical index instead of file name
+ *  - Add feedback for decodeCollectionFile
+ * </pre>
  */
 public class Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis {
 
@@ -86,18 +95,17 @@ public class Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis {
         360 - (28 + 60 + 140),
         720 - (21 + 45 + 100),
         // 18-19: Remission
-        6*30,
+        6 * 30,
         0,
         // 20-21: Recurrent
         90,
-        0,              
+        0,
         // 22-23: Latent
-        15*360,
+        15 * 360,
         0,
         // 24-25: Immunity
         5 * 360,
-        0,    
-    };
+        0,};
 
     protected double[] paramValues;
 
@@ -111,22 +119,22 @@ public class Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis {
     public static final int PARAM_INDEX_TRAN_FM_SEC = PARAM_INDEX_TRAN_FM_PRI + 1;
     public static final int PARAM_INDEX_TRAN_FM_EARLY_LT = PARAM_INDEX_TRAN_FM_SEC + 1;
     public static final int PARAM_INDEX_TRAN_FM_RECURRENT = PARAM_INDEX_TRAN_FM_EARLY_LT + 1;
-    public static final int PARAM_INDEX_DURATION_INCUBATION_MIN =  PARAM_INDEX_TRAN_FM_RECURRENT + 1;
-    public static final int PARAM_INDEX_DURATION_INCUBATION_MAX =  PARAM_INDEX_DURATION_INCUBATION_MIN + 1;
-    public static final int PARAM_INDEX_DURATION_PRIMARY_MIN =  PARAM_INDEX_DURATION_INCUBATION_MAX + 1;
-    public static final int PARAM_INDEX_DURATION_PRIMARY_MAX =  PARAM_INDEX_DURATION_PRIMARY_MIN + 1;
-    public static final int PARAM_INDEX_DURATION_SECONDARY_MIN =  PARAM_INDEX_DURATION_PRIMARY_MAX + 1;
-    public static final int PARAM_INDEX_DURATION_SECONDARY_MAX =  PARAM_INDEX_DURATION_SECONDARY_MIN + 1;
-    public static final int PARAM_INDEX_DURATION_EARLY_LATENT_MIN =  PARAM_INDEX_DURATION_SECONDARY_MAX + 1;
-    public static final int PARAM_INDEX_DURATION_EARLY_LATENT_MAX =  PARAM_INDEX_DURATION_EARLY_LATENT_MIN + 1;
-    public static final int PARAM_INDEX_DURATION_REMISSION_MIN =  PARAM_INDEX_DURATION_EARLY_LATENT_MAX + 1;
-    public static final int PARAM_INDEX_DURATION_REMISSION_MAX =  PARAM_INDEX_DURATION_REMISSION_MIN + 1;    
-    public static final int PARAM_INDEX_DURATION_RECURRENT_MIN =  PARAM_INDEX_DURATION_REMISSION_MAX + 1;
-    public static final int PARAM_INDEX_DURATION_RECURRENT_MAX =  PARAM_INDEX_DURATION_RECURRENT_MIN + 1;   
-    public static final int PARAM_INDEX_DURATION_LATENT_MIN =  PARAM_INDEX_DURATION_RECURRENT_MAX + 1;
-    public static final int PARAM_INDEX_DURATION_LATENT_MAX =  PARAM_INDEX_DURATION_LATENT_MIN + 1;    
-    public static final int PARAM_INDEX_DURATION_IMMUN_MIN =  PARAM_INDEX_DURATION_LATENT_MAX + 1;
-    public static final int PARAM_INDEX_DURATION_IMMUN_MAX =  PARAM_INDEX_DURATION_IMMUN_MIN + 1;  
+    public static final int PARAM_INDEX_DURATION_INCUBATION_MIN = PARAM_INDEX_TRAN_FM_RECURRENT + 1;
+    public static final int PARAM_INDEX_DURATION_INCUBATION_MAX = PARAM_INDEX_DURATION_INCUBATION_MIN + 1;
+    public static final int PARAM_INDEX_DURATION_PRIMARY_MIN = PARAM_INDEX_DURATION_INCUBATION_MAX + 1;
+    public static final int PARAM_INDEX_DURATION_PRIMARY_MAX = PARAM_INDEX_DURATION_PRIMARY_MIN + 1;
+    public static final int PARAM_INDEX_DURATION_SECONDARY_MIN = PARAM_INDEX_DURATION_PRIMARY_MAX + 1;
+    public static final int PARAM_INDEX_DURATION_SECONDARY_MAX = PARAM_INDEX_DURATION_SECONDARY_MIN + 1;
+    public static final int PARAM_INDEX_DURATION_EARLY_LATENT_MIN = PARAM_INDEX_DURATION_SECONDARY_MAX + 1;
+    public static final int PARAM_INDEX_DURATION_EARLY_LATENT_MAX = PARAM_INDEX_DURATION_EARLY_LATENT_MIN + 1;
+    public static final int PARAM_INDEX_DURATION_REMISSION_MIN = PARAM_INDEX_DURATION_EARLY_LATENT_MAX + 1;
+    public static final int PARAM_INDEX_DURATION_REMISSION_MAX = PARAM_INDEX_DURATION_REMISSION_MIN + 1;
+    public static final int PARAM_INDEX_DURATION_RECURRENT_MIN = PARAM_INDEX_DURATION_REMISSION_MAX + 1;
+    public static final int PARAM_INDEX_DURATION_RECURRENT_MAX = PARAM_INDEX_DURATION_RECURRENT_MIN + 1;
+    public static final int PARAM_INDEX_DURATION_LATENT_MIN = PARAM_INDEX_DURATION_RECURRENT_MAX + 1;
+    public static final int PARAM_INDEX_DURATION_LATENT_MAX = PARAM_INDEX_DURATION_LATENT_MIN + 1;
+    public static final int PARAM_INDEX_DURATION_IMMUN_MIN = PARAM_INDEX_DURATION_LATENT_MAX + 1;
+    public static final int PARAM_INDEX_DURATION_IMMUN_MAX = PARAM_INDEX_DURATION_IMMUN_MIN + 1;
 
     public Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis(String[] arg) {
         // 0: Base Dir
@@ -236,8 +244,14 @@ public class Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis {
 
         Arrays.sort(popFiles, new Comparator<File>() {
             @Override
-            public int compare(File t, File t1) {
-                return t.getName().compareTo(t1.getName());
+            public int compare(File f1, File f2) {
+                Matcher m1 = Pattern_importFile.matcher(f1.getName());
+                Matcher m2 = Pattern_importFile.matcher(f2.getName());
+                m1.find();
+                m2.find();                
+                Integer n1 = new Integer(m1.group(1));
+                Integer n2 = new Integer(m2.group(1));
+                return n1.compareTo(n2);
             }
         });
 
@@ -455,7 +469,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis {
             executor = null;
             exportCollectionFiles(exportDir, collectionsArray, collection_InfectionHistory);
         }
-        
+
     }
 
     public void exportCollectionFiles(
@@ -535,6 +549,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis {
             collectionsArrayRead = (HashMap[]) objIn.readObject();
 
             for (int i = 0; i < collectionsArrayRead.length; i++) {
+                System.out.println("Decoding collection #" + i + " to file " + collectionFileName[i]);
                 try (PrintWriter pri = new PrintWriter(new File(baseDir, collectionFileName[i]))) {
                     run.Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis.collectionToCSV(collectionsArrayRead[i], pri);
                 }
@@ -607,7 +622,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis {
         syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_TRAN_FM_RECURRENT], 0});
         key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_TRANS_EARLY_LATENT_FM));
         syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_TRAN_FM_EARLY_LT], 0});
-        
+
         // Duration
         key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_DURATION_INCUBATION));
         syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_DURATION_INCUBATION_MIN], paramValues[PARAM_INDEX_DURATION_INCUBATION_MAX]});
@@ -625,8 +640,6 @@ public class Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis {
         syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_DURATION_RECURRENT_MIN], paramValues[PARAM_INDEX_DURATION_RECURRENT_MAX]});
         key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_DURATION_IMMUN));
         syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_DURATION_IMMUN_MIN], paramValues[PARAM_INDEX_DURATION_IMMUN_MAX]});
-        
-        
 
         CLASSIFIER_SYPHILIS_PREVAL prevalClass
                 = new CLASSIFIER_SYPHILIS_PREVAL((AbstractFieldsArrayPopulation) thread.getPop());
