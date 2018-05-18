@@ -29,15 +29,17 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.apache.commons.math3.distribution.BetaDistribution;
 import person.AbstractIndividualInterface;
 import person.Person_Remote_MetaPopulation;
 import population.AbstractFieldsArrayPopulation;
+import random.RandomGenerator;
 import util.PersonClassifier;
 
 /**
  *
  * @author Ben Hui
- * @version 20180517
+ * @version 20180518
  *
  * <pre>
  * History
@@ -45,6 +47,10 @@ import util.PersonClassifier;
  * 20180517
  *  - Change the ordering of import file name by numberical index instead of file name
  *  - Add feedback for decodeCollectionFile
+ *
+ * 20180518
+ *  - Add support for varying tranmission probability
+ *
  * </pre>
  */
 public class Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis {
@@ -105,6 +111,21 @@ public class Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis {
         0,
         // 24-25: Immunity
         5 * 360,
+        0,
+        // Trans. prob SD
+        // if 0, not used (i.e. fixed value)
+        // if <0, as a proportion of input parameter
+        // 26-30: Male to Female
+        0,
+        0,
+        0,
+        0,
+        0,
+        // 31-35: Female to Male
+        0,
+        0,
+        0,
+        0,
         0,};
 
     protected double[] paramValues;
@@ -135,6 +156,16 @@ public class Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis {
     public static final int PARAM_INDEX_DURATION_LATENT_MAX = PARAM_INDEX_DURATION_LATENT_MIN + 1;
     public static final int PARAM_INDEX_DURATION_IMMUN_MIN = PARAM_INDEX_DURATION_LATENT_MAX + 1;
     public static final int PARAM_INDEX_DURATION_IMMUN_MAX = PARAM_INDEX_DURATION_IMMUN_MIN + 1;
+    public static final int PARAM_INDEX_TRAN_MF_INCUB_SD = PARAM_INDEX_DURATION_IMMUN_MAX + 1;
+    public static final int PARAM_INDEX_TRAN_MF_PRI_SD = PARAM_INDEX_TRAN_MF_INCUB_SD + 1;
+    public static final int PARAM_INDEX_TRAN_MF_SEC_SD = PARAM_INDEX_TRAN_MF_PRI_SD + 1;
+    public static final int PARAM_INDEX_TRAN_MF_EARLY_LT_SD = PARAM_INDEX_TRAN_MF_SEC_SD + 1;
+    public static final int PARAM_INDEX_TRAN_MF_RECURRENT_SD = PARAM_INDEX_TRAN_MF_EARLY_LT_SD + 1;
+    public static final int PARAM_INDEX_TRAN_FM_INCUB_SD = PARAM_INDEX_TRAN_MF_RECURRENT_SD + 1;
+    public static final int PARAM_INDEX_TRAN_FM_PRI_SD = PARAM_INDEX_TRAN_FM_INCUB_SD + 1;
+    public static final int PARAM_INDEX_TRAN_FM_SEC_SD = PARAM_INDEX_TRAN_FM_PRI_SD + 1;
+    public static final int PARAM_INDEX_TRAN_FM_EARLY_LT_SD = PARAM_INDEX_TRAN_FM_SEC_SD + 1;
+    public static final int PARAM_INDEX_TRAN_FM_RECURRENT_SD = PARAM_INDEX_TRAN_FM_EARLY_LT_SD + 1;
 
     public Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis(String[] arg) {
         // 0: Base Dir
@@ -248,7 +279,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis {
                 Matcher m1 = Pattern_importFile.matcher(f1.getName());
                 Matcher m2 = Pattern_importFile.matcher(f2.getName());
                 m1.find();
-                m2.find();                
+                m2.find();
                 Integer n1 = new Integer(m1.group(1));
                 Integer n2 = new Integer(m2.group(1));
                 return n1.compareTo(n2);
@@ -593,37 +624,27 @@ public class Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis {
 
     protected void setSyphilisSetting(Thread_PopRun thread) {
         // Set syphilis setting
-
         SyphilisInfection syphilis = new SyphilisInfection(null);
         syphilis.setInfectionIndex(0);
+        RandomGenerator rng = ((population.Population_Remote_MetaPopulation) thread.getPop()).getInfectionRNG();
 
-        // Setting
+        // Tranmission   
+        double[] generateParam = new double[2];
+        generateParam = setSyphilisTranProb(SyphilisInfection.DIST_INDEX_TRANS_INCUBATION_MF, PARAM_INDEX_TRAN_MF_INCUB, PARAM_INDEX_TRAN_MF_INCUB_SD,
+                generateParam, rng, syphilis);
+        setSyphilisTranProb(SyphilisInfection.DIST_INDEX_TRANS_PRI_MF, PARAM_INDEX_TRAN_MF_PRI, PARAM_INDEX_TRAN_MF_PRI_SD, generateParam, rng, syphilis);
+        setSyphilisTranProb(SyphilisInfection.DIST_INDEX_TRANS_SEC_MF, PARAM_INDEX_TRAN_MF_SEC, PARAM_INDEX_TRAN_MF_SEC_SD, generateParam, rng, syphilis);
+        setSyphilisTranProb(SyphilisInfection.DIST_INDEX_TRANS_RECURRENT_MF, PARAM_INDEX_TRAN_MF_RECURRENT, PARAM_INDEX_TRAN_MF_RECURRENT_SD, generateParam, rng, syphilis);
+        setSyphilisTranProb(SyphilisInfection.DIST_INDEX_TRANS_EARLY_LATENT_MF, PARAM_INDEX_TRAN_MF_EARLY_LT, PARAM_INDEX_TRAN_MF_EARLY_LT_SD, generateParam, rng, syphilis);
+
+        generateParam = setSyphilisTranProb(SyphilisInfection.DIST_INDEX_TRANS_INCUBATION_FM, PARAM_INDEX_TRAN_FM_INCUB, PARAM_INDEX_TRAN_FM_INCUB_SD, generateParam, rng, syphilis);
+        setSyphilisTranProb(SyphilisInfection.DIST_INDEX_TRANS_PRI_FM, PARAM_INDEX_TRAN_FM_PRI, PARAM_INDEX_TRAN_FM_PRI_SD, generateParam, rng, syphilis);
+        setSyphilisTranProb(SyphilisInfection.DIST_INDEX_TRANS_SEC_FM, PARAM_INDEX_TRAN_FM_SEC, PARAM_INDEX_TRAN_FM_SEC_SD, generateParam, rng, syphilis);
+        setSyphilisTranProb(SyphilisInfection.DIST_INDEX_TRANS_RECURRENT_FM, PARAM_INDEX_TRAN_FM_RECURRENT, PARAM_INDEX_TRAN_FM_RECURRENT_SD, generateParam, rng, syphilis);
+        setSyphilisTranProb(SyphilisInfection.DIST_INDEX_TRANS_EARLY_LATENT_FM, PARAM_INDEX_TRAN_FM_EARLY_LT, PARAM_INDEX_TRAN_FM_EARLY_LT_SD, generateParam, rng, syphilis);
+
+        // Duration               
         String key;
-
-        // Tranmission
-        key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_TRANS_INCUBATION_MF));
-        syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_TRAN_MF_INCUB], 0});
-        key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_TRANS_PRI_MF));
-        syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_TRAN_MF_PRI], 0});
-        key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_TRANS_SEC_MF));
-        syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_TRAN_MF_SEC], 0});
-        key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_TRANS_RECURRENT_MF));
-        syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_TRAN_MF_RECURRENT], 0});
-        key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_TRANS_EARLY_LATENT_MF));
-        syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_TRAN_MF_EARLY_LT], 0});
-
-        key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_TRANS_INCUBATION_FM));
-        syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_TRAN_FM_INCUB], 0});
-        key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_TRANS_PRI_FM));
-        syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_TRAN_FM_PRI], 0});
-        key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_TRANS_SEC_FM));
-        syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_TRAN_FM_SEC], 0});
-        key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_TRANS_RECURRENT_FM));
-        syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_TRAN_FM_RECURRENT], 0});
-        key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_TRANS_EARLY_LATENT_FM));
-        syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_TRAN_FM_EARLY_LT], 0});
-
-        // Duration
         key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_DURATION_INCUBATION));
         syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_DURATION_INCUBATION_MIN], paramValues[PARAM_INDEX_DURATION_INCUBATION_MAX]});
         key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_DURATION_PRIMARY));
@@ -741,7 +762,45 @@ public class Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis {
 
     }
 
+    public double[] setSyphilisTranProb(int infectionIndex,
+            int tran_parameter_Index,
+            int tran_parameterSD_Index,
+            double[] defaultTranProb,
+            RandomGenerator rng,
+            SyphilisInfection syphilis) {
+        String parameterKey = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(infectionIndex));
+        if (paramValues[tran_parameterSD_Index] > 0) {
+            // Beta parameter
+            double[] betaParam = generatedBetaParam(
+                    new double[]{paramValues[tran_parameter_Index], paramValues[tran_parameterSD_Index]});
+            BetaDistribution dist = new BetaDistribution(rng, betaParam[0], betaParam[1]);
+            syphilis.setParameter(parameterKey, new double[]{dist.sample(), 0});
+        } else if (paramValues[tran_parameterSD_Index] < 0) {
+            syphilis.setParameter(parameterKey, new double[]{defaultTranProb[0] * -paramValues[tran_parameterSD_Index],
+                defaultTranProb[1] * -paramValues[tran_parameterSD_Index]});
+        } else {
+            syphilis.setParameter(parameterKey, new double[]{paramValues[tran_parameter_Index], 0});
+        }
+
+        return (double[]) syphilis.getParameter(parameterKey);
+    }
+
     public double[] getParamValues() {
         return paramValues;
+    }
+
+    private static double[] generatedBetaParam(double[] input) {
+        // For Beta distribution, 
+        // alpha = mean*(mean*(1-mean)/variance - 1)
+        // beta = (1-mean)*(mean*(1-mean)/variance - 1)
+        double[] res = new double[2];
+        double var = input[1] * input[1];
+        double rP = input[0] * (1 - input[0]) / var - 1;
+        //alpha
+        res[0] = rP * input[0];
+        //beta
+        res[1] = rP * (1 - input[0]);
+        return res;
+
     }
 }

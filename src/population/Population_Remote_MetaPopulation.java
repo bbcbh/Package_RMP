@@ -427,7 +427,7 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
 
             Person_Remote_MetaPopulation removeCandidate = (Person_Remote_MetaPopulation) getPop()[index];
             
-            double ageoffset = getRNG().nextInt(5*AbstractIndividualInterface.ONE_YEAR_INT);
+            double ageoffset = 0;
 
             if (removeCandidate.getAge() > (35 * AbstractIndividualInterface.ONE_YEAR_INT + ageoffset)) {
                 AbstractIndividualInterface addedPerson;
