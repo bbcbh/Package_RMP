@@ -26,7 +26,15 @@ import random.RandomGenerator;
 
 /**
  *
- * @author Bhui
+ * @author Ben Hui
+ * @version 201580523
+ * 
+ * History:
+ * 
+ * <pre>
+ * 20180523
+ *  - Added support for repeated simulation runs
+ * </pre>
  */
 public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
 
@@ -35,7 +43,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
     public int NUM_THREADS = Runtime.getRuntime().availableProcessors();
     public int NUM_SIM_TOTAL = 1000;
     final int NUM_STEPS = 360 * 50;
-    
+
     double[] defaultParam = {
         /*
         // Best fit        
@@ -51,8 +59,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
         377.83717702302926,
         // 5: OPT_PARAM_INDEX_AVE_INF_DUR_NG 
         367.98051191774533,        
-        */
-        
+         */
         //Better trans
         // 0: OPT_PARAM_INDEX_TRAN_FEMALE_MALE_CT;
         0.2543159232572388,
@@ -65,43 +72,34 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
         // 4: OPT_PARAM_INDEX_AVE_INF_DUR_CT 
         434.04840078376355,
         // 5: OPT_PARAM_INDEX_AVE_INF_DUR_NG 
-        362.3907737197366,     
-        
-    };
-    
-    
-    
+        362.3907737197366,};
+
     // For Beta distribution, 
     // alpha = mean*(mean*(1-mean)/variance - 1)
     // beta = (1-mean)*(mean*(1-mean)/variance - 1)
-    
-    
     final double SD_CT = 0.02;
     final double SD_NG = 0.02;
-     
-    
+
     Object[] defaultDistribution = {
         // Better trans
         // 0: OPT_PARAM_INDEX_TRAN_FEMALE_MALE_CT;        
         new BetaDistribution(defaultParam[0]
-                *(defaultParam[0]*(1-defaultParam[0])/(SD_CT*SD_CT) - 1),
-                (1-defaultParam[0])
-                *(defaultParam[0]*(1-defaultParam[0])/(SD_CT*SD_CT) - 1)),        
+        * (defaultParam[0] * (1 - defaultParam[0]) / (SD_CT * SD_CT) - 1),
+        (1 - defaultParam[0])
+        * (defaultParam[0] * (1 - defaultParam[0]) / (SD_CT * SD_CT) - 1)),
         // 1: OPT_PARAM_INDEX_TRAN_MALE_FEMALE_EXTRA_CT
-        0.039826625618951,      
+        0.039826625618951,
         // 2: OPT_PARAM_INDEX_TRAN_FEMALE_MALE_NG
         new BetaDistribution(defaultParam[2]
-                *(defaultParam[2]*(1-defaultParam[2])/(SD_NG*SD_NG) - 1),
-                (1-defaultParam[2])
-                *(defaultParam[2]*(1-defaultParam[2])/(SD_NG*SD_NG) - 1)), 
+        * (defaultParam[2] * (1 - defaultParam[2]) / (SD_NG * SD_NG) - 1),
+        (1 - defaultParam[2])
+        * (defaultParam[2] * (1 - defaultParam[2]) / (SD_NG * SD_NG) - 1)),
         // 3: OPT_PARAM_INDEX_TRAN_MALE_FEMALE_EXTRA_NG 
         0.21336941210194102,
         // 4: OPT_PARAM_INDEX_AVE_INF_DUR_CT 
         434.04840078376355,
         // 5: OPT_PARAM_INDEX_AVE_INF_DUR_NG 
-        362.3907737197366,               
-    };
-    
+        362.3907737197366,};
 
     public Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT(String[] arg) {
         // 0: Base Dir
@@ -171,28 +169,35 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
             }
             File importPop = popFiles[sId];
             File outputPopFile = new File(exportDir, "Sim_" + importPop.getName());
-            PrintWriter outputPrint = null;
-            try {
-                outputPrint = new PrintWriter(new FileWriter(new File(exportDir, "output_" + sId + ".txt")));
-            } catch (IOException ex) {
-                ex.printStackTrace(System.err);
-                outputPrint = new PrintWriter(System.out);
-            }
 
-            // Generate thread
-            Thread_PopRun thread = new Thread_PopRun(outputPopFile, importPop, sId, NUM_STEPS);
-            thread.setOutputPri(outputPrint, false);
+            if (outputPopFile.exists()) {
+                System.out.println("Pop file " + outputPopFile.getAbsolutePath() + " already exist. Simulation skipped.");
 
-            try {
-                thread.importPop();
-            } catch (IOException | ClassNotFoundException ex) {
-                ex.printStackTrace(System.err);
+            } else {
+
+                PrintWriter outputPrint = null;
+                try {
+                    outputPrint = new PrintWriter(new FileWriter(new File(exportDir, "output_" + sId + ".txt")));
+                } catch (IOException ex) {
+                    ex.printStackTrace(System.err);
+                    outputPrint = new PrintWriter(System.out);
+                }
+
+                // Generate thread
+                Thread_PopRun thread = new Thread_PopRun(outputPopFile, importPop, sId, NUM_STEPS);
+                thread.setOutputPri(outputPrint, false);
+
+                try {
+                    thread.importPop();
+                } catch (IOException | ClassNotFoundException ex) {
+                    ex.printStackTrace(System.err);
+                }
+
+                loadParameters(thread, defaultDistribution);
+
+                executor.submit(thread);
+                numInExe++;
             }
-            
-            loadParameters(thread, defaultDistribution);
-            
-            executor.submit(thread);
-            numInExe++;
 
             if (numInExe == NUM_THREADS) {
                 try {
@@ -219,39 +224,33 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
         }
 
     }
-    
-    public void loadParameters(Thread_PopRun thread, Object[] paramDist){
-        RandomGenerator infectionRNG = ((Population_Remote_MetaPopulation) thread.getPop()).getInfectionRNG();                
-        
+
+    public void loadParameters(Thread_PopRun thread, Object[] paramDist) {
+        RandomGenerator infectionRNG = ((Population_Remote_MetaPopulation) thread.getPop()).getInfectionRNG();
+
         double[] param = new double[paramDist.length];
-        
-        for(int i = 0; i <param.length; i++){
-            
-            if(paramDist[i] instanceof Number){
+
+        for (int i = 0; i < param.length; i++) {
+
+            if (paramDist[i] instanceof Number) {
                 param[i] = ((Number) paramDist[i]).doubleValue();
-            } else if(paramDist[i] instanceof AbstractRealDistribution){
-                ((AbstractRealDistribution)  paramDist[i]).reseedRandomGenerator(infectionRNG.nextLong());                
-                param[i] = ((AbstractRealDistribution)  paramDist[i]).sample();
+            } else if (paramDist[i] instanceof AbstractRealDistribution) {
+                ((AbstractRealDistribution) paramDist[i]).reseedRandomGenerator(infectionRNG.nextLong());
+                param[i] = ((AbstractRealDistribution) paramDist[i]).sample();
             } else {
-                System.err.println("paramDist #" + i 
-                        + " is of class " + paramDist[i].getClass().getName() + " and is not defined." 
-                                + " Using default value of " + defaultParam[i] + " instead.");
-                
+                System.err.println("paramDist #" + i
+                        + " is of class " + paramDist[i].getClass().getName() + " and is not defined."
+                        + " Using default value of " + defaultParam[i] + " instead.");
+
                 param[i] = defaultParam[i];
             }
-                
-            
-            
+
         }
-        
+
         loadParameters(thread, param);
-        
-        
-        
-        
+
     }
-    
-    
+
     public void loadParameters(Thread_PopRun thread, double[] param) {
         ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_NUMBER_PARTNER_LAST_12_MONTHS_DECOMP]
                 = new float[][][]{
@@ -371,7 +370,6 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
         if (outputPrint != null) {
             outputPrint.println("Duration Sym (NG) = " + Arrays.toString((double[]) ng_inf.getParameter(key)));
         }
-        
 
         if (outputPrint != null) {
             outputPrint.flush();

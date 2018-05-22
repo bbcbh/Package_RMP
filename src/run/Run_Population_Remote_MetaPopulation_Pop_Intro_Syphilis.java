@@ -34,7 +34,7 @@ import util.PersonClassifier;
 /**
  *
  * @author Ben Hui
- * @version 20180522
+ * @version 20180523
  *
  * <pre>
  * History
@@ -48,6 +48,9 @@ import util.PersonClassifier;
  * 
  * 20180522
  *  - Remove main method
+ * 
+ * 20180523
+ *  - Change messages for repeated simulation run from System.err to System.out
  *
  * </pre>
  */
@@ -378,7 +381,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis {
             final File outputPopFile = new File(exportDir, "Sim_" + importPop.getName());
 
             if (outputPopFile.exists()) {
-                System.err.println("Output pop " + outputPopFile.getAbsolutePath()
+                System.out.println("Output pop " + outputPopFile.getAbsolutePath()
                         + " already existed. Skipping simulation");
             } else {
 
