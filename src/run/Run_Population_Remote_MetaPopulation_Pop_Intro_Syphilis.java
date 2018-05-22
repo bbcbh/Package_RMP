@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package run;
 
 import infection.AbstractInfection;
@@ -39,7 +34,7 @@ import util.PersonClassifier;
 /**
  *
  * @author Ben Hui
- * @version 20180518
+ * @version 20180522
  *
  * <pre>
  * History
@@ -50,10 +45,13 @@ import util.PersonClassifier;
  *
  * 20180518
  *  - Add support for varying tranmission probability
+ * 
+ * 20180522
+ *  - Remove main method
  *
  * </pre>
  */
-public class Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis {
+public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis {
 
     public String BASE_DIR_STR = "~/RMP/OptResults";
     public String IMPORT_DIR_STR = "~/RMP/ImportDir";
@@ -167,7 +165,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis {
     public static final int PARAM_INDEX_TRAN_FM_EARLY_LT_SD = PARAM_INDEX_TRAN_FM_SEC_SD + 1;
     public static final int PARAM_INDEX_TRAN_FM_RECURRENT_SD = PARAM_INDEX_TRAN_FM_EARLY_LT_SD + 1;
 
-    public Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis(String[] arg) {
+    public Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis(String[] arg) {
         // 0: Base Dir
         if (arg.length > 0) {
             if (!arg[0].isEmpty()) {
@@ -252,10 +250,12 @@ public class Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis {
 
     }
 
+    /*
     public static void main(String[] arg) {
-        Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis run = new Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis(arg);
+        Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis run = new Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis(arg);
         run.runSimulation();
     }
+    */
 
     public void runSimulation() {
         File importDir, exportDir;
@@ -582,7 +582,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis {
             for (int i = 0; i < collectionsArrayRead.length; i++) {
                 System.out.println("Decoding collection #" + i + " to file " + collectionFileName[i]);
                 try (PrintWriter pri = new PrintWriter(new File(baseDir, collectionFileName[i]))) {
-                    run.Run_Population_Remote_MetaPopulation_Pop_IntroSyphilis.collectionToCSV(collectionsArrayRead[i], pri);
+                    run.Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis.collectionToCSV(collectionsArrayRead[i], pri);
                 }
             }
 

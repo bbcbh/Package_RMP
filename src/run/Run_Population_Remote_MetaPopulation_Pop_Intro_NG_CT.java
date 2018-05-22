@@ -28,7 +28,7 @@ import random.RandomGenerator;
  *
  * @author Bhui
  */
-public class Run_Population_Remote_MetaPopulation_Pop_IntroInfection {
+public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
 
     public String BASE_DIR_STR = "~/RMP/OptResults";
     public String IMPORT_DIR_STR = "~/RMP/ImportDir";
@@ -103,7 +103,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_IntroInfection {
     };
     
 
-    public Run_Population_Remote_MetaPopulation_Pop_IntroInfection(String[] arg) {
+    public Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT(String[] arg) {
         // 0: Base Dir
         if (arg.length > 0) {
             if (!arg[0].isEmpty()) {
