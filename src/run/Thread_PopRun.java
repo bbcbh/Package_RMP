@@ -20,7 +20,7 @@ import person.MoveablePersonInterface;
 import person.Person_Remote_MetaPopulation;
 import population.AbstractPopulation;
 import population.Population_Remote_MetaPopulation;
-import random.MersenneTwisterFastRandomGenerator;
+import random.MersenneTwisterRandomGenerator;
 import random.RandomGenerator;
 import util.ArrayUtilsRandomGenerator;
 import util.Default_Remote_MetaPopulation_AgeGrp_Classifier;
@@ -252,7 +252,7 @@ public class Thread_PopRun implements Runnable {
                 int offset = pop.getGlobalTime();
 
                 // Testing 
-                random.RandomGenerator testRNG = new MersenneTwisterFastRandomGenerator(pop.getSeed());
+                random.RandomGenerator testRNG = new MersenneTwisterRandomGenerator(pop.getSeed());
 
                 int[] testing_numPerDay = null;
                 int testing_pt = 0;

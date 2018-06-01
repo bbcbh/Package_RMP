@@ -27,13 +27,15 @@ import random.RandomGenerator;
 /**
  *
  * @author Ben Hui
- * @version 201580523
- * 
+ * @version 201580531
+ *
  * History:
- * 
+ *
  * <pre>
  * 20180523
  *  - Added support for repeated simulation runs
+ * 20180531
+ *  - Added support for user-defined input parameter
  * </pre>
  */
 public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
@@ -44,7 +46,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
     public int NUM_SIM_TOTAL = 1000;
     final int NUM_STEPS = 360 * 50;
 
-    double[] defaultParam = {
+    double[] paramVal = {
         /*
         // Best fit        
         // 0: OPT_PARAM_INDEX_TRAN_FEMALE_MALE_CT;
@@ -78,28 +80,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
     // alpha = mean*(mean*(1-mean)/variance - 1)
     // beta = (1-mean)*(mean*(1-mean)/variance - 1)
     final double SD_CT = 0.02;
-    final double SD_NG = 0.02;
-
-    Object[] defaultDistribution = {
-        // Better trans
-        // 0: OPT_PARAM_INDEX_TRAN_FEMALE_MALE_CT;        
-        new BetaDistribution(defaultParam[0]
-        * (defaultParam[0] * (1 - defaultParam[0]) / (SD_CT * SD_CT) - 1),
-        (1 - defaultParam[0])
-        * (defaultParam[0] * (1 - defaultParam[0]) / (SD_CT * SD_CT) - 1)),
-        // 1: OPT_PARAM_INDEX_TRAN_MALE_FEMALE_EXTRA_CT
-        0.039826625618951,
-        // 2: OPT_PARAM_INDEX_TRAN_FEMALE_MALE_NG
-        new BetaDistribution(defaultParam[2]
-        * (defaultParam[2] * (1 - defaultParam[2]) / (SD_NG * SD_NG) - 1),
-        (1 - defaultParam[2])
-        * (defaultParam[2] * (1 - defaultParam[2]) / (SD_NG * SD_NG) - 1)),
-        // 3: OPT_PARAM_INDEX_TRAN_MALE_FEMALE_EXTRA_NG 
-        0.21336941210194102,
-        // 4: OPT_PARAM_INDEX_AVE_INF_DUR_CT 
-        434.04840078376355,
-        // 5: OPT_PARAM_INDEX_AVE_INF_DUR_NG 
-        362.3907737197366,};
+    final double SD_NG = 0.02;    
 
     public Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT(String[] arg) {
         // 0: Base Dir
@@ -127,6 +108,35 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
                 NUM_SIM_TOTAL = Integer.parseInt(arg[3]);
             }
         }
+    }
+
+    public double[] getParamValues() {
+        return paramVal;
+    }        
+
+    protected Object[] generateDistributionsFromParam() {
+        Object[] generatedDistribution = {
+            // Better trans
+            // 0: OPT_PARAM_INDEX_TRAN_FEMALE_MALE_CT;        
+            new BetaDistribution(paramVal[0]
+            * (paramVal[0] * (1 - paramVal[0]) / (SD_CT * SD_CT) - 1),
+            (1 - paramVal[0])
+            * (paramVal[0] * (1 - paramVal[0]) / (SD_CT * SD_CT) - 1)),
+            // 1: OPT_PARAM_INDEX_TRAN_MALE_FEMALE_EXTRA_CT
+            0.039826625618951,
+            // 2: OPT_PARAM_INDEX_TRAN_FEMALE_MALE_NG
+            new BetaDistribution(paramVal[2]
+            * (paramVal[2] * (1 - paramVal[2]) / (SD_NG * SD_NG) - 1),
+            (1 - paramVal[2])
+            * (paramVal[2] * (1 - paramVal[2]) / (SD_NG * SD_NG) - 1)),
+            // 3: OPT_PARAM_INDEX_TRAN_MALE_FEMALE_EXTRA_NG 
+            paramVal[3],
+            // 4: OPT_PARAM_INDEX_AVE_INF_DUR_CT 
+            paramVal[4],
+            // 5: OPT_PARAM_INDEX_AVE_INF_DUR_NG 
+            paramVal[5],};
+
+        return generatedDistribution;
 
     }
 
@@ -193,7 +203,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
                     ex.printStackTrace(System.err);
                 }
 
-                loadParameters(thread, defaultDistribution);
+                loadParameters(thread, generateDistributionsFromParam());
 
                 executor.submit(thread);
                 numInExe++;
@@ -240,9 +250,9 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
             } else {
                 System.err.println("paramDist #" + i
                         + " is of class " + paramDist[i].getClass().getName() + " and is not defined."
-                        + " Using default value of " + defaultParam[i] + " instead.");
+                        + " Using default value of " + paramVal[i] + " instead.");
 
-                param[i] = defaultParam[i];
+                param[i] = paramVal[i];
             }
 
         }
