@@ -15,10 +15,12 @@ import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import person.AbstractIndividualInterface;
 import person.MoveablePersonInterface;
 import person.Person_Remote_MetaPopulation;
 import population.AbstractPopulation;
+import static population.Abstract_MetaPopulation.FIELDS_META_POP_CURRENT_LOCATION;
 import population.Population_Remote_MetaPopulation;
 import random.MersenneTwisterRandomGenerator;
 import random.RandomGenerator;
@@ -27,6 +29,17 @@ import util.Default_Remote_MetaPopulation_AgeGrp_Classifier;
 import util.FileZipper;
 import util.PersonClassifier;
 
+/**
+ *
+ * @author Ben Hui
+ * @version 20180605
+ *
+ * <pre>
+ * History:
+ *
+ * 20180605 - Reimplementation of testing and treament schedule, inclusion of delay.
+ * </pre>
+ */
 public class Thread_PopRun implements Runnable {
 
     private final File outputFilePath;
@@ -47,6 +60,7 @@ public class Thread_PopRun implements Runnable {
     public static final int PARAM_INDEX_TESTING_CLASSIFIER = PARAM_INDEX_INTRO_PERIODICITY + 1;
     public static final int PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER = PARAM_INDEX_TESTING_CLASSIFIER + 1;
     public static final int PARAM_INDEX_TESTING_RATE_BY_HOME_LOC = PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER + 1;
+    public static final int PARAM_INDEX_TESTING_TREATMENT_DELAY = PARAM_INDEX_TESTING_RATE_BY_HOME_LOC + 1;
 
     Object[] inputParam = new Object[]{
         // 1: PARAM_INDEX_INFECTIONS
@@ -183,7 +197,10 @@ public class Thread_PopRun implements Runnable {
             0.48f,
             0.48f,},
          */
-        null,};
+        null,
+        // 9: PARAM_INDEX_TESTING_TREATMENT_DELAY
+        // min, range
+        new int[]{7, 7},};
 
     public Thread_PopRun(File outputPath, File importPath, int simId, int numSteps) {
         this.outputFilePath = outputPath;
@@ -195,8 +212,8 @@ public class Thread_PopRun implements Runnable {
     public void setOutputFreq(int outputFreq) {
         this.outputFreq = outputFreq;
     }
-    
-    public int getOutputFreq(){
+
+    public int getOutputFreq() {
         return this.outputFreq;
     }
 
@@ -258,6 +275,9 @@ public class Thread_PopRun implements Runnable {
                 int testing_pt = 0;
                 AbstractIndividualInterface[] testing_person = null;
 
+                // Treatment
+                HashMap<Integer, int[][]> treatmentSchdule = new HashMap();
+
                 long tic = System.currentTimeMillis();
                 pop.getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_INFECTION_LIST] = modelledInfections;
                 pop.updateInfectionList(modelledInfections);
@@ -302,7 +322,7 @@ public class Thread_PopRun implements Runnable {
                                 && ((pop.getGlobalTime() - introAt[infId]) % introPeriodicity[infId] == 0))) {
 
                             introInfection(allPerson, infId);
-                            
+
                             /*
                             System.out.println("Intro Infection #" + infId);
                             int counter = 0;
@@ -313,18 +333,20 @@ public class Thread_PopRun implements Runnable {
                                 }                                
                             }
                             System.out.println("Number of infected with infection #" + infId + " = " + counter);
-                            */
-                            
-                            
+                             */
                         }
                     }
 
                     int numTestToday = testing_numPerDay[(pop.getGlobalTime() - offset) % AbstractIndividualInterface.ONE_YEAR_INT];
 
                     while (numTestToday != 0) {
-                        testAndTreatPerson(testing_person[testing_pt]);
+                        testingPerson(testing_person[testing_pt], treatmentSchdule, testRNG);
                         testing_pt++;
                         numTestToday--;
+                    }
+
+                    if (treatmentSchdule.containsKey(pop.getGlobalTime())) {
+                        treatingToday(treatmentSchdule.remove(pop.getGlobalTime()));
                     }
 
                     pop.advanceTimeStep(1);
@@ -368,7 +390,7 @@ public class Thread_PopRun implements Runnable {
         // Print number of infected
         int[][] num_total = new int[pop.getInfList().length][];
         int[][] num_infect = new int[pop.getInfList().length][];
-        
+
         for (AbstractIndividualInterface person : pop.getPop()) {
             for (int infId = 0; infId < pop.getInfList().length; infId++) {
                 PersonClassifier prevalClassifer = ((PersonClassifier[]) getInputParam()[PARAM_INDEX_INTRO_CLASSIFIERS])[infId];
@@ -378,19 +400,19 @@ public class Thread_PopRun implements Runnable {
                 if (num_infect[infId] == null) {
                     num_infect[infId] = new int[prevalClassifer.numClass()];
                 }
-                
+
                 int cI = prevalClassifer.classifyPerson(person);
-                
+
                 if (cI >= 0) {
                     num_total[infId][cI]++;
-                    
+
                     if (person.getInfectionStatus()[infId] != AbstractIndividualInterface.INFECT_S) {
                         num_infect[infId][cI]++;
                     }
                 }
             }
         }
-        
+
         for (int infId = 0; infId < pop.getInfList().length; infId++) {
             outputPri.print(pop.getGlobalTime() + " : Preval for infection #" + infId + ":");
             for (int n = 0; n < num_total[infId].length; n++) {
@@ -455,27 +477,83 @@ public class Thread_PopRun implements Runnable {
         }
     }
 
-    public void testAndTreatPerson(AbstractIndividualInterface person) {
+    public void testingPerson(AbstractIndividualInterface person, 
+            HashMap<Integer, int[][]> treatmentSchdule, random.RandomGenerator testRNG) {
         Person_Remote_MetaPopulation rmp_person = (Person_Remote_MetaPopulation) person;
+
+        boolean toBeTreated = false;
 
         if (pop.getCurrentLocation(rmp_person) == rmp_person.getHomeLocation()) {
             for (int infId = 0; infId < rmp_person.getInfectionStatus().length; infId++) {
-                if (pop.getInfList()[infId] instanceof TreatableInfectionInterface) {
-                    if (rmp_person.getInfectionStatus()[infId] != AbstractIndividualInterface.INFECT_S) {
-                        ((TreatableInfectionInterface) pop.getInfList()[infId]).applyTreatmentAt(rmp_person, pop.getGlobalTime());
+                toBeTreated |= rmp_person.getInfectionStatus()[infId] != AbstractIndividualInterface.INFECT_S;
+            }
+        }
+        
+        if(toBeTreated){
+            int[] delaySetting = (int[]) getInputParam()[PARAM_INDEX_TESTING_TREATMENT_DELAY];
+            int delay = delaySetting[0];            
+            if (delaySetting[1] > 0){
+                delay += testRNG.nextInt(delaySetting[1]);
+            }
+            
+            
+            HashMap<Integer, Integer> mapCurrentLocation
+                = (HashMap<Integer, Integer>) pop.getFields()[FIELDS_META_POP_CURRENT_LOCATION];
+            
+            int currentLoc = mapCurrentLocation.containsKey(rmp_person.getId())
+                        ? mapCurrentLocation.get(rmp_person.getId()) : rmp_person.getHomeLocation();
+            
+            
+            int[][] schedule = treatmentSchdule.get(pop.getGlobalTime() + delay);
+            
+            int[] ent = new int[]{rmp_person.getId(),currentLoc} ;
+            
+            if(schedule == null){
+                schedule = new int[][]{ent}; 
+            }else{                
+                schedule = Arrays.copyOf(schedule, schedule.length+1);
+                schedule[schedule.length-1] = ent;                
+            }
+            
+            treatmentSchdule.put(pop.getGlobalTime() + delay, schedule);
+            
+        }
+        
+    }
 
-                        if (rmp_person.getInfectionStatus()[infId] != AbstractIndividualInterface.INFECT_S) {
-                            rmp_person.getInfectionStatus()[infId] = AbstractIndividualInterface.INFECT_S;
-                            rmp_person.setTimeUntilNextStage(infId, Double.POSITIVE_INFINITY);
+    public void treatingToday(int[][] treatmentSchdule) {
+
+        HashMap<Integer, Integer> mapCurrentLocation
+                = (HashMap<Integer, Integer>) pop.getFields()[FIELDS_META_POP_CURRENT_LOCATION];
+
+        for (AbstractIndividualInterface person : pop.getPop()) {
+            Person_Remote_MetaPopulation rmp_person = (Person_Remote_MetaPopulation) person;
+            for (int[] id_loc : treatmentSchdule) {
+
+                int currentLoc = mapCurrentLocation.containsKey(rmp_person.getId())
+                        ? mapCurrentLocation.get(rmp_person.getId()) : rmp_person.getHomeLocation();
+
+                if (id_loc[0] == rmp_person.getId() && id_loc[1] == currentLoc) {
+                    for (int infId = 0; infId < rmp_person.getInfectionStatus().length; infId++) {
+                        if (pop.getInfList()[infId] instanceof TreatableInfectionInterface) {
+                            if (rmp_person.getInfectionStatus()[infId] != AbstractIndividualInterface.INFECT_S) {
+                                ((TreatableInfectionInterface) pop.getInfList()[infId]).applyTreatmentAt(rmp_person, pop.getGlobalTime());
+                                if (rmp_person.getInfectionStatus()[infId] != AbstractIndividualInterface.INFECT_S) {
+                                    rmp_person.getInfectionStatus()[infId] = AbstractIndividualInterface.INFECT_S;
+                                    rmp_person.setTimeUntilNextStage(infId, Double.POSITIVE_INFINITY);
+                                }
+                                rmp_person.setLastTreatedAt((int) rmp_person.getAge());
+                            }
                         }
 
-                        rmp_person.setLastTreatedAt((int) rmp_person.getAge());
                     }
+
                 }
 
             }
 
         }
+
     }
 
     public void importPop() throws ClassNotFoundException, IOException {
@@ -514,9 +592,9 @@ public class Thread_PopRun implements Runnable {
 
         numNewInfection = new int[introClassifiers[infId].numClass()];
         for (int cId = 0; cId < numNewInfection.length; cId++) {
-            if(introPrevalence[infId][cId] < 1){        // Ratio vs absolute introduction    
+            if (introPrevalence[infId][cId] < 1) {        // Ratio vs absolute introduction    
                 numNewInfection[cId] = Math.max(0, Math.round(numInPop[cId] * introPrevalence[infId][cId]) - numAlreadyInfect[cId]);
-            }else{
+            } else {
                 numNewInfection[cId] = (int) introPrevalence[infId][cId];
             }
         }
