@@ -1,9 +1,13 @@
 package sim;
 
 import java.io.File;
+import java.io.FileFilter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.Properties;
+import run.Run_Population_Remote_MetaPopulation_Pop_Analysis;
 import run.Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT;
 import run.Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis;
 import util.PersonClassifier;
@@ -13,7 +17,13 @@ import util.PropValUtils;
  * Define a set of simulation using properties file
  *
  * @author Ben Hui
- * @version 20180531
+ * @version 20180612
+ * 
+ * <pre>
+ History:
+ 
+ 20180612 - Add popAnalysis method
+ </pre>
  */
 public class Simulation_Remote_MetaPopulation implements SimulationInterface {
 
@@ -108,7 +118,7 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
 
         switch (simType) {
             case 0:
-                rArg = new String[4];
+                rArg = new String[5];
                 // 0: Base Dir
                 // 1: Import Dir
                 // 2: Num thread
@@ -122,7 +132,12 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                 if (propModelInitStr != null) {
                     for (int i = 0; i < propModelInitStr.length; i++) {
                         if (propModelInitStr[i] != null && !propModelInitStr[i].isEmpty()) {
-                            runNGCT.getParamValues()[i] = Double.parseDouble(propModelInitStr[i]);
+                            if(i < runNGCT.getRunParamValues().length){                            
+                                runNGCT.getRunParamValues()[i] = Double.parseDouble(propModelInitStr[i]);
+                            }else{
+                                runNGCT.getThreadParamValStr()[i - runNGCT.getRunParamValues().length]  = propModelInitStr[i];
+                                
+                            } 
                         }
                     }
                 }
@@ -148,8 +163,12 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
 
                 if (propModelInitStr != null) {
                     for (int i = 0; i < propModelInitStr.length; i++) {
-                        if (propModelInitStr[i] != null && !propModelInitStr[i].isEmpty()) {
-                            runSyp.getParamValues()[i] = Double.parseDouble(propModelInitStr[i]);
+                        if (propModelInitStr[i] != null && !propModelInitStr[i].isEmpty()) {                            
+                            if(i < runSyp.getRunParamValues().length){
+                                runSyp.getRunParamValues()[i] = Double.parseDouble(propModelInitStr[i]);
+                            }else{
+                                runSyp.getThreadParamValStr()[i - runSyp.getRunParamValues().length] = propModelInitStr[i];
+                            }
                         }
                     }
                 }
@@ -160,6 +179,47 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
             default:
                 System.err.println("Error: Illegal PROP_RMP_SIM_TYPE. Set 0 for NG/CT and 1 for Syphilis");
 
+        }
+    }
+
+    public static void main(String[] arg) throws IOException, InterruptedException, ClassNotFoundException {
+
+        File resultsDir = new File(arg[0]);
+        File[] singleSimDir;
+        File propFile = new File(resultsDir, Simulation_Remote_MetaPopulation.FILENAME_PROP);
+
+        if (!propFile.exists()) {
+            System.out.println("Checking for result folder(s) at " + resultsDir);
+            if (arg.length > 1) {
+                singleSimDir = new File[arg.length - 1];
+                for (int i = 1; i < arg.length; i++) {
+                    singleSimDir[i - 1] = new File(resultsDir, arg[i]);
+                }
+            } else {
+                singleSimDir = resultsDir.listFiles(new FileFilter() {
+                    @Override
+                    public boolean accept(File file) {
+                        return file.isDirectory() && new File(file, Simulation_Remote_MetaPopulation.FILENAME_PROP).exists();
+                    }
+                });
+            }
+        } else {
+            singleSimDir = new File[]{resultsDir};
+        }
+        System.out.println("# results set to be generated = " + singleSimDir.length);
+
+        for (File singleSetDir : singleSimDir) {
+            Simulation_Remote_MetaPopulation sim = new Simulation_Remote_MetaPopulation();
+            Path propFilePath = new File(singleSetDir, Simulation_Remote_MetaPopulation.FILENAME_PROP).toPath();
+            Properties prop;
+            prop = new Properties();
+            try (InputStream inStr = java.nio.file.Files.newInputStream(propFilePath)) {
+                prop.loadFromXML(inStr);
+            }
+            sim.setBaseDir(singleSetDir);
+            sim.loadProperties(prop);
+            sim.generateOneResultSet();                       
+            Run_Population_Remote_MetaPopulation_Pop_Analysis.popAnalysis(singleSetDir.getAbsolutePath());
         }
 
     }

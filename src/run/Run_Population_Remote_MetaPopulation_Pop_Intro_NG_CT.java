@@ -23,19 +23,20 @@ import org.apache.commons.math3.distribution.AbstractRealDistribution;
 import org.apache.commons.math3.distribution.BetaDistribution;
 import population.Population_Remote_MetaPopulation;
 import random.RandomGenerator;
+import util.PropValUtils;
 
 /**
  *
  * @author Ben Hui
- * @version 201580531
+ * @version 20180612
  *
  * History:
  *
  * <pre>
  * 20180523
  *  - Added support for repeated simulation runs
- * 20180531
- *  - Added support for user-defined input parameter
+ * 20180612
+ *  - Added support for user-defined input parameter *
  * </pre>
  */
 public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
@@ -46,7 +47,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
     public int NUM_SIM_TOTAL = 1000;
     final int NUM_STEPS = 360 * 50;
 
-    double[] paramVal = {
+    double[] paramVal_Run = {
         /*
         // Best fit        
         // 0: OPT_PARAM_INDEX_TRAN_FEMALE_MALE_CT;
@@ -74,14 +75,17 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
         // 4: OPT_PARAM_INDEX_AVE_INF_DUR_CT 
         434.04840078376355,
         // 5: OPT_PARAM_INDEX_AVE_INF_DUR_NG 
-        362.3907737197366,};
+        362.3907737197366,
+        // 6: PARAM_SD_CT - set to zero for fixed value
+        0.02,
+        // 7: PARAM_SD_NG - set to zero for fixed value
+        0.02,};
+
+    protected String[] threadParamValStr = new String[Thread_PopRun.PARAM_TOTAL];
 
     // For Beta distribution, 
     // alpha = mean*(mean*(1-mean)/variance - 1)
     // beta = (1-mean)*(mean*(1-mean)/variance - 1)
-    final double SD_CT = 0.02;
-    final double SD_NG = 0.02;    
-
     public Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT(String[] arg) {
         // 0: Base Dir
         if (arg.length > 0) {
@@ -110,31 +114,37 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
         }
     }
 
-    public double[] getParamValues() {
-        return paramVal;
-    }        
+    public double[] getRunParamValues() {
+        return paramVal_Run;
+    }
 
-    protected Object[] generateDistributionsFromParam() {
+    public String[] getThreadParamValStr() {
+        return threadParamValStr;
+    }
+
+    protected Object[] generateParam() {
         Object[] generatedDistribution = {
             // Better trans
-            // 0: OPT_PARAM_INDEX_TRAN_FEMALE_MALE_CT;        
-            new BetaDistribution(paramVal[0]
-            * (paramVal[0] * (1 - paramVal[0]) / (SD_CT * SD_CT) - 1),
-            (1 - paramVal[0])
-            * (paramVal[0] * (1 - paramVal[0]) / (SD_CT * SD_CT) - 1)),
+            // 0: OPT_PARAM_INDEX_TRAN_FEMALE_MALE_CT; 
+            paramVal_Run[6] == 0 ? paramVal_Run[0]
+            : new BetaDistribution(paramVal_Run[0]
+            * (paramVal_Run[0] * (1 - paramVal_Run[0]) / (paramVal_Run[6] * paramVal_Run[6]) - 1),
+            (1 - paramVal_Run[0])
+            * (paramVal_Run[0] * (1 - paramVal_Run[0]) / (paramVal_Run[6] * paramVal_Run[6]) - 1)),
             // 1: OPT_PARAM_INDEX_TRAN_MALE_FEMALE_EXTRA_CT
-            0.039826625618951,
+            paramVal_Run[1],
             // 2: OPT_PARAM_INDEX_TRAN_FEMALE_MALE_NG
-            new BetaDistribution(paramVal[2]
-            * (paramVal[2] * (1 - paramVal[2]) / (SD_NG * SD_NG) - 1),
-            (1 - paramVal[2])
-            * (paramVal[2] * (1 - paramVal[2]) / (SD_NG * SD_NG) - 1)),
+            paramVal_Run[7] == 0 ? paramVal_Run[2]
+            : new BetaDistribution(paramVal_Run[2]
+            * (paramVal_Run[2] * (1 - paramVal_Run[2]) / (paramVal_Run[7] * paramVal_Run[7]) - 1),
+            (1 - paramVal_Run[2])
+            * (paramVal_Run[2] * (1 - paramVal_Run[2]) / (paramVal_Run[7] * paramVal_Run[7]) - 1)),
             // 3: OPT_PARAM_INDEX_TRAN_MALE_FEMALE_EXTRA_NG 
-            paramVal[3],
+            paramVal_Run[3],
             // 4: OPT_PARAM_INDEX_AVE_INF_DUR_CT 
-            paramVal[4],
+            paramVal_Run[4],
             // 5: OPT_PARAM_INDEX_AVE_INF_DUR_NG 
-            paramVal[5],};
+            paramVal_Run[5],};
 
         return generatedDistribution;
 
@@ -203,7 +213,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
                     ex.printStackTrace(System.err);
                 }
 
-                loadParameters(thread, generateDistributionsFromParam());
+                loadParameters(thread, generateParam());
 
                 executor.submit(thread);
                 numInExe++;
@@ -250,9 +260,9 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
             } else {
                 System.err.println("paramDist #" + i
                         + " is of class " + paramDist[i].getClass().getName() + " and is not defined."
-                        + " Using default value of " + paramVal[i] + " instead.");
+                        + " Using default value of " + paramVal_Run[i] + " instead.");
 
-                param[i] = paramVal[i];
+                param[i] = paramVal_Run[i];
             }
 
         }
@@ -383,6 +393,17 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
 
         if (outputPrint != null) {
             outputPrint.flush();
+        }
+
+        for (int i = 0; i < threadParamValStr.length; i++) {
+            if (threadParamValStr[i] != null && threadParamValStr[i].length() > 0) {
+                thread.getInputParam()[i]
+                        = PropValUtils.propStrToObject(threadParamValStr[i], 
+                                thread.getInputParam()[i].getClass());                
+                outputPrint.print("Thread ParamVal #" + i + " = " + threadParamValStr[i]);
+                
+
+            }
         }
 
     }

@@ -30,11 +30,12 @@ import person.Person_Remote_MetaPopulation;
 import population.AbstractFieldsArrayPopulation;
 import random.RandomGenerator;
 import util.PersonClassifier;
+import util.PropValUtils;
 
 /**
  *
  * @author Ben Hui
- * @version 20180523
+ * @version 20180612
  *
  * <pre>
  * History
@@ -45,12 +46,15 @@ import util.PersonClassifier;
  *
  * 20180518
  *  - Add support for varying tranmission probability
- * 
+ *
  * 20180522
  *  - Remove main method
- * 
+ *
  * 20180523
  *  - Change messages for repeated simulation run from System.err to System.out
+ * 
+ * 20180612
+ *  - Renaming of getParamValue to getRunParamValues 
  *
  * </pre>
  */
@@ -129,7 +133,8 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis {
         0,
         0,};
 
-    protected double[] paramValues;
+    protected double[] paramVal_Run;
+    protected String[] threadParamValStr = new String[Thread_PopRun.PARAM_TOTAL];
 
     public static final int PARAM_INDEX_TRAN_MF_INCUB = 0;
     public static final int PARAM_INDEX_TRAN_MF_PRI = PARAM_INDEX_TRAN_MF_INCUB + 1;
@@ -216,7 +221,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis {
             }
         }
 
-        paramValues = Arrays.copyOf(DEFAULT_PARAM_VALUES, DEFAULT_PARAM_VALUES.length);
+        paramVal_Run = Arrays.copyOf(DEFAULT_PARAM_VALUES, DEFAULT_PARAM_VALUES.length);
 
         System.out.println("BASE_DIR = " + BASE_DIR_STR);
         System.out.println("IMPORT_DIR = " + IMPORT_DIR_STR);
@@ -238,7 +243,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis {
                     String[] ent = line.split(",");
                     int key = Integer.parseInt(ent[0]);
                     double value = Double.parseDouble(ent[1]);
-                    paramValues[key] = value;
+                    paramVal_Run[key] = value;
 
                     System.out.println("Input parameter #" + Integer.toString(key)
                             + " = " + Double.toString(value));
@@ -253,12 +258,13 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis {
 
     }
 
-    /*
-    public static void main(String[] arg) {
-        Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis run = new Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis(arg);
-        run.runSimulation();
+    public String[] getThreadParamValStr() {
+        return threadParamValStr;
     }
-    */
+
+    public double[] getRunParamValues() {
+        return paramVal_Run;
+    }
 
     public void runSimulation() {
         File importDir, exportDir;
@@ -649,21 +655,21 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis {
         // Duration               
         String key;
         key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_DURATION_INCUBATION));
-        syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_DURATION_INCUBATION_MIN], paramValues[PARAM_INDEX_DURATION_INCUBATION_MAX]});
+        syphilis.setParameter(key, new double[]{paramVal_Run[PARAM_INDEX_DURATION_INCUBATION_MIN], paramVal_Run[PARAM_INDEX_DURATION_INCUBATION_MAX]});
         key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_DURATION_PRIMARY));
-        syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_DURATION_PRIMARY_MIN], paramValues[PARAM_INDEX_DURATION_PRIMARY_MAX]});
+        syphilis.setParameter(key, new double[]{paramVal_Run[PARAM_INDEX_DURATION_PRIMARY_MIN], paramVal_Run[PARAM_INDEX_DURATION_PRIMARY_MAX]});
         key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_DURATION_SECONDARY));
-        syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_DURATION_SECONDARY_MIN], paramValues[PARAM_INDEX_DURATION_SECONDARY_MAX]});
+        syphilis.setParameter(key, new double[]{paramVal_Run[PARAM_INDEX_DURATION_SECONDARY_MIN], paramVal_Run[PARAM_INDEX_DURATION_SECONDARY_MAX]});
         key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_DURATION_EARLY_LATENT));
-        syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_DURATION_EARLY_LATENT_MIN], paramValues[PARAM_INDEX_DURATION_EARLY_LATENT_MAX]});
+        syphilis.setParameter(key, new double[]{paramVal_Run[PARAM_INDEX_DURATION_EARLY_LATENT_MIN], paramVal_Run[PARAM_INDEX_DURATION_EARLY_LATENT_MAX]});
         key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_DURATION_LATENT));
-        syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_DURATION_LATENT_MIN], paramValues[PARAM_INDEX_DURATION_LATENT_MAX]});
+        syphilis.setParameter(key, new double[]{paramVal_Run[PARAM_INDEX_DURATION_LATENT_MIN], paramVal_Run[PARAM_INDEX_DURATION_LATENT_MAX]});
         key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_DURATION_REMISSION));
-        syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_DURATION_REMISSION_MIN], paramValues[PARAM_INDEX_DURATION_REMISSION_MAX]});
+        syphilis.setParameter(key, new double[]{paramVal_Run[PARAM_INDEX_DURATION_REMISSION_MIN], paramVal_Run[PARAM_INDEX_DURATION_REMISSION_MAX]});
         key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_DURATION_RECURRENT));
-        syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_DURATION_RECURRENT_MIN], paramValues[PARAM_INDEX_DURATION_RECURRENT_MAX]});
+        syphilis.setParameter(key, new double[]{paramVal_Run[PARAM_INDEX_DURATION_RECURRENT_MIN], paramVal_Run[PARAM_INDEX_DURATION_RECURRENT_MAX]});
         key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(SyphilisInfection.DIST_INDEX_DURATION_IMMUN));
-        syphilis.setParameter(key, new double[]{paramValues[PARAM_INDEX_DURATION_IMMUN_MIN], paramValues[PARAM_INDEX_DURATION_IMMUN_MAX]});
+        syphilis.setParameter(key, new double[]{paramVal_Run[PARAM_INDEX_DURATION_IMMUN_MIN], paramVal_Run[PARAM_INDEX_DURATION_IMMUN_MAX]});
 
         CLASSIFIER_SYPHILIS_PREVAL prevalClass
                 = new CLASSIFIER_SYPHILIS_PREVAL((AbstractFieldsArrayPopulation) thread.getPop());
@@ -745,6 +751,16 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis {
         // Print output
         PrintWriter outputPrint = thread.getOutputPri();
 
+        for (int i = 0; i < threadParamValStr.length; i++) {
+            if (threadParamValStr[i] != null && threadParamValStr[i].length() > 0) {
+                thread.getInputParam()[i]
+                        = PropValUtils.propStrToObject(threadParamValStr[i],
+                                thread.getInputParam()[i].getClass());
+                outputPrint.print("Thread ParamVal #" + i + " = " + threadParamValStr[i]);
+
+            }
+        }
+
         outputPrint.println("Syphilis infection state: ");
         for (int i = 0; i < SyphilisInfection.DIST_TOTAL; i++) {
             key = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(i));
@@ -772,24 +788,19 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis {
             RandomGenerator rng,
             SyphilisInfection syphilis) {
         String parameterKey = SyphilisInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", Integer.toString(infectionIndex));
-        if (paramValues[tran_parameterSD_Index] > 0) {
+        if (paramVal_Run[tran_parameterSD_Index] > 0) {
             // Beta parameter
-            double[] betaParam = generatedBetaParam(
-                    new double[]{paramValues[tran_parameter_Index], paramValues[tran_parameterSD_Index]});
+            double[] betaParam = generatedBetaParam(new double[]{paramVal_Run[tran_parameter_Index], paramVal_Run[tran_parameterSD_Index]});
             BetaDistribution dist = new BetaDistribution(rng, betaParam[0], betaParam[1]);
             syphilis.setParameter(parameterKey, new double[]{dist.sample(), 0});
-        } else if (paramValues[tran_parameterSD_Index] < 0) {
-            syphilis.setParameter(parameterKey, new double[]{defaultTranProb[0] * -paramValues[tran_parameterSD_Index],
-                defaultTranProb[1] * -paramValues[tran_parameterSD_Index]});
+        } else if (paramVal_Run[tran_parameterSD_Index] < 0) {
+            syphilis.setParameter(parameterKey, new double[]{defaultTranProb[0] * -paramVal_Run[tran_parameterSD_Index],
+                defaultTranProb[1] * -paramVal_Run[tran_parameterSD_Index]});
         } else {
-            syphilis.setParameter(parameterKey, new double[]{paramValues[tran_parameter_Index], 0});
+            syphilis.setParameter(parameterKey, new double[]{paramVal_Run[tran_parameter_Index], 0});
         }
 
         return (double[]) syphilis.getParameter(parameterKey);
-    }
-
-    public double[] getParamValues() {
-        return paramValues;
     }
 
     private static double[] generatedBetaParam(double[] input) {
