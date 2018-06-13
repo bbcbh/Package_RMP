@@ -1,9 +1,11 @@
 package run;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.FileInputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.PrintWriter;
@@ -15,25 +17,38 @@ import population.Population_Remote_MetaPopulation;
 import util.FileZipper;
 import util.PersonClassifier;
 
+/**
+ *
+ * @author Ben Hui
+ * @version 20180613  <pre>
+ * History
+ *
+ * 20180613:
+ *  - Add incident summary
+ * </pre>
+ */
 public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
-    
+
     public static final int OUTPUT_INDEX_DEMOGRAPHIC = 0;
     public static final int OUTPUT_INDEX_AWAY_FROM_HOME_BY_LOC = OUTPUT_INDEX_DEMOGRAPHIC + 1;
     public static final int OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS = OUTPUT_INDEX_AWAY_FROM_HOME_BY_LOC + 1;
     public static final int OUTPUT_INDEX_PREVALENCE_BY_GENDER_AGE = OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS + 1;
+    public static final int OUTPUT_INDEX_INCIDENT_SUMMARY = OUTPUT_INDEX_PREVALENCE_BY_GENDER_AGE + 1;
 
     public static final String[] OUTPUT_FILENAMES = new String[]{
         "demographic.csv",
         "away_from_home_by_location.csv",
         "num_partners_in_12_months.csv",
-        "prevalence_by_gender_age.csv",};
+        "prevalence_by_gender_age.csv",
+        "incident_summary.csv",};
     public static final String[] OUTPUT_FILE_HEADERS = new String[]{
         "Sim, Pop, M 16-19, M 20-24, M 25-29, M 30-34, F 16-19, F 20-24, F 25-29, F 30-34,",
         "Sim, Pop, M 16-19, M 20-24, M 25-29, M 30-34, F 16-19, F 20-24, F 25-29, F 30-34,",
         "Sim, Age_Grp, 0, 1, 2-4, 5",
         "Sim, M 16-19, M 20-24, M 25-29, M 30-34, F 16-19, F 20-24, F 25-29, F 30-34, "
         + "M 16-19, M 20-24, M 25-29, M 30-34, F 16-19, F 20-24, F 25-29, F 30-34,"
-        + "M 16-19, M 20-24, M 25-29, M 30-34, F 16-19, F 20-24, F 25-29, F 30-34,",};
+        + "M 16-19, M 20-24, M 25-29, M 30-34, F 16-19, F 20-24, F 25-29, F 30-34,",
+        "Sim, CT Male, CT Female, NG Male, NG Female",};
 
     public static void popAnalysis(String dir) throws IOException, ClassNotFoundException {
         File baseDir = new File(dir);
@@ -195,6 +210,45 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
                 }
             }
             wri[OUTPUT_INDEX_PREVALENCE_BY_GENDER_AGE].println();
+        }
+
+        //OUTPUT_INDEX_INCIDENT_SUMMARY
+        File[] singleIncidentCSV = baseDir.listFiles(new FileFilter() {
+            @Override
+            public boolean accept(File file) {
+                String fName = file.getName();
+                return fName.startsWith("incident_S");
+            }
+        });
+        System.out.println("Number of incident file = " + singleIncidentCSV.length);
+
+        for (int s = 0; s < singleIncidentCSV.length; s++) {
+            wri[OUTPUT_INDEX_INCIDENT_SUMMARY].print(s);
+            BufferedReader reader = new BufferedReader(new FileReader(singleIncidentCSV[s]));
+            String lastline = reader.readLine();
+            String currentline = reader.readLine();
+            String nextLine;
+            while ((nextLine = reader.readLine()) != null) {
+                lastline = currentline;
+                currentline = nextLine;
+            }
+
+            if (lastline != null && currentline != null) {
+                String[] lastLineArr = lastline.split(",");
+                String[] currentLineArr = currentline.split(",");
+                
+                for (int c = 1; c < currentLineArr.length; c++) {
+                    wri[OUTPUT_INDEX_INCIDENT_SUMMARY].print(',');
+                    float numIncidencePerYear = 
+                            (Integer.parseInt(currentLineArr[c]) - Integer.parseInt(lastLineArr[c])) 
+                            / ((Integer.parseInt(currentLineArr[0]) - Integer.parseInt(lastLineArr[0]))/365f) ;
+                    wri[OUTPUT_INDEX_INCIDENT_SUMMARY].print(numIncidencePerYear);
+
+                }
+
+            }
+            wri[OUTPUT_INDEX_INCIDENT_SUMMARY].println();
+
         }
 
         for (int i = 0; i < wri.length; i++) {
