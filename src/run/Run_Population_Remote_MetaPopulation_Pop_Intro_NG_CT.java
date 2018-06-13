@@ -28,7 +28,7 @@ import util.PropValUtils;
 /**
  *
  * @author Ben Hui
- * @version 20180612
+ * @version 20180614
  *
  * History:
  *
@@ -36,7 +36,9 @@ import util.PropValUtils;
  * 20180523
  *  - Added support for repeated simulation runs
  * 20180612
- *  - Added support for user-defined input parameter *
+ *  - Added support for user-defined input parameter
+ * 20180614
+ *  - Minor change to output print format
  * </pre>
  */
 public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
@@ -391,19 +393,20 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
             outputPrint.println("Duration Sym (NG) = " + Arrays.toString((double[]) ng_inf.getParameter(key)));
         }
 
-        if (outputPrint != null) {
-            outputPrint.flush();
-        }
-
         for (int i = 0; i < threadParamValStr.length; i++) {
             if (threadParamValStr[i] != null && threadParamValStr[i].length() > 0) {
                 thread.getInputParam()[i]
-                        = PropValUtils.propStrToObject(threadParamValStr[i], 
-                                thread.getInputParam()[i].getClass());                
-                outputPrint.print("Thread ParamVal #" + i + " = " + threadParamValStr[i]);
-                
+                        = PropValUtils.propStrToObject(threadParamValStr[i],
+                                thread.getInputParam()[i].getClass());
+                if (outputPrint != null) {
+                    outputPrint.println("Thread ParamVal #" + i + " = " + threadParamValStr[i]);
+                }
 
             }
+        }
+
+        if (outputPrint != null) {
+            outputPrint.flush();
         }
 
     }

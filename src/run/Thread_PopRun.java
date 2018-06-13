@@ -21,7 +21,6 @@ import person.AbstractIndividualInterface;
 import person.MoveablePersonInterface;
 import person.Person_Remote_MetaPopulation;
 import population.AbstractPopulation;
-import static population.Abstract_MetaPopulation.FIELDS_META_POP_CURRENT_LOCATION;
 import population.Population_Remote_MetaPopulation;
 import random.MersenneTwisterRandomGenerator;
 import random.RandomGenerator;
@@ -33,7 +32,7 @@ import util.PersonClassifier;
 /**
  *
  * @author Ben Hui
- * @version 201806012
+ * @version 201806014
  *
  * <pre>
  * History:
@@ -44,6 +43,8 @@ import util.PersonClassifier;
  *  - Alterative screening rate from RG
  *  - Remove null reference for default parameter value so getClass() method is always valid
  *  - Cumultive incidence
+ * 20180614
+ *  - Change the default treatment delay
  * </pre>
  */
 public class Thread_PopRun implements Runnable {
@@ -210,7 +211,7 @@ public class Thread_PopRun implements Runnable {
         new float[0],
         // 9: PARAM_INDEX_TESTING_TREATMENT_DELAY
         // min, range
-        new int[]{7, 7},};
+        new int[]{7, 21},};
 
     public Thread_PopRun(File outputPath, File importPath, int simId, int numSteps) {
         this.outputFilePath = outputPath;
