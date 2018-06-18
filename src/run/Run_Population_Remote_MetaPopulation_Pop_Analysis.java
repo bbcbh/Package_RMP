@@ -20,11 +20,16 @@ import util.PersonClassifier;
 /**
  *
  * @author Ben Hui
- * @version 20180613  <pre>
+ * @version 20180618  
+ * 
+ * <pre>
  * History
  *
  * 20180613:
  *  - Add incident summary
+ * 20180618
+ *  - Debug - incidence calculation
+ *
  * </pre>
  */
 public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
@@ -240,8 +245,8 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
                 for (int c = 1; c < currentLineArr.length; c++) {
                     wri[OUTPUT_INDEX_INCIDENT_SUMMARY].print(',');
                     float numIncidencePerYear = 
-                            ((Integer.parseInt(currentLineArr[c]) - Integer.parseInt(lastLineArr[c])) 
-                            / (Integer.parseInt(currentLineArr[0]) - Integer.parseInt(lastLineArr[0]))/365f) ;
+                            (Integer.parseInt(currentLineArr[c]) - Integer.parseInt(lastLineArr[c])) 
+                            / ((Integer.parseInt(currentLineArr[0]) - Integer.parseInt(lastLineArr[0]))/365f) ;
                     wri[OUTPUT_INDEX_INCIDENT_SUMMARY].print(numIncidencePerYear);
 
                 }
