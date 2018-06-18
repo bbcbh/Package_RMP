@@ -35,7 +35,7 @@ import util.PropValUtils;
 /**
  *
  * @author Ben Hui
- * @version 20180612
+ * @version 20180618
  *
  * <pre>
  * History
@@ -55,6 +55,9 @@ import util.PropValUtils;
  * 
  * 20180612
  *  - Renaming of getParamValue to getRunParamValues 
+ * 
+ * 20180618
+ *  - Reset testing rate as an input (PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER)
  *
  * </pre>
  */
@@ -686,68 +689,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis {
                 = new int[]{360 * 50 + 1};
         thread.getInputParam()[Thread_PopRun.PARAM_INDEX_INTRO_PERIODICITY]
                 = new int[]{-1};
-        /*
-        thread.getInputParam()[Thread_PopRun.PARAM_INDEX_TESTING_CLASSIFIER]
-        = thread.getInputParam()[Thread_PopRun.PARAM_INDEX_TESTING_CLASSIFIER] ;
-         */
-        thread.getInputParam()[Thread_PopRun.PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER]
-                = new float[]{
-                    // Regional
-                    // Male
-                    0,
-                    0,
-                    0,
-                    0,
-                    // Female
-                    0,
-                    0,
-                    0,
-                    0,
-                    // Remote #1
-                    // Male
-                    0,
-                    0,
-                    0,
-                    0,
-                    // Female
-                    0,
-                    0,
-                    0,
-                    0,
-                    // Remote #2
-                    // Male
-                    0,
-                    0,
-                    0,
-                    0,
-                    // Female
-                    0,
-                    0,
-                    0,
-                    0,
-                    // Remote #3
-                    // Male
-                    0,
-                    0,
-                    0,
-                    0,
-                    // Female
-                    0,
-                    0,
-                    0,
-                    0,
-                    // Remote #4
-                    // Male
-                    0,
-                    0,
-                    0,
-                    0,
-                    // Female
-                    0,
-                    0,
-                    0,
-                    0,};
-
+        
         // Print output
         PrintWriter outputPrint = thread.getOutputPri();
 
