@@ -698,7 +698,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis {
                 thread.getInputParam()[i]
                         = PropValUtils.propStrToObject(threadParamValStr[i],
                                 thread.getInputParam()[i].getClass());
-                outputPrint.print("Thread ParamVal #" + i + " = " + threadParamValStr[i]);
+                outputPrint.println("Thread ParamVal #" + i + " = " + threadParamValStr[i]);
 
             }
         }

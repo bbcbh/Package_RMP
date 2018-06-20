@@ -18,14 +18,17 @@ import util.PropValUtils;
  *
  * @author Ben Hui
  * @version 20180618
- * 
+ *
  * <pre>
  * History:
- * 
+ *
  * 20180612:
  *   - Add popAnalysis method
- * 20180618:  
+ * 20180618:
  *   - Redefine input for syphilis imulation runs
+ * 20180620:
+ *   - Add decode collection file for syphilis simulation runs
+ * 
  * </pre>
  */
 public class Simulation_Remote_MetaPopulation implements SimulationInterface {
@@ -135,12 +138,12 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                 if (propModelInitStr != null) {
                     for (int i = 0; i < propModelInitStr.length; i++) {
                         if (propModelInitStr[i] != null && !propModelInitStr[i].isEmpty()) {
-                            if(i < runNGCT.getRunParamValues().length){                            
+                            if (i < runNGCT.getRunParamValues().length) {
                                 runNGCT.getRunParamValues()[i] = Double.parseDouble(propModelInitStr[i]);
-                            }else{
-                                runNGCT.getThreadParamValStr()[i - runNGCT.getRunParamValues().length]  = propModelInitStr[i];
-                                
-                            } 
+                            } else {
+                                runNGCT.getThreadParamValStr()[i - runNGCT.getRunParamValues().length] = propModelInitStr[i];
+
+                            }
                         }
                     }
                 }
@@ -159,7 +162,7 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                 rArg[1] = propVal[PROP_POP_IMPORT_PATH] == null ? "" : (String) propVal[PROP_POP_IMPORT_PATH];
                 rArg[2] = propVal[PROP_USE_PARALLEL] == null ? "" : ((Integer) propVal[PROP_USE_PARALLEL]).toString();
                 rArg[3] = propVal[PROP_NUM_SIM_PER_SET] == null ? "" : ((Integer) propVal[PROP_NUM_SIM_PER_SET]).toString();
-                rArg[4] = propVal[PROP_NUM_SNAP] == null ? "" 
+                rArg[4] = propVal[PROP_NUM_SNAP] == null ? ""
                         : Integer.toString(((Integer) propVal[PROP_NUM_SNAP]) * ((Integer) propVal[PROP_SNAP_FREQ]));
                 rArg[5] = propVal[PROP_SNAP_FREQ] == null ? "" : ((Integer) propVal[PROP_SNAP_FREQ]).toString();
                 rArg[6] = propVal[PROP_STORE_INFECTION_HISTORY] == null ? "" : ((Boolean) propVal[PROP_STORE_INFECTION_HISTORY]).toString();
@@ -167,10 +170,10 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
 
                 if (propModelInitStr != null) {
                     for (int i = 0; i < propModelInitStr.length; i++) {
-                        if (propModelInitStr[i] != null && !propModelInitStr[i].isEmpty()) {                            
-                            if(i < runSyp.getRunParamValues().length){
+                        if (propModelInitStr[i] != null && !propModelInitStr[i].isEmpty()) {
+                            if (i < runSyp.getRunParamValues().length) {
                                 runSyp.getRunParamValues()[i] = Double.parseDouble(propModelInitStr[i]);
-                            }else{
+                            } else {
                                 runSyp.getThreadParamValStr()[i - runSyp.getRunParamValues().length] = propModelInitStr[i];
                             }
                         }
@@ -178,6 +181,12 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                 }
 
                 runSyp.runSimulation();
+
+                try {
+                    Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis.decodeCollectionFile(baseDir);
+                } catch (IOException | ClassNotFoundException ex) {
+                    ex.printStackTrace(System.err);
+                }
 
                 break;
             default:
@@ -222,7 +231,7 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
             }
             sim.setBaseDir(singleSetDir);
             sim.loadProperties(prop);
-            sim.generateOneResultSet();                       
+            sim.generateOneResultSet();
             Run_Population_Remote_MetaPopulation_Pop_Analysis.popAnalysis(singleSetDir.getAbsolutePath());
         }
 
