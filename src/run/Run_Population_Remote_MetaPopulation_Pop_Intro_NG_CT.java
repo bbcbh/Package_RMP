@@ -28,7 +28,7 @@ import util.PropValUtils;
 /**
  *
  * @author Ben Hui
- * @version 20180614
+ * @version 20180622
  *
  * History:
  *
@@ -39,6 +39,8 @@ import util.PropValUtils;
  *  - Added support for user-defined input parameter
  * 20180614
  *  - Minor change to output print format
+ * 20180622:
+ *   - Uniting input format for both NG/CT and syphilis
  * </pre>
  */
 public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
@@ -47,7 +49,8 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
     public String IMPORT_DIR_STR = "~/RMP/ImportDir";
     public int NUM_THREADS = Runtime.getRuntime().availableProcessors();
     public int NUM_SIM_TOTAL = 1000;
-    final int NUM_STEPS = 360 * 50;
+    public int NUM_STEPS = 360 * 50;
+    public int SAMP_FREQ = 90;
 
     double[] paramVal_Run = {
         /*
@@ -113,7 +116,27 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
             if (!arg[3].isEmpty()) {
                 NUM_SIM_TOTAL = Integer.parseInt(arg[3]);
             }
+        }        
+        // 4: Num step - in this case it is PROP_NUM_SNAP * PROP_SNAP_FREQ
+        if(arg.length > 4){
+            if(!arg[4].isEmpty()){
+                NUM_STEPS = Integer.parseInt(arg[4]);
+            }
         }
+        
+        // 5: Sample Freq
+        if (arg.length > 5) {
+            if (!arg[5].isEmpty()) {
+                SAMP_FREQ = Integer.parseInt(arg[5]);
+            }
+        }
+        
+        System.out.println("BASE_DIR = " + BASE_DIR_STR);
+        System.out.println("IMPORT_DIR = " + IMPORT_DIR_STR);
+        System.out.println("NUM_THREADS = " + NUM_THREADS);
+        System.out.println("NUM_SIM_TOTAL = " + NUM_SIM_TOTAL);
+        System.out.println("NUM_STEPS = " + NUM_STEPS);
+        System.out.println("SAMP_FREQ = " + SAMP_FREQ);
     }
 
     public double[] getRunParamValues() {
@@ -207,6 +230,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
 
                 // Generate thread
                 Thread_PopRun thread = new Thread_PopRun(outputPopFile, importPop, sId, NUM_STEPS);
+                thread.setOutputFreq(SAMP_FREQ);
                 thread.setOutputPri(outputPrint, false);
 
                 try {

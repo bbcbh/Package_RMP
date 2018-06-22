@@ -32,7 +32,7 @@ import util.PersonClassifier;
 /**
  *
  * @author Ben Hui
- * @version 201806014
+ * @version 201806022
  *
  * <pre>
  * History:
@@ -42,9 +42,12 @@ import util.PersonClassifier;
  * 20180612
  *  - Alterative screening rate from RG
  *  - Remove null reference for default parameter value so getClass() method is always valid
- *  - Cumultive incidence
+ *  - Cumulative incidence
  * 20180614
  *  - Change the default treatment delay
+ * 20180622
+ *  - Implementation of alterative treatement delay format of various length
+ *
  * </pre>
  */
 public class Thread_PopRun implements Runnable {
@@ -210,7 +213,9 @@ public class Thread_PopRun implements Runnable {
          */
         new float[0],
         // 9: PARAM_INDEX_TESTING_TREATMENT_DELAY
-        // min, range
+        // [min, range]
+        // Alterative format
+        // [min, cumul_liklihood_1, cumul_delay_range_1, cumul_liklihood_2, cumul_delay_range_2, .... total_liklihood]        
         new int[]{7, 21},};
 
     public Thread_PopRun(File outputPath, File importPath, int simId, int numSteps) {
@@ -528,25 +533,48 @@ public class Thread_PopRun implements Runnable {
 
         if (toBeTreated) {
             int[] delaySetting = (int[]) getInputParam()[PARAM_INDEX_TESTING_TREATMENT_DELAY];
+
             int delay = delaySetting[0];
-            if (delaySetting[1] > 0) {
-                delay += testRNG.nextInt(delaySetting[1]);
-            }
 
-            int currentLoc = pop.getCurrentLocation(rmp_person);
-
-            int[][] schedule = treatmentSchdule.get(pop.getGlobalTime() + delay);
-
-            int[] ent = new int[]{rmp_person.getId(), currentLoc};
-
-            if (schedule == null) {
-                schedule = new int[][]{ent};
+            if (delaySetting.length == 2) {
+                if (delaySetting[1] > 0) {
+                    delay += testRNG.nextInt(delaySetting[1]);
+                }
             } else {
-                schedule = Arrays.copyOf(schedule, schedule.length + 1);
-                schedule[schedule.length - 1] = ent;
+                int totalLiklihood = delaySetting[delaySetting.length - 1];
+                int currentProbPt = 1;
+                int prob = testRNG.nextInt(totalLiklihood);
+
+                while (currentProbPt+1 < delaySetting.length
+                        && delaySetting[currentProbPt] < prob) {
+                    delay += delaySetting[currentProbPt + 1]; // Min delay;                    
+                    currentProbPt += 2;
+                }
+                if (currentProbPt + 1 >= delaySetting.length) {
+                    delay = -1; // Missed out on treatment together
+                } else if (delaySetting[currentProbPt + 1] > 0) {
+                    delay += testRNG.nextInt(delaySetting[currentProbPt + 1]);
+                }
+
             }
 
-            treatmentSchdule.put(pop.getGlobalTime() + delay, schedule);
+            if (delay >= 0) {
+
+                int currentLoc = pop.getCurrentLocation(rmp_person);
+
+                int[][] schedule = treatmentSchdule.get(pop.getGlobalTime() + delay);
+
+                int[] ent = new int[]{rmp_person.getId(), currentLoc};
+
+                if (schedule == null) {
+                    schedule = new int[][]{ent};
+                } else {
+                    schedule = Arrays.copyOf(schedule, schedule.length + 1);
+                    schedule[schedule.length - 1] = ent;
+                }
+
+                treatmentSchdule.put(pop.getGlobalTime() + delay, schedule);
+            }
 
         }
 
@@ -577,7 +605,7 @@ public class Thread_PopRun implements Runnable {
 
                     } else {
                         // Miss out on treatment due to location
-                       
+
                     }
 
                 }

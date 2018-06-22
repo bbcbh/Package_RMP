@@ -17,7 +17,7 @@ import util.PropValUtils;
  * Define a set of simulation using properties file
  *
  * @author Ben Hui
- * @version 20180618
+ * @version 20180622
  *
  * <pre>
  * History:
@@ -28,6 +28,8 @@ import util.PropValUtils;
  *   - Redefine input for syphilis imulation runs
  * 20180620:
  *   - Add decode collection file for syphilis simulation runs
+ * 20180622:
+ *   - Uniting input format for both NG_CT and syphilis
  * 
  * </pre>
  */
@@ -124,16 +126,21 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
 
         switch (simType) {
             case 0:
-                rArg = new String[5];
+                rArg = new String[6];
                 // 0: Base Dir
                 // 1: Import Dir
                 // 2: Num thread
                 // 3: Num sim
+                // 4: Num step - in this case it is PROP_NUM_SNAP * PROP_SNAP_FREQ
+                // 5: Sample Freq
                 rArg[0] = baseDir.getAbsolutePath();
                 rArg[1] = propVal[PROP_POP_IMPORT_PATH] == null ? "" : (String) propVal[PROP_POP_IMPORT_PATH];
                 rArg[2] = propVal[PROP_USE_PARALLEL] == null ? "" : ((Integer) propVal[PROP_USE_PARALLEL]).toString();
-                rArg[3] = propVal[PROP_NUM_SIM_PER_SET] == null ? "" : ((Integer) propVal[PROP_NUM_SIM_PER_SET]).toString();
-                rArg[4] = propVal[PROP_NUM_SNAP] == null ? "" : ((Integer) propVal[PROP_NUM_SNAP]).toString();
+                rArg[3] = propVal[PROP_NUM_SIM_PER_SET] == null ? "" : ((Integer) propVal[PROP_NUM_SIM_PER_SET]).toString();                
+                rArg[4] = propVal[PROP_NUM_SNAP] == null ? ""
+                        : Integer.toString(((Integer) propVal[PROP_NUM_SNAP]) * ((Integer) propVal[PROP_SNAP_FREQ]));
+                rArg[5] = propVal[PROP_SNAP_FREQ] == null ? "" : ((Integer) propVal[PROP_SNAP_FREQ]).toString();                                
+                
                 Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT runNGCT = new Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT(rArg);
                 if (propModelInitStr != null) {
                     for (int i = 0; i < propModelInitStr.length; i++) {
