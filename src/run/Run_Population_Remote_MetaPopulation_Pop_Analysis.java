@@ -20,16 +20,17 @@ import util.PersonClassifier;
 /**
  *
  * @author Ben Hui
- * @version 20180618  
+ * @version 20180625  
  * 
  * <pre>
  * History
  *
  * 20180613:
  *  - Add incident summary
- * 20180618
+ * 20180618:
  *  - Debug - incidence calculation
- *
+ * 20180625:
+ *  - Add notification summary
  * </pre>
  */
 public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
@@ -39,13 +40,16 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
     public static final int OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS = OUTPUT_INDEX_AWAY_FROM_HOME_BY_LOC + 1;
     public static final int OUTPUT_INDEX_PREVALENCE_BY_GENDER_AGE = OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS + 1;
     public static final int OUTPUT_INDEX_INCIDENT_SUMMARY = OUTPUT_INDEX_PREVALENCE_BY_GENDER_AGE + 1;
+    public static final int OUTPUT_INDEX_NOTIFICATION_SUMMARY = OUTPUT_INDEX_INCIDENT_SUMMARY + 1;
 
     public static final String[] OUTPUT_FILENAMES = new String[]{
         "demographic.csv",
         "away_from_home_by_location.csv",
         "num_partners_in_12_months.csv",
         "prevalence_by_gender_age.csv",
-        "incident_summary.csv",};
+        "incident_summary.csv",
+        "notification_summary.csv",
+    };
     public static final String[] OUTPUT_FILE_HEADERS = new String[]{
         "Sim, Pop, M 16-19, M 20-24, M 25-29, M 30-34, F 16-19, F 20-24, F 25-29, F 30-34,",
         "Sim, Pop, M 16-19, M 20-24, M 25-29, M 30-34, F 16-19, F 20-24, F 25-29, F 30-34,",
@@ -53,7 +57,9 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
         "Sim, M 16-19, M 20-24, M 25-29, M 30-34, F 16-19, F 20-24, F 25-29, F 30-34, "
         + "M 16-19, M 20-24, M 25-29, M 30-34, F 16-19, F 20-24, F 25-29, F 30-34,"
         + "M 16-19, M 20-24, M 25-29, M 30-34, F 16-19, F 20-24, F 25-29, F 30-34,",
-        "Sim, CT Male, CT Female, NG Male, NG Female",};
+        "Sim, CT Male, CT Female, NG Male, NG Female",
+        "Sim, CT Male, CT Female, NG Male, NG Female",
+    };
 
     public static void popAnalysis(String dir) throws IOException, ClassNotFoundException {
         File baseDir = new File(dir);
@@ -226,10 +232,36 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
             }
         });
         System.out.println("Number of incident file = " + singleIncidentCSV.length);
+        generateSummaryCSV(singleIncidentCSV, wri, OUTPUT_INDEX_INCIDENT_SUMMARY);
+        
+        
+        // OUTPUT_INDEX_NOTIFICATION_SUMMARY
+        
+          File[] singleNotificationCSV = baseDir.listFiles(new FileFilter() {
+            @Override
+            public boolean accept(File file) {
+                String fName = file.getName();
+                return fName.startsWith("notification_S");
+            }
+        });
+        System.out.println("Number of notification file = " + singleIncidentCSV.length);
+        generateSummaryCSV(singleNotificationCSV, wri, OUTPUT_INDEX_NOTIFICATION_SUMMARY);
+        
+        
+      
+        
 
-        for (int s = 0; s < singleIncidentCSV.length; s++) {
-            wri[OUTPUT_INDEX_INCIDENT_SUMMARY].print(s);
-            BufferedReader reader = new BufferedReader(new FileReader(singleIncidentCSV[s]));
+        for (int i = 0; i < wri.length; i++) {
+            wri[i].close();
+        }
+
+    }
+
+    public static void generateSummaryCSV(File[] singleSimulationCSV, 
+            PrintWriter[] wri, int fileIndex) throws IOException, NumberFormatException {
+        for (int s = 0; s < singleSimulationCSV.length; s++) {
+            wri[fileIndex].print(s);
+            BufferedReader reader = new BufferedReader(new FileReader(singleSimulationCSV[s]));
             String lastline = reader.readLine();
             String currentline = reader.readLine();
             String nextLine;
@@ -243,23 +275,18 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
                 String[] currentLineArr = currentline.split(",");
                 
                 for (int c = 1; c < currentLineArr.length; c++) {
-                    wri[OUTPUT_INDEX_INCIDENT_SUMMARY].print(',');
-                    float numIncidencePerYear = 
+                    wri[fileIndex].print(',');
+                    float numIncidencePerYear =
                             (Integer.parseInt(currentLineArr[c]) - Integer.parseInt(lastLineArr[c])) 
                             / ((Integer.parseInt(currentLineArr[0]) - Integer.parseInt(lastLineArr[0]))/365f) ;
-                    wri[OUTPUT_INDEX_INCIDENT_SUMMARY].print(numIncidencePerYear);
+                    wri[fileIndex].print(numIncidencePerYear);
 
                 }
 
             }
-            wri[OUTPUT_INDEX_INCIDENT_SUMMARY].println();
+            wri[fileIndex].println();
 
         }
-
-        for (int i = 0; i < wri.length; i++) {
-            wri[i].close();
-        }
-
     }
 
 }

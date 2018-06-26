@@ -32,7 +32,7 @@ import util.PersonClassifier;
 /**
  *
  * @author Ben Hui
- * @version 201806022
+ * @version 201806025
  *
  * <pre>
  * History:
@@ -42,11 +42,13 @@ import util.PersonClassifier;
  * 20180612
  *  - Alterative screening rate from RG
  *  - Remove null reference for default parameter value so getClass() method is always valid
- *  - Cumulative incidence
+ *  - Addtion of cumulative incidence
  * 20180614
  *  - Change the default treatment delay
  * 20180622
  *  - Implementation of alterative treatement delay format of various length
+ * 20180625
+ *  - Addition of cumulative notification field
  *
  * </pre>
  */
@@ -74,6 +76,7 @@ public class Thread_PopRun implements Runnable {
     public static final int PARAM_TOTAL = PARAM_INDEX_TESTING_TREATMENT_DELAY + 1;
 
     protected int[] cumulativeIncident;
+    protected int[] cumulativeNotification;
 
     protected Object[] inputParam = new Object[]{
         // 1: PARAM_INDEX_INFECTIONS
@@ -316,7 +319,19 @@ public class Thread_PopRun implements Runnable {
                         return 2;
                     }
                 };
+                PersonClassifier notificationClassifier = new PersonClassifier() {
+                    @Override
+                    public int classifyPerson(AbstractIndividualInterface p) {
+                        return p.isMale() ? 0 : 1;
+                    }
+
+                    @Override
+                    public int numClass() {
+                        return 2;
+                    }
+                };
                 cumulativeIncident = new int[pop.getInfList().length * incideClassifier.numClass()];
+                cumulativeNotification = new int[pop.getInfList().length * notificationClassifier.numClass()];
 
                 for (int t = 0; t < numSteps; t++) {
 
@@ -368,7 +383,7 @@ public class Thread_PopRun implements Runnable {
                     int numTestToday = testing_numPerDay[(pop.getGlobalTime() - offset) % AbstractIndividualInterface.ONE_YEAR_INT];
 
                     while (numTestToday != 0) {
-                        testingPerson(testing_person[testing_pt], treatmentSchdule, testRNG);
+                        testingPerson(testing_person[testing_pt], treatmentSchdule, testRNG, notificationClassifier);
                         testing_pt++;
                         numTestToday--;
                     }
@@ -465,6 +480,18 @@ public class Thread_PopRun implements Runnable {
         } catch (IOException ex) {
             ex.printStackTrace(outputPri);
         }
+        
+        File notificationFileName = new File(outputFilePath.getParent(), "notification_S" + simId + ".csv");
+        try (PrintWriter pri = new PrintWriter(new FileWriter(notificationFileName, true))) {
+            pri.print(pop.getGlobalTime());
+            for (int i = 0; i < cumulativeNotification.length; i++) {
+                pri.print(',');
+                pri.print(cumulativeNotification[i]);
+            }
+            pri.println();
+        } catch (IOException ex) {
+            ex.printStackTrace(outputPri);
+        }                        
 
     }
 
@@ -520,7 +547,8 @@ public class Thread_PopRun implements Runnable {
     }
 
     public void testingPerson(AbstractIndividualInterface person,
-            HashMap<Integer, int[][]> treatmentSchdule, random.RandomGenerator testRNG) {
+            HashMap<Integer, int[][]> treatmentSchdule, random.RandomGenerator testRNG, 
+            PersonClassifier notificationClassifier) {
         Person_Remote_MetaPopulation rmp_person = (Person_Remote_MetaPopulation) person;
 
         boolean toBeTreated = false;
@@ -529,9 +557,17 @@ public class Thread_PopRun implements Runnable {
         for (int infId = 0; infId < rmp_person.getInfectionStatus().length; infId++) {
             toBeTreated |= rmp_person.getInfectionStatus()[infId] != AbstractIndividualInterface.INFECT_S;
         }
-        //}
+        //}                        
 
         if (toBeTreated) {
+            
+            if(notificationClassifier != null){
+                int cPt = notificationClassifier.classifyPerson(rmp_person);
+                if(cPt >= 0){
+                    cumulativeNotification[cPt]++;
+                }                                
+            }                        
+            
             int[] delaySetting = (int[]) getInputParam()[PARAM_INDEX_TESTING_TREATMENT_DELAY];
 
             int delay = delaySetting[0];
