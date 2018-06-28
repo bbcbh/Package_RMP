@@ -32,12 +32,12 @@ import util.PersonClassifier;
 /**
  *
  * @author Ben Hui
- * @version 201806025
+ * @version 20180602
  *
  * <pre>
  * History:
  *
- * 20180605
+ * 20180628
  *  - Reimplementation of testing and treament schedule, inclusion of delay.
  * 20180612
  *  - Alterative screening rate from RG
@@ -49,7 +49,8 @@ import util.PersonClassifier;
  *  - Implementation of alterative treatement delay format of various length
  * 20180625
  *  - Addition of cumulative notification field
- *
+ * 20180628
+ *  - Add screening by probability option *
  * </pre>
  */
 public class Thread_PopRun implements Runnable {
@@ -77,6 +78,7 @@ public class Thread_PopRun implements Runnable {
 
     protected int[] cumulativeIncident;
     protected int[] cumulativeNotification;
+    protected int[] cumulativeTestCount;
 
     protected Object[] inputParam = new Object[]{
         // 1: PARAM_INDEX_INFECTIONS
@@ -146,6 +148,8 @@ public class Thread_PopRun implements Runnable {
         // Remote from STRIVE (FNQ, LC's slides)
         // type: float[]           
         // From RG
+        // Alterative format
+        // if the first rate is negative use proprotion testing rate instead
         new float[]{
             // Regional        
             // Male
@@ -308,7 +312,7 @@ public class Thread_PopRun implements Runnable {
                     prm.setNumberOfInfections(modelledInfections.length);
                 }
 
-                PersonClassifier incideClassifier = new PersonClassifier() {
+                PersonClassifier incidenceClassifier = new PersonClassifier() {
                     @Override
                     public int classifyPerson(AbstractIndividualInterface p) {
                         return p.isMale() ? 0 : 1;
@@ -330,12 +334,22 @@ public class Thread_PopRun implements Runnable {
                         return 2;
                     }
                 };
-                cumulativeIncident = new int[pop.getInfList().length * incideClassifier.numClass()];
+
+                PersonClassifier testByClassifier = (PersonClassifier) getInputParam()[PARAM_INDEX_TESTING_CLASSIFIER];
+
+                cumulativeIncident = new int[pop.getInfList().length * incidenceClassifier.numClass()];
                 cumulativeNotification = new int[pop.getInfList().length * notificationClassifier.numClass()];
+
+                if (testByClassifier != null) {
+                    cumulativeTestCount = new int[testByClassifier.numClass()];
+                }
+
+                boolean useProportionTestCoverage = ((float[]) inputParam[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER])[0] < 0;
 
                 for (int t = 0; t < numSteps; t++) {
 
-                    if ((pop.getGlobalTime() - offset) % AbstractIndividualInterface.ONE_YEAR_INT == 0) {
+                    if (!useProportionTestCoverage
+                            && (pop.getGlobalTime() - offset) % AbstractIndividualInterface.ONE_YEAR_INT == 0) {
                         ArrayList<AbstractIndividualInterface> testing_schedule = generateTestingSchedule(testRNG);
 
                         testing_person = testing_schedule.toArray(new AbstractIndividualInterface[testing_schedule.size()]);
@@ -371,21 +385,54 @@ public class Thread_PopRun implements Runnable {
                         // Record incident
                         for (AbstractIndividualInterface p : pop.getPop()) {
                             if (p.getLastInfectedAtAge(infId) == p.getAge()) {
-                                int cI = incideClassifier.classifyPerson(p);
+                                int cI = incidenceClassifier.classifyPerson(p);
                                 if (cI >= 0) {
-                                    cumulativeIncident[infId * incideClassifier.numClass() + cI]++;
+                                    cumulativeIncident[infId * incidenceClassifier.numClass() + cI]++;
                                 }
                             }
                         }
 
                     }
 
-                    int numTestToday = testing_numPerDay[(pop.getGlobalTime() - offset) % AbstractIndividualInterface.ONE_YEAR_INT];
+                    // Testing
+                    if (!useProportionTestCoverage) {
 
-                    while (numTestToday != 0) {
-                        testingPerson(testing_person[testing_pt], treatmentSchdule, testRNG, notificationClassifier);
-                        testing_pt++;
-                        numTestToday--;
+                        int numTestToday = testing_numPerDay[(pop.getGlobalTime() - offset) % AbstractIndividualInterface.ONE_YEAR_INT];
+
+                        while (numTestToday != 0) {
+                            testingPerson(testing_person[testing_pt], treatmentSchdule, testRNG, notificationClassifier);
+                            testing_pt++;
+                            numTestToday--;
+                        }
+
+                    } else {
+
+                        float[] testRatebyClassifier = (float[]) getInputParam()[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER];
+                        float[] testRateByLoc = (float[]) getInputParam()[PARAM_INDEX_TESTING_RATE_BY_HOME_LOC];
+
+                        for (AbstractIndividualInterface person : pop.getPop()) {
+                            boolean testToday = false;
+                            if (testByClassifier != null) {
+                                int cI = testByClassifier.classifyPerson(person);
+                                if (cI >= 0) {
+                                    float testRate = Math.abs(testRatebyClassifier[cI]);
+                                    // Rate is a yearly rate, so have to convert it into daily rate
+                                    float dailyRate = (float) (1 - Math.exp(Math.log(1 - testRate) / AbstractIndividualInterface.ONE_YEAR_INT));
+                                    testToday = testRNG.nextFloat() < dailyRate;
+                                }
+                            }
+                            if (!testToday && testRateByLoc != null && testRateByLoc.length > 0) {
+                                int loc = ((MoveablePersonInterface) person).getHomeLocation();
+                                float testByLocRate = Math.abs(testRateByLoc[loc]);
+                                float dailyTestByLocRate = (float) (1 - Math.exp(Math.log(1 - testByLocRate) / AbstractIndividualInterface.ONE_YEAR_INT));
+                                testToday = testRNG.nextFloat() < dailyTestByLocRate;
+                            }
+                            if (testToday) {
+                                testingPerson(person, treatmentSchdule, testRNG, notificationClassifier);
+                            }
+
+                        }
+
                     }
 
                     if (treatmentSchdule.containsKey(pop.getGlobalTime())) {
@@ -469,6 +516,18 @@ public class Thread_PopRun implements Runnable {
         }
         outputPri.flush();
 
+        File testCarriedOutFileName = new File(outputFilePath.getParent(), "test_S" + simId + ".csv");
+        try (PrintWriter pri = new PrintWriter(new FileWriter(testCarriedOutFileName, true))) {
+            pri.print(pop.getGlobalTime());
+            for (int i = 0; i < cumulativeTestCount.length; i++) {
+                pri.print(',');
+                pri.print(cumulativeTestCount[i]);
+            }
+            pri.println();
+        } catch (IOException ex) {
+            ex.printStackTrace(outputPri);
+        }
+
         File incidentFileName = new File(outputFilePath.getParent(), "incident_S" + simId + ".csv");
         try (PrintWriter pri = new PrintWriter(new FileWriter(incidentFileName, true))) {
             pri.print(pop.getGlobalTime());
@@ -480,7 +539,7 @@ public class Thread_PopRun implements Runnable {
         } catch (IOException ex) {
             ex.printStackTrace(outputPri);
         }
-        
+
         File notificationFileName = new File(outputFilePath.getParent(), "notification_S" + simId + ".csv");
         try (PrintWriter pri = new PrintWriter(new FileWriter(notificationFileName, true))) {
             pri.print(pop.getGlobalTime());
@@ -491,7 +550,7 @@ public class Thread_PopRun implements Runnable {
             pri.println();
         } catch (IOException ex) {
             ex.printStackTrace(outputPri);
-        }                        
+        }
 
     }
 
@@ -547,7 +606,7 @@ public class Thread_PopRun implements Runnable {
     }
 
     public void testingPerson(AbstractIndividualInterface person,
-            HashMap<Integer, int[][]> treatmentSchdule, random.RandomGenerator testRNG, 
+            HashMap<Integer, int[][]> treatmentSchdule, random.RandomGenerator testRNG,
             PersonClassifier notificationClassifier) {
         Person_Remote_MetaPopulation rmp_person = (Person_Remote_MetaPopulation) person;
 
@@ -559,15 +618,24 @@ public class Thread_PopRun implements Runnable {
         }
         //}                        
 
+        PersonClassifier testByClassifier = (PersonClassifier) getInputParam()[PARAM_INDEX_TESTING_CLASSIFIER];
+
+        if (testByClassifier != null) {
+            int cI = testByClassifier.classifyPerson(person);
+            if (cI >= 0) {
+                cumulativeTestCount[cI]++;
+            }
+        }
+
         if (toBeTreated) {
-            
-            if(notificationClassifier != null){
+
+            if (notificationClassifier != null) {
                 int cPt = notificationClassifier.classifyPerson(rmp_person);
-                if(cPt >= 0){
+                if (cPt >= 0) {
                     cumulativeNotification[cPt]++;
-                }                                
-            }                        
-            
+                }
+            }
+
             int[] delaySetting = (int[]) getInputParam()[PARAM_INDEX_TESTING_TREATMENT_DELAY];
 
             int delay = delaySetting[0];
@@ -581,7 +649,7 @@ public class Thread_PopRun implements Runnable {
                 int currentProbPt = 1;
                 int prob = testRNG.nextInt(totalLiklihood);
 
-                while (currentProbPt+1 < delaySetting.length
+                while (currentProbPt + 1 < delaySetting.length
                         && delaySetting[currentProbPt] < prob) {
                     delay += delaySetting[currentProbPt + 1]; // Min delay;                    
                     currentProbPt += 2;
