@@ -37,7 +37,7 @@ import util.PersonClassifier;
  * <pre>
  * History:
  *
- * 20180628
+ * 20180629
  *  - Reimplementation of testing and treament schedule, inclusion of delay.
  * 20180612
  *  - Alterative screening rate from RG
@@ -50,7 +50,11 @@ import util.PersonClassifier;
  * 20180625
  *  - Addition of cumulative notification field
  * 20180628
- *  - Add screening by probability option *
+ *  - Add screening by probability option
+ * 20180629
+ *  - Change cumulative count to classifier as defined by testing classifier
+ *  - Addition of test sensitivity
+ *  
  * </pre>
  */
 public class Thread_PopRun implements Runnable {
@@ -74,7 +78,8 @@ public class Thread_PopRun implements Runnable {
     public static final int PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER = PARAM_INDEX_TESTING_CLASSIFIER + 1;
     public static final int PARAM_INDEX_TESTING_RATE_BY_HOME_LOC = PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER + 1;
     public static final int PARAM_INDEX_TESTING_TREATMENT_DELAY = PARAM_INDEX_TESTING_RATE_BY_HOME_LOC + 1;
-    public static final int PARAM_TOTAL = PARAM_INDEX_TESTING_TREATMENT_DELAY + 1;
+    public static final int PARAM_INDEX_TESTING_SENSITIVITY = PARAM_INDEX_TESTING_TREATMENT_DELAY + 1;
+    public static final int PARAM_TOTAL = PARAM_INDEX_TESTING_SENSITIVITY + 1;
 
     protected int[] cumulativeIncident;
     protected int[] cumulativeNotification;
@@ -223,7 +228,11 @@ public class Thread_PopRun implements Runnable {
         // [min, range]
         // Alterative format
         // [min, cumul_liklihood_1, cumul_delay_range_1, cumul_liklihood_2, cumul_delay_range_2, .... total_liklihood]        
-        new int[]{7, 21},};
+        new int[]{7, 21},
+        // 10: PARAM_INDEX_TESTING_SENSITIVITY
+        0.98f
+    
+    };
 
     public Thread_PopRun(File outputPath, File importPath, int simId, int numSteps) {
         this.outputFilePath = outputPath;
@@ -312,30 +321,37 @@ public class Thread_PopRun implements Runnable {
                     prm.setNumberOfInfections(modelledInfections.length);
                 }
 
-                PersonClassifier incidenceClassifier = new PersonClassifier() {
-                    @Override
-                    public int classifyPerson(AbstractIndividualInterface p) {
-                        return p.isMale() ? 0 : 1;
-                    }
-
-                    @Override
-                    public int numClass() {
-                        return 2;
-                    }
-                };
-                PersonClassifier notificationClassifier = new PersonClassifier() {
-                    @Override
-                    public int classifyPerson(AbstractIndividualInterface p) {
-                        return p.isMale() ? 0 : 1;
-                    }
-
-                    @Override
-                    public int numClass() {
-                        return 2;
-                    }
-                };
-
                 PersonClassifier testByClassifier = (PersonClassifier) getInputParam()[PARAM_INDEX_TESTING_CLASSIFIER];
+                PersonClassifier incidenceClassifier, notificationClassifier;
+
+                if (testByClassifier == null) {
+                    incidenceClassifier = new PersonClassifier() {
+                        @Override
+                        public int classifyPerson(AbstractIndividualInterface p) {
+                            return p.isMale() ? 0 : 1;
+                        }
+
+                        @Override
+                        public int numClass() {
+                            return 2;
+                        }
+                    };
+                    notificationClassifier = new PersonClassifier() {
+                        @Override
+                        public int classifyPerson(AbstractIndividualInterface p) {
+                            return p.isMale() ? 0 : 1;
+                        }
+
+                        @Override
+                        public int numClass() {
+                            return 2;
+                        }
+                    };
+
+                } else {
+                    incidenceClassifier = testByClassifier;
+                    notificationClassifier = testByClassifier;
+                }                
 
                 cumulativeIncident = new int[pop.getInfList().length * incidenceClassifier.numClass()];
                 cumulativeNotification = new int[pop.getInfList().length * notificationClassifier.numClass()];
@@ -611,10 +627,13 @@ public class Thread_PopRun implements Runnable {
         Person_Remote_MetaPopulation rmp_person = (Person_Remote_MetaPopulation) person;
 
         boolean toBeTreated = false;
+        
+        float testSen = (float) getInputParam()[PARAM_INDEX_TESTING_SENSITIVITY];
 
         //if (pop.getCurrentLocation(rmp_person) == rmp_person.getHomeLocation()) {
         for (int infId = 0; infId < rmp_person.getInfectionStatus().length; infId++) {
-            toBeTreated |= rmp_person.getInfectionStatus()[infId] != AbstractIndividualInterface.INFECT_S;
+            toBeTreated |= (rmp_person.getInfectionStatus()[infId] != AbstractIndividualInterface.INFECT_S) 
+                    && testRNG.nextFloat() < testSen;                                   
         }
         //}                        
 

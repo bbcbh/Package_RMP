@@ -9,10 +9,10 @@ public class Test_Population_Remote_MetaPopulation_Sim {
         String[] baseDir = new String[]{                          
             "C:\\Users\\Bhui\\OneDrive - UNSW\\RMP\\GenResults", 
             // NG_CT
-            //"Srn_Std", 
-            //"Srn_Intervention",            
+            "Srn_Std_PTest", 
+            "Srn_Intervention_PTest",            
             // Syphilis            
-            "Syphilis_Testing",   
+            //"Syphilis_Testing",   
             //"Syphilis_No_Testing",
             //"Syphilis_Testing_LowTran",  
         };        
