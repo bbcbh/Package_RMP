@@ -20,8 +20,8 @@ import util.PersonClassifier;
 /**
  *
  * @author Ben Hui
- * @version 20180625  
- * 
+ * @version 20180703
+ *
  * <pre>
  * History
  *
@@ -31,6 +31,8 @@ import util.PersonClassifier;
  *  - Debug - incidence calculation
  * 20180625:
  *  - Add notification summary
+ * 20180703:
+ *  - Add prevalence for remote only
  * </pre>
  */
 public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
@@ -41,6 +43,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
     public static final int OUTPUT_INDEX_PREVALENCE_BY_GENDER_AGE = OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS + 1;
     public static final int OUTPUT_INDEX_INCIDENT_SUMMARY = OUTPUT_INDEX_PREVALENCE_BY_GENDER_AGE + 1;
     public static final int OUTPUT_INDEX_NOTIFICATION_SUMMARY = OUTPUT_INDEX_INCIDENT_SUMMARY + 1;
+    public static final int OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REMOTE_ONLY = OUTPUT_INDEX_NOTIFICATION_SUMMARY + 1;
 
     public static final String[] OUTPUT_FILENAMES = new String[]{
         "demographic.csv",
@@ -49,7 +52,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
         "prevalence_by_gender_age.csv",
         "incident_summary.csv",
         "notification_summary.csv",
-    };
+        "prevalence_by_gender_age_remote_only.csv",};
     public static final String[] OUTPUT_FILE_HEADERS = new String[]{
         "Sim, Pop, M 16-19, M 20-24, M 25-29, M 30-34, F 16-19, F 20-24, F 25-29, F 30-34,",
         "Sim, Pop, M 16-19, M 20-24, M 25-29, M 30-34, F 16-19, F 20-24, F 25-29, F 30-34,",
@@ -59,7 +62,9 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
         + "M 16-19, M 20-24, M 25-29, M 30-34, F 16-19, F 20-24, F 25-29, F 30-34,",
         "Sim, CT Male, CT Female, NG Male, NG Female",
         "Sim, CT Male, CT Female, NG Male, NG Female",
-    };
+        "Sim, M 16-19, M 20-24, M 25-29, M 30-34, F 16-19, F 20-24, F 25-29, F 30-34, "
+        + "M 16-19, M 20-24, M 25-29, M 30-34, F 16-19, F 20-24, F 25-29, F 30-34,"
+        + "M 16-19, M 20-24, M 25-29, M 30-34, F 16-19, F 20-24, F 25-29, F 30-34,",};
 
     public static void popAnalysis(String dir) throws IOException, ClassNotFoundException {
         File baseDir = new File(dir);
@@ -101,6 +106,10 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
         // [simNum][gender_age_index]{total, CT, NG}        
         int[][][] numInfectedTotal = new int[popZipFiles.length][][];
 
+        //OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REMOTE_ONLY
+        // [simNum][gender_age_index]{total, CT, NG}        
+        int[][][] numInfecteRemoteOnly = new int[popZipFiles.length][][];
+
         PersonClassifier Classifier_ageGrp = new util.Default_Remote_MetaPopulation_AgeGrp_Classifier();
         PersonClassifier Classifier_behavor = new util.Default_Remote_MetaPopulation_Behavor_Classifier();
 
@@ -119,6 +128,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
             numByHomeLoc[popId] = new int[numMetaPop][Classifier_ageGrp.numClass() * 2];
             numPartInLast12Months[popId] = new int[Classifier_ageGrp.numClass()][Classifier_behavor.numClass()];
             numInfectedTotal[popId] = new int[Classifier_ageGrp.numClass() * 2][pop.getInfList().length + 1];
+            numInfecteRemoteOnly[popId] = new int[Classifier_ageGrp.numClass() * 2][pop.getInfList().length + 1];
 
             AbstractIndividualInterface[] persons = pop.getPop();
 
@@ -141,9 +151,17 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
 
                 numInfectedTotal[popId][genderOffset + ageIndex][0]++;
 
+                if (rmp_person.getHomeLocation() != 0) {
+                    numInfecteRemoteOnly[popId][genderOffset + ageIndex][0]++;
+                }
+
                 for (int infId = 0; infId < pop.getInfList().length; infId++) {
                     if (rmp_person.getInfectionStatus()[infId] != AbstractIndividualInterface.INFECT_S) {
                         numInfectedTotal[popId][genderOffset + ageIndex][infId + 1]++;
+
+                        if (rmp_person.getHomeLocation() != 0) {
+                            numInfecteRemoteOnly[popId][genderOffset + ageIndex][infId + 1]++;
+                        }
                     }
                 }
 
@@ -222,6 +240,23 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
             }
             wri[OUTPUT_INDEX_PREVALENCE_BY_GENDER_AGE].println();
         }
+        
+        // OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REMOTE_ONLY
+        // [simNum][gender_age_index]{total, CT, NG}    
+        for (int s = 0; s < numInfecteRemoteOnly.length; s++) {
+            wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REMOTE_ONLY].print(s);
+            for (int a = 0; a < numInfecteRemoteOnly[s].length; a++) {
+                wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REMOTE_ONLY].print(',');
+                wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REMOTE_ONLY].print(numInfecteRemoteOnly[s][a][0]);
+            }
+            for (int infId = 1; infId < numInfecteRemoteOnly[s][0].length; infId++) {
+                for (int a = 0; a < numInfecteRemoteOnly[s].length; a++) {
+                    wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REMOTE_ONLY].print(',');
+                    wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REMOTE_ONLY].print(((float) numInfecteRemoteOnly[s][a][infId]) / numInfecteRemoteOnly[s][a][0]);
+                }
+            }
+            wri[OUTPUT_INDEX_PREVALENCE_BY_GENDER_AGE].println();
+        }
 
         //OUTPUT_INDEX_INCIDENT_SUMMARY
         File[] singleIncidentCSV = baseDir.listFiles(new FileFilter() {
@@ -233,11 +268,9 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
         });
         System.out.println("Number of incident file = " + singleIncidentCSV.length);
         generateSummaryCSV(singleIncidentCSV, wri, OUTPUT_INDEX_INCIDENT_SUMMARY);
-        
-        
+
         // OUTPUT_INDEX_NOTIFICATION_SUMMARY
-        
-          File[] singleNotificationCSV = baseDir.listFiles(new FileFilter() {
+        File[] singleNotificationCSV = baseDir.listFiles(new FileFilter() {
             @Override
             public boolean accept(File file) {
                 String fName = file.getName();
@@ -246,10 +279,6 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
         });
         System.out.println("Number of notification file = " + singleIncidentCSV.length);
         generateSummaryCSV(singleNotificationCSV, wri, OUTPUT_INDEX_NOTIFICATION_SUMMARY);
-        
-        
-      
-        
 
         for (int i = 0; i < wri.length; i++) {
             wri[i].close();
@@ -257,7 +286,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
 
     }
 
-    public static void generateSummaryCSV(File[] singleSimulationCSV, 
+    public static void generateSummaryCSV(File[] singleSimulationCSV,
             PrintWriter[] wri, int fileIndex) throws IOException, NumberFormatException {
         for (int s = 0; s < singleSimulationCSV.length; s++) {
             wri[fileIndex].print(s);
@@ -273,12 +302,12 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
             if (lastline != null && currentline != null) {
                 String[] lastLineArr = lastline.split(",");
                 String[] currentLineArr = currentline.split(",");
-                
+
                 for (int c = 1; c < currentLineArr.length; c++) {
                     wri[fileIndex].print(',');
-                    float numIncidencePerYear =
-                            (Integer.parseInt(currentLineArr[c]) - Integer.parseInt(lastLineArr[c])) 
-                            / ((Integer.parseInt(currentLineArr[0]) - Integer.parseInt(lastLineArr[0]))/365f) ;
+                    float numIncidencePerYear
+                            = (Integer.parseInt(currentLineArr[c]) - Integer.parseInt(lastLineArr[c]))
+                            / ((Integer.parseInt(currentLineArr[0]) - Integer.parseInt(lastLineArr[0])) / 365f);
                     wri[fileIndex].print(numIncidencePerYear);
 
                 }

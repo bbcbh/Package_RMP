@@ -9,12 +9,21 @@ public class Test_Population_Remote_MetaPopulation_Sim {
         String[] baseDir = new String[]{                          
             "C:\\Users\\Bhui\\OneDrive - UNSW\\RMP\\GenResults", 
             // NG_CT
-            "Srn_Std_PTest", 
-            "Srn_Intervention_PTest",            
+            //"Srn_Std_PTest", 
+            //"Srn_Intervention_PTest",            
+            //"Srn_40A_S", 
+            //"Srn_40A_I", 
+            //"Srn_60A_S", 
+            //"Srn_60A_I", 
+            //"Srn_80A_S", 
+            //"Srn_80A_I",                         
             // Syphilis            
             //"Syphilis_Testing",   
             //"Syphilis_No_Testing",
-            //"Syphilis_Testing_LowTran",  
+            //"Syphilis_Testing_LowTran", 
+            "Syp_Tran_03", 
+            "Syp_Tran_04", 
+            "Syp_Tran_05"
         };        
         
         Simulation_Remote_MetaPopulation.main(baseDir);
