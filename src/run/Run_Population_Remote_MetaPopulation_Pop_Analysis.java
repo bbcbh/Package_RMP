@@ -20,7 +20,7 @@ import util.PersonClassifier;
 /**
  *
  * @author Ben Hui
- * @version 20180703
+ * @version 20180705
  *
  * <pre>
  * History
@@ -33,6 +33,8 @@ import util.PersonClassifier;
  *  - Add notification summary
  * 20180703:
  *  - Add prevalence for remote only
+ * 20180705:
+ *  - Minor formatting change for printing of remote only output
  * </pre>
  */
 public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
@@ -255,7 +257,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
                     wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REMOTE_ONLY].print(((float) numInfecteRemoteOnly[s][a][infId]) / numInfecteRemoteOnly[s][a][0]);
                 }
             }
-            wri[OUTPUT_INDEX_PREVALENCE_BY_GENDER_AGE].println();
+            wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REMOTE_ONLY].println();
         }
 
         //OUTPUT_INDEX_INCIDENT_SUMMARY
