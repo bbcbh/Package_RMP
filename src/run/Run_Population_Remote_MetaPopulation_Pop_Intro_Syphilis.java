@@ -28,6 +28,7 @@ import org.apache.commons.math3.distribution.BetaDistribution;
 import person.AbstractIndividualInterface;
 import person.Person_Remote_MetaPopulation;
 import population.AbstractFieldsArrayPopulation;
+import population.Population_Remote_MetaPopulation;
 import random.RandomGenerator;
 import util.PersonClassifier;
 import util.PropValUtils;
@@ -35,7 +36,7 @@ import util.PropValUtils;
 /**
  *
  * @author Ben Hui
- * @version 20180618
+ * @version 20180713
  *
  * <pre>
  * History
@@ -58,10 +59,13 @@ import util.PropValUtils;
  * 
  * 20180618
  *  - Reset testing rate as an input (PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER)
+ * 
+ * 20180713
+ *   - Introduce implementation of Interface_IntroInfection interface
  *
  * </pre>
  */
-public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis {
+public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis implements Interface_IntroInfection {
 
     public String BASE_DIR_STR = "~/RMP/OptResults";
     public String IMPORT_DIR_STR = "~/RMP/ImportDir";
@@ -138,6 +142,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis {
 
     protected double[] paramVal_Run;
     protected String[] threadParamValStr = new String[Thread_PopRun.PARAM_TOTAL];
+    protected String[] popParamValStr = new String[0];
 
     public static final int PARAM_INDEX_TRAN_MF_INCUB = 0;
     public static final int PARAM_INDEX_TRAN_MF_PRI = PARAM_INDEX_TRAN_MF_INCUB + 1;
@@ -267,6 +272,18 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis {
 
     public double[] getRunParamValues() {
         return paramVal_Run;
+    }
+    
+    public String[] getPopParamValStr(){
+        return popParamValStr;
+    }
+    
+    
+    public void setPopParamValStr(int index, String ent){
+        if (popParamValStr.length < index){
+            popParamValStr = Arrays.copyOf(popParamValStr, index+1);            
+        }
+        popParamValStr[index] = ent;
     }
 
     public void runSimulation() {
@@ -700,6 +717,38 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis {
                                 thread.getInputParam()[i].getClass());
                 outputPrint.println("Thread ParamVal #" + i + " = " + threadParamValStr[i]);
 
+            }
+        }       
+        
+        for (int i = 0; i < popParamValStr.length; i++) {
+            if (popParamValStr[i] != null) {
+                Object orgVal = ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[i];
+
+                if (orgVal == null) {
+
+                    switch (i) {
+                        case Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_NEWPERSON_INFECTION_PREVAL:
+                            orgVal = new float[0][];
+                            break;
+                        case Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_NEWPERSON_INFECTION_CLASSIFIER:
+                            orgVal = new PersonClassifier[0];
+                            break;
+                        default:
+                            System.err.println("Default class for Pop #" + i + " non defined");
+                            break;
+                    }
+
+                }
+
+                if (orgVal != null) {
+                    ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[i]
+                            = PropValUtils.propStrToObject(popParamValStr[i],
+                                    orgVal.getClass());
+
+                    if (outputPrint != null) {
+                        outputPrint.println("Pop Field #" + i + " = " + popParamValStr[i]);
+                    }
+                }
             }
         }
 

@@ -23,12 +23,13 @@ import org.apache.commons.math3.distribution.AbstractRealDistribution;
 import org.apache.commons.math3.distribution.BetaDistribution;
 import population.Population_Remote_MetaPopulation;
 import random.RandomGenerator;
+import util.PersonClassifier;
 import util.PropValUtils;
 
 /**
  *
  * @author Ben Hui
- * @version 20180622
+ * @version 20180713
  *
  * History:
  *
@@ -41,9 +42,11 @@ import util.PropValUtils;
  *  - Minor change to output print format
  * 20180622:
  *   - Uniting input format for both NG/CT and syphilis
+ * 20180713
+ *   - Introduce implementation of Interface_IntroInfection interface
  * </pre>
  */
-public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
+public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT implements Interface_IntroInfection {
 
     public String BASE_DIR_STR = "~/RMP/OptResults";
     public String IMPORT_DIR_STR = "~/RMP/ImportDir";
@@ -87,6 +90,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
         0.02,};
 
     protected String[] threadParamValStr = new String[Thread_PopRun.PARAM_TOTAL];
+    protected String[] popParamValStr = new String[0];
 
     // For Beta distribution, 
     // alpha = mean*(mean*(1-mean)/variance - 1)
@@ -116,21 +120,21 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
             if (!arg[3].isEmpty()) {
                 NUM_SIM_TOTAL = Integer.parseInt(arg[3]);
             }
-        }        
+        }
         // 4: Num step - in this case it is PROP_NUM_SNAP * PROP_SNAP_FREQ
-        if(arg.length > 4){
-            if(!arg[4].isEmpty()){
+        if (arg.length > 4) {
+            if (!arg[4].isEmpty()) {
                 NUM_STEPS = Integer.parseInt(arg[4]);
             }
         }
-        
+
         // 5: Sample Freq
         if (arg.length > 5) {
             if (!arg[5].isEmpty()) {
                 SAMP_FREQ = Integer.parseInt(arg[5]);
             }
         }
-        
+
         System.out.println("BASE_DIR = " + BASE_DIR_STR);
         System.out.println("IMPORT_DIR = " + IMPORT_DIR_STR);
         System.out.println("NUM_THREADS = " + NUM_THREADS);
@@ -145,6 +149,17 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
 
     public String[] getThreadParamValStr() {
         return threadParamValStr;
+    }
+
+    public String[] getPopParamValStr() {
+        return popParamValStr;
+    }
+
+    public void setPopParamValStr(int index, String ent) {
+        if (popParamValStr.length < index) {
+            popParamValStr = Arrays.copyOf(popParamValStr, index + 1);
+        }
+        popParamValStr[index] = ent;
     }
 
     protected Object[] generateParam() {
@@ -426,6 +441,38 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT {
                     outputPrint.println("Thread ParamVal #" + i + " = " + threadParamValStr[i]);
                 }
 
+            }
+        }
+
+        for (int i = 0; i < popParamValStr.length; i++) {
+            if (popParamValStr[i] != null) {
+                Object orgVal = ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[i];
+
+                if (orgVal == null) {
+
+                    switch (i) {
+                        case Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_NEWPERSON_INFECTION_PREVAL:
+                            orgVal = new float[0][];
+                            break;
+                        case Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_NEWPERSON_INFECTION_CLASSIFIER:
+                            orgVal = new PersonClassifier[0];
+                            break;
+                        default:
+                            System.err.println("Default class for Pop #" + i + " non defined");
+                            break;
+                    }
+
+                }
+
+                if (orgVal != null) {
+                    ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[i]
+                            = PropValUtils.propStrToObject(popParamValStr[i],
+                                    orgVal.getClass());
+
+                    if (outputPrint != null) {
+                        outputPrint.println("Pop Field #" + i + " = " + popParamValStr[i]);
+                    }
+                }
             }
         }
 

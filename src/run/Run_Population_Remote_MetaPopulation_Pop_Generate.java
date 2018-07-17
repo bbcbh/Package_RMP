@@ -7,8 +7,9 @@ import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import random.MersenneTwisterRandomGenerator;
 
-import random.MersenneTwisterFastRandomGenerator;
+
 
 public class Run_Population_Remote_MetaPopulation_Pop_Generate {
 
@@ -76,7 +77,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Generate {
 
     private void genPops() throws InterruptedException {
 
-        MersenneTwisterFastRandomGenerator rng = new MersenneTwisterFastRandomGenerator(BASE_SEED);
+        MersenneTwisterRandomGenerator rng = new MersenneTwisterRandomGenerator(BASE_SEED);
         File destDir = new File(DIR_PATH);
         destDir.mkdirs();                        
         

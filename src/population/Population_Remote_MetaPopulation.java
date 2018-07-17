@@ -34,12 +34,15 @@ import util.PersonClassifier;
  *
  * @author Ben Hui
  * @version 20180517
- * 
+ *
  * <pre>
  * History
  *
  * 20180517
  *  - Randomising the age a candidate is removed from the population
+ *
+ * 20180716
+ *  - Implement alterative format for FIELDS_REMOTE_METAPOP_NUMBER_PARTNER_LAST_12_MONTHS_DECOMP
  * </pre>
  */
 public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
@@ -83,6 +86,9 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
         // FIELDS_REMOTE_METAPOP_NUMBER_PARTNER_LAST_12_MONTHS_DECOMP
         // float[popId (or 0 if all share the same behavor)][ageIndex]{0, 1, 2-4, 5}       
         // From GOANNA pg, 22
+        // Alterative format
+        // float[popId][ageIndex][0, 1, 2-4, 5, probability of seeking extra partners as traveller]
+
         new float[][][]{
             new float[][]{
                 // 16-19
@@ -125,9 +131,9 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
 
     // A matrix of ArrayList of AbstractIndividualInterface, index by home_loc, gender + age, at home or not    
     protected transient ArrayList<AbstractIndividualInterface>[][][] home_loc_age_gender_home_or_away_collection = null;
-    
+
     // A HashMap of ArrayList of indivudal for removal 
-    protected transient HashMap<Integer, ArrayList<AbstractIndividualInterface>> timeSpecificAgeOutCandidates = null; 
+    protected transient HashMap<Integer, ArrayList<AbstractIndividualInterface>> timeSpecificAgeOutCandidates = null;
 
     public Population_Remote_MetaPopulation(long seed) {
         super();
@@ -166,13 +172,12 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
     @Override
     public void initialise() {
         int[] popSizes = (int[]) getFields()[FIELDS_REMOTE_METAPOP_POP_SIZE];
-        int totalPopSize = 0;        
-        
-        
+        int totalPopSize = 0;
+
         // Intialise infection using field input
-        AbstractInfection[] infList = (AbstractInfection[]) getFields()[FIELDS_REMOTE_METAPOP_INFECTION_LIST];              
-        updateInfectionList(infList);                
-        
+        AbstractInfection[] infList = (AbstractInfection[]) getFields()[FIELDS_REMOTE_METAPOP_INFECTION_LIST];
+        updateInfectionList(infList);
+
         // Initalise population
         int popId = (int) getFields()[FIELDS_NEXT_ID];
         int[][] pop_decom_collection = (int[][]) getFields()[FIELDS_REMOTE_METAPOP_AGE_GENDER_COMPOSITION];
@@ -262,11 +267,11 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
     }
 
     public void updateInfectionList(AbstractInfection[] infList) {
-        int infId = 0;             
-        for (AbstractInfection inf : infList) {                 
-            inf.setRNG(getInfectionRNG());            
+        int infId = 0;
+        for (AbstractInfection inf : infList) {
+            inf.setRNG(getInfectionRNG());
             inf.setInfectionIndex(infId);
-            infId++;                                   
+            infId++;
             //System.out.println("Inf " + infId + ": " + inf.toString() + " RNG = " + inf.getRNG());
         }
         setInfList(infList);
@@ -373,12 +378,15 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
         AbstractIndividualInterface[][][] availableAllLocation
                 = new AbstractIndividualInterface[pop_decom_collection.length][2][getPop().length];
         int[][] availablePt = new int[pop_decom_collection.length][2];
-        
-        if(timeSpecificAgeOutCandidates == null){
+
+        AbstractIndividualInterface[] travellerSeeking = new AbstractIndividualInterface[getPop().length];
+        int travellerSeekingPt = 0;
+
+        if (timeSpecificAgeOutCandidates == null) {
             timeSpecificAgeOutCandidates = new HashMap<>();
-        }        
-        
-        int ageOutFreq = AbstractIndividualInterface.ONE_YEAR_INT ;
+        }
+
+        int ageOutFreq = AbstractIndividualInterface.ONE_YEAR_INT;
 
         if (getGlobalTime() % ageOutFreq == 0) { // Update yearly
 
@@ -399,34 +407,33 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
                         for (AbstractIndividualInterface toBeRemove : candidate) {
                             int offset = getRNG().nextInt(ageOutFreq);
                             ArrayList<AbstractIndividualInterface> preEnt = timeSpecificAgeOutCandidates.get(this.getGlobalTime() + offset);
-                            if(preEnt == null){
+                            if (preEnt == null) {
                                 preEnt = new ArrayList<>();
                             };
                             preEnt.add(toBeRemove);
-                            timeSpecificAgeOutCandidates.put(this.getGlobalTime() + offset, preEnt);                            
+                            timeSpecificAgeOutCandidates.put(this.getGlobalTime() + offset, preEnt);
                         }
                     }
                 }
             }
         }
-        
+
         // Set age out person as inf age 
-        if(timeSpecificAgeOutCandidates.containsKey(this.getGlobalTime())){                        
-            AbstractIndividualInterface[] ageOutCandidate 
+        if (timeSpecificAgeOutCandidates.containsKey(this.getGlobalTime())) {
+            AbstractIndividualInterface[] ageOutCandidate
                     = timeSpecificAgeOutCandidates.get(this.getGlobalTime()).toArray(new AbstractIndividualInterface[0]);
-            for(AbstractIndividualInterface toBeRemove: ageOutCandidate){                
+            for (AbstractIndividualInterface toBeRemove : ageOutCandidate) {
                 toBeRemove.setAge(Double.POSITIVE_INFINITY); // Set to INF age, and remove in the iteration
             }
             timeSpecificAgeOutCandidates.remove(this.getGlobalTime());
-        }                
-        
+        }
 
         // Remove age out person
         for (int index = 0; index < getPop().length; index++) {
             getPop()[index].incrementTime(deltaT, getInfList());
 
             Person_Remote_MetaPopulation removeCandidate = (Person_Remote_MetaPopulation) getPop()[index];
-            
+
             double ageoffset = 0;
 
             if (removeCandidate.getAge() > (35 * AbstractIndividualInterface.ONE_YEAR_INT + ageoffset)) {
@@ -444,19 +451,21 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
         updateCollectionCurrentLocAgeBehavior();
 
         // Check how many need to seek partner, or terminate partnership
+        PersonClassifier behav_classifier = (PersonClassifier) getFields()[FIELDS_REMOTE_METAPOP_BEHAVOR_GRP_CLASSIFIER];
+
         for (int loc = 0; loc < current_loc_age_behaviour_collection.length; loc++) {
             float[][] locBehavour = pop_decom_numPartIn12Month[loc < pop_decom_numPartIn12Month.length ? loc : 0];
             for (int a = 0; a < locBehavour.length; a++) {
                 float totalInLocAgeBehaviour = 0;
 
-                for (int b = 0; b < locBehavour[a].length; b++) {
+                for (int b = 0; b < behav_classifier.numClass(); b++) {
                     totalInLocAgeBehaviour += current_loc_age_behaviour_collection[loc][a][b].size();
                 }
-                int[] behavInData = new int[locBehavour[a].length];
-                int[] behavInPop = new int[locBehavour[a].length];
+                int[] behavInData = new int[behav_classifier.numClass()];
+                int[] behavInPop = new int[behav_classifier.numClass()];
 
                 int roundOffSum = 0;
-                for (int b = 0; b < locBehavour[a].length; b++) {
+                for (int b = 0; b < behav_classifier.numClass(); b++) {
                     behavInData[b] = Math.round(locBehavour[a][b] * totalInLocAgeBehaviour);
                     roundOffSum += behavInData[b];
                     behavInPop[b] = current_loc_age_behaviour_collection[loc][a][b].size();
@@ -477,7 +486,7 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
                     }
 
                 }
-                for (int b = 0; b < locBehavour[a].length; b++) {
+                for (int b = 0; b < behav_classifier.numClass(); b++) {
 
                     AbstractIndividualInterface[] collectionArr = new AbstractIndividualInterface[current_loc_age_behaviour_collection[loc][a][b].size()];
                     collectionArr = current_loc_age_behaviour_collection[loc][a][b].toArray(collectionArr);
@@ -494,13 +503,15 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
                         for (int bb = 0; bb < b; bb++) {
                             extraBelow += Math.max(behavInData[bb] - behavInPop[bb], 0);
                         }
-                        for (int ba = (b + 1); ba < locBehavour[a].length; ba++) {
+                        for (int ba = (b + 1); ba < behav_classifier.numClass(); ba++) {
                             extraAbove += Math.max(behavInData[ba] - behavInPop[ba], 0);
                         }
 
                         for (int s = 0; s < collectionArr.length && numSeekOrBreakPartnership > 0; s++) {
+                            AbstractIndividualInterface seekOrBreak = collectionArr[s];
+                            boolean seeking = false;
+                            boolean breaking = false;
                             if (getRNG().nextInt(collectionArr.length - s) < numSeekOrBreakPartnership) {
-                                AbstractIndividualInterface seekOrBreak = collectionArr[s];
                                 boolean breakingPartnership = getRNG().nextInt(extraBelow + extraAbove) < extraBelow;
 
                                 if (!breakingPartnership) {
@@ -514,6 +525,7 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
                                         availableAllLocation[loc][genderPt][availablePt[loc][genderPt]] = seekOrBreak;
                                         availablePt[loc][genderPt]++;
                                     }
+                                    seeking = true;
 
                                 } else {
                                     // Dissolve partnership
@@ -537,9 +549,24 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
                                                 (SingleRelationshipTimeStamp) toBeRemoved,
                                                 toBeRemoved.getLinks(getLocalData()));
 
+                                        breaking = true;
                                     }
                                 }
                             }
+
+                            if (!seeking && locBehavour[a].length > behav_classifier.numClass()) {
+                                // Extra chance to seek a partner as traveller
+                                float probSeekExtra = locBehavour[a][behav_classifier.numClass()];
+                                seeking = ((Person_Remote_MetaPopulation) seekOrBreak).getFields()[Person_Remote_MetaPopulation.PERSON_FIRST_SEEK_PARTNER_AGE] < seekOrBreak.getAge();
+                                seeking &= ((Person_Remote_MetaPopulation) seekOrBreak).getHomeLocation() != loc;
+                                if (seeking) {
+                                    if (getRNG().nextFloat() < probSeekExtra) {
+                                        travellerSeeking[travellerSeekingPt] = seekOrBreak;
+                                        travellerSeekingPt++;
+                                    }
+                                }
+                            }
+
                         }
 
                     }
@@ -547,6 +574,40 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
                 }
 
             }
+        }
+
+        // Traveller seeking
+        // Set off a one-off sexual contact       
+
+        if (travellerSeekingPt > 0) {
+            float[] condomUsageAll = (float[]) getFields()[FIELDS_REMOTE_METAPOP_CONDOM_USAGE_BY_LOCATION];
+
+            for (int i = 0; i < travellerSeekingPt; i++) {
+                Person_Remote_MetaPopulation traveller = (Person_Remote_MetaPopulation) travellerSeeking[i];
+                int currentLoc = getCurrentLocation(traveller);
+                int partnerGender = traveller.isMale() ? 1 : 0;
+
+                if (availablePt[currentLoc][partnerGender] > 0) {
+                    int randAvailPt = getRNG().nextInt(availablePt[currentLoc][partnerGender]);
+                    float condomUsage = condomUsageAll[currentLoc < condomUsageAll.length ? currentLoc : 0];
+
+                    if (getRNG().nextFloat() < condomUsage) {
+                        AbstractIndividualInterface[] oneOffPartners = new AbstractIndividualInterface[2];
+                        oneOffPartners[traveller.isMale() ? 0 : 1] = traveller;
+                        oneOffPartners[partnerGender] = availableAllLocation[currentLoc][partnerGender][randAvailPt];
+                        SingleRelationship.performAct(oneOffPartners, getGlobalTime(), getInfList(), new boolean[]{true, true});
+
+                        for (AbstractIndividualInterface p : oneOffPartners) {
+                            Person_Remote_MetaPopulation person = (Person_Remote_MetaPopulation) p;
+                            if (person.getParameter(Person_Remote_MetaPopulation.PERSON_FIRST_SEX_AGE) < 0) {
+                                person.setParameter(Person_Remote_MetaPopulation.PERSON_FIRST_SEX_AGE, (long) person.getAge());
+                            }
+                        }
+                    }
+                }
+
+            }
+
         }
 
         // Update (sexual) relationship
@@ -722,7 +783,7 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
                     if (cI >= 0) {
                         float preval = introPreval[infId][cI];
                         if (getRNG().nextFloat() < preval) {
-                            getInfList()[infId].infecting(newPerson);                            
+                            getInfList()[infId].infecting(newPerson);
                         }
                     }
                 }

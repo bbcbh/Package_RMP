@@ -54,7 +54,14 @@ import util.PersonClassifier;
  * 20180629
  *  - Change cumulative count to classifier as defined by testing classifier
  *  - Addition of test sensitivity
- *  
+ * 20180712
+ *  - Change the option of treatment delay as location specific
+ * 20180713
+ *  - Additional parameter options for adjusting parameter for Population_Remote_MetaPopulation
+ * 20180716
+ *  - Change notification to infectious only
+ * 20180717
+ *  - Change notficiation by infection state
  * </pre>
  */
 public class Thread_PopRun implements Runnable {
@@ -77,13 +84,15 @@ public class Thread_PopRun implements Runnable {
     public static final int PARAM_INDEX_TESTING_CLASSIFIER = PARAM_INDEX_INTRO_PERIODICITY + 1;
     public static final int PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER = PARAM_INDEX_TESTING_CLASSIFIER + 1;
     public static final int PARAM_INDEX_TESTING_RATE_BY_HOME_LOC = PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER + 1;
-    public static final int PARAM_INDEX_TESTING_TREATMENT_DELAY = PARAM_INDEX_TESTING_RATE_BY_HOME_LOC + 1;
-    public static final int PARAM_INDEX_TESTING_SENSITIVITY = PARAM_INDEX_TESTING_TREATMENT_DELAY + 1;
+    public static final int PARAM_INDEX_TESTING_TREATMENT_DELAY_BY_LOC = PARAM_INDEX_TESTING_RATE_BY_HOME_LOC + 1;
+    public static final int PARAM_INDEX_TESTING_SENSITIVITY = PARAM_INDEX_TESTING_TREATMENT_DELAY_BY_LOC + 1;
     public static final int PARAM_TOTAL = PARAM_INDEX_TESTING_SENSITIVITY + 1;
 
     protected int[] cumulativeIncident;
-    protected int[] cumulativeNotification;
-    protected int[] cumulativeTestCount;
+    protected int[][][] cumulativeTestAndNotification;   // cumulativeTestAndNotification[infectionId][classId][1+infStatus]
+
+    public static final String FILE_PREFIX_INCIDENCE = "incident_S";
+    public static final String FILE_PREFIX_TEST_AND_NOTIFICATION = "test_and_notification_S";
 
     protected Object[] inputParam = new Object[]{
         // 1: PARAM_INDEX_INFECTIONS
@@ -224,14 +233,14 @@ public class Thread_PopRun implements Runnable {
             0.48f,},
          */
         new float[0],
-        // 9: PARAM_INDEX_TESTING_TREATMENT_DELAY
+        // 9: PARAM_INDEX_TESTING_TREATMENT_DELAY_BY_LOC
         // [min, range]
         // Alterative format
         // [min, cumul_liklihood_1, cumul_delay_range_1, cumul_liklihood_2, cumul_delay_range_2, .... total_liklihood]        
-        new int[]{7, 21},
+        new int[][]{new int[]{7, 21}},
         // 10: PARAM_INDEX_TESTING_SENSITIVITY
         0.98f
-    
+
     };
 
     public Thread_PopRun(File outputPath, File importPath, int simId, int numSteps) {
@@ -351,13 +360,12 @@ public class Thread_PopRun implements Runnable {
                 } else {
                     incidenceClassifier = testByClassifier;
                     notificationClassifier = testByClassifier;
-                }                
+                }
 
                 cumulativeIncident = new int[pop.getInfList().length * incidenceClassifier.numClass()];
-                cumulativeNotification = new int[pop.getInfList().length * notificationClassifier.numClass()];
-
-                if (testByClassifier != null) {
-                    cumulativeTestCount = new int[testByClassifier.numClass()];
+                cumulativeTestAndNotification = new int[pop.getInfList().length][][];
+                for (int i = 0; i < cumulativeTestAndNotification.length; i++) {
+                    cumulativeTestAndNotification[i] = new int[notificationClassifier.numClass()][pop.getInfList()[i].getNumState() + 1];
                 }
 
                 boolean useProportionTestCoverage = ((float[]) inputParam[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER])[0] < 0;
@@ -532,19 +540,7 @@ public class Thread_PopRun implements Runnable {
         }
         outputPri.flush();
 
-        File testCarriedOutFileName = new File(outputFilePath.getParent(), "test_S" + simId + ".csv");
-        try (PrintWriter pri = new PrintWriter(new FileWriter(testCarriedOutFileName, true))) {
-            pri.print(pop.getGlobalTime());
-            for (int i = 0; i < cumulativeTestCount.length; i++) {
-                pri.print(',');
-                pri.print(cumulativeTestCount[i]);
-            }
-            pri.println();
-        } catch (IOException ex) {
-            ex.printStackTrace(outputPri);
-        }
-
-        File incidentFileName = new File(outputFilePath.getParent(), "incident_S" + simId + ".csv");
+        File incidentFileName = new File(outputFilePath.getParent(), FILE_PREFIX_INCIDENCE + simId + ".csv");
         try (PrintWriter pri = new PrintWriter(new FileWriter(incidentFileName, true))) {
             pri.print(pop.getGlobalTime());
             for (int i = 0; i < cumulativeIncident.length; i++) {
@@ -556,14 +552,36 @@ public class Thread_PopRun implements Runnable {
             ex.printStackTrace(outputPri);
         }
 
-        File notificationFileName = new File(outputFilePath.getParent(), "notification_S" + simId + ".csv");
+        // cumulativeTestAndNotification[infectionId][classId][1+infStatus]
+        File notificationFileName = new File(outputFilePath.getParent(),
+                FILE_PREFIX_TEST_AND_NOTIFICATION + simId + ".csv");
+        boolean writeFirstLine = !notificationFileName.exists();
+        
         try (PrintWriter pri = new PrintWriter(new FileWriter(notificationFileName, true))) {
-            pri.print(pop.getGlobalTime());
-            for (int i = 0; i < cumulativeNotification.length; i++) {
-                pri.print(',');
-                pri.print(cumulativeNotification[i]);
+            if (writeFirstLine) {
+                pri.print("Time");
+                for (int infId = 0; infId < cumulativeTestAndNotification.length; infId++) {                   
+                    for (int classId = 0; classId < cumulativeTestAndNotification[infId].length; classId++) {
+                        for (int statusId = 0; statusId < cumulativeTestAndNotification[infId][classId].length; statusId++) {
+                            pri.print(',');
+                            pri.print("Inf #" + infId + " Class #" + classId + " Status #" + (statusId-1));
+                        }
+                    }
+                }
+                pri.println();
+            }
+
+            for (int infId = 0; infId < cumulativeTestAndNotification.length; infId++) {
+                pri.print(pop.getGlobalTime());
+                for (int classId = 0; classId < cumulativeTestAndNotification[infId].length; classId++) {
+                    for (int statusId = 0; statusId < cumulativeTestAndNotification[infId][classId].length; statusId++) {
+                        pri.print(',');
+                        pri.print(cumulativeTestAndNotification[infId][classId][statusId]);
+                    }
+                }                
             }
             pri.println();
+
         } catch (IOException ex) {
             ex.printStackTrace(outputPri);
         }
@@ -627,35 +645,36 @@ public class Thread_PopRun implements Runnable {
         Person_Remote_MetaPopulation rmp_person = (Person_Remote_MetaPopulation) person;
 
         boolean toBeTreated = false;
-        
+
         float testSen = (float) getInputParam()[PARAM_INDEX_TESTING_SENSITIVITY];
+
+        int currentLoc = pop.getCurrentLocation(rmp_person);
+
+        int notificationCI = -1;
+
+        if (notificationClassifier != null) {
+            notificationCI = notificationClassifier.classifyPerson(rmp_person);
+        }
 
         //if (pop.getCurrentLocation(rmp_person) == rmp_person.getHomeLocation()) {
         for (int infId = 0; infId < rmp_person.getInfectionStatus().length; infId++) {
-            toBeTreated |= (rmp_person.getInfectionStatus()[infId] != AbstractIndividualInterface.INFECT_S) 
-                    && testRNG.nextFloat() < testSen;                                   
-        }
-        //}                        
+            toBeTreated |= (rmp_person.getInfectionStatus()[infId] != AbstractIndividualInterface.INFECT_S)
+                    && testRNG.nextFloat() < testSen;
 
-        PersonClassifier testByClassifier = (PersonClassifier) getInputParam()[PARAM_INDEX_TESTING_CLASSIFIER];
-
-        if (testByClassifier != null) {
-            int cI = testByClassifier.classifyPerson(person);
-            if (cI >= 0) {
-                cumulativeTestCount[cI]++;
+            if (notificationCI >= 0) {
+                // cumulativeTestAndNotification[infectionId][classId][1+infStatus]                                 
+                int status = rmp_person.getInfectionStatus()[infId] + 1;
+                cumulativeTestAndNotification[infId][notificationCI][status]++;
             }
+
         }
+        //}             
 
         if (toBeTreated) {
 
-            if (notificationClassifier != null) {
-                int cPt = notificationClassifier.classifyPerson(rmp_person);
-                if (cPt >= 0) {
-                    cumulativeNotification[cPt]++;
-                }
-            }
+            int[][] delaySettingAll = (int[][]) getInputParam()[PARAM_INDEX_TESTING_TREATMENT_DELAY_BY_LOC];
 
-            int[] delaySetting = (int[]) getInputParam()[PARAM_INDEX_TESTING_TREATMENT_DELAY];
+            int[] delaySetting = delaySettingAll[currentLoc < delaySettingAll.length ? currentLoc : 0];
 
             int delay = delaySetting[0];
 
@@ -682,8 +701,6 @@ public class Thread_PopRun implements Runnable {
             }
 
             if (delay >= 0) {
-
-                int currentLoc = pop.getCurrentLocation(rmp_person);
 
                 int[][] schedule = treatmentSchdule.get(pop.getGlobalTime() + delay);
 

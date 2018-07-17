@@ -30,7 +30,7 @@ import util.PropValUtils;
  *   - Add decode collection file for syphilis simulation runs
  * 20180622:
  *   - Uniting input format for both NG_CT and syphilis
- * 
+ *
  * </pre>
  */
 public class Simulation_Remote_MetaPopulation implements SimulationInterface {
@@ -136,20 +136,22 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                 rArg[0] = baseDir.getAbsolutePath();
                 rArg[1] = propVal[PROP_POP_IMPORT_PATH] == null ? "" : (String) propVal[PROP_POP_IMPORT_PATH];
                 rArg[2] = propVal[PROP_USE_PARALLEL] == null ? "" : ((Integer) propVal[PROP_USE_PARALLEL]).toString();
-                rArg[3] = propVal[PROP_NUM_SIM_PER_SET] == null ? "" : ((Integer) propVal[PROP_NUM_SIM_PER_SET]).toString();                
+                rArg[3] = propVal[PROP_NUM_SIM_PER_SET] == null ? "" : ((Integer) propVal[PROP_NUM_SIM_PER_SET]).toString();
                 rArg[4] = propVal[PROP_NUM_SNAP] == null ? ""
                         : Integer.toString(((Integer) propVal[PROP_NUM_SNAP]) * ((Integer) propVal[PROP_SNAP_FREQ]));
-                rArg[5] = propVal[PROP_SNAP_FREQ] == null ? "" : ((Integer) propVal[PROP_SNAP_FREQ]).toString();                                
-                
+                rArg[5] = propVal[PROP_SNAP_FREQ] == null ? "" : ((Integer) propVal[PROP_SNAP_FREQ]).toString();
+
                 Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT runNGCT = new Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT(rArg);
                 if (propModelInitStr != null) {
                     for (int i = 0; i < propModelInitStr.length; i++) {
                         if (propModelInitStr[i] != null && !propModelInitStr[i].isEmpty()) {
                             if (i < runNGCT.getRunParamValues().length) {
                                 runNGCT.getRunParamValues()[i] = Double.parseDouble(propModelInitStr[i]);
-                            } else {
+                            } else if (i - runNGCT.getRunParamValues().length < runNGCT.getThreadParamValStr().length) {
                                 runNGCT.getThreadParamValStr()[i - runNGCT.getRunParamValues().length] = propModelInitStr[i];
-
+                            } else {
+                                runNGCT.setPopParamValStr(i - runNGCT.getRunParamValues().length - runNGCT.getThreadParamValStr().length,
+                                        propModelInitStr[i]);
                             }
                         }
                     }
@@ -180,8 +182,11 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                         if (propModelInitStr[i] != null && !propModelInitStr[i].isEmpty()) {
                             if (i < runSyp.getRunParamValues().length) {
                                 runSyp.getRunParamValues()[i] = Double.parseDouble(propModelInitStr[i]);
-                            } else {
+                            } else if (i - runSyp.getRunParamValues().length < runSyp.getThreadParamValStr().length) {
                                 runSyp.getThreadParamValStr()[i - runSyp.getRunParamValues().length] = propModelInitStr[i];
+                            } else {
+                                runSyp.setPopParamValStr(i - runSyp.getRunParamValues().length - runSyp.getThreadParamValStr().length,
+                                        propModelInitStr[i]);
                             }
                         }
                     }
