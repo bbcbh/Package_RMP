@@ -36,7 +36,7 @@ import util.PropValUtils;
 /**
  *
  * @author Ben Hui
- * @version 20180713
+ * @version 20180718
  *
  * <pre>
  * History
@@ -53,15 +53,18 @@ import util.PropValUtils;
  *
  * 20180523
  *  - Change messages for repeated simulation run from System.err to System.out
- * 
+ *
  * 20180612
- *  - Renaming of getParamValue to getRunParamValues 
- * 
+ *  - Renaming of getParamValue to getRunParamValues
+ *
  * 20180618
  *  - Reset testing rate as an input (PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER)
- * 
+ *
  * 20180713
  *   - Introduce implementation of Interface_IntroInfection interface
+ * 
+ * 20180718
+ *   - Adapt usage of updatePopFieldFromString() from Thread_PopRun
  *
  * </pre>
  */
@@ -142,7 +145,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis implements 
 
     protected double[] paramVal_Run;
     protected String[] threadParamValStr = new String[Thread_PopRun.PARAM_TOTAL];
-    protected String[] popParamValStr = new String[0];
+    protected String[] popFieldValStr = new String[0];
 
     public static final int PARAM_INDEX_TRAN_MF_INCUB = 0;
     public static final int PARAM_INDEX_TRAN_MF_PRI = PARAM_INDEX_TRAN_MF_INCUB + 1;
@@ -273,17 +276,16 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis implements 
     public double[] getRunParamValues() {
         return paramVal_Run;
     }
-    
-    public String[] getPopParamValStr(){
-        return popParamValStr;
+
+    public String[] getPopParamValStr() {
+        return popFieldValStr;
     }
-    
-    
-    public void setPopParamValStr(int index, String ent){
-        if (popParamValStr.length < index){
-            popParamValStr = Arrays.copyOf(popParamValStr, index+1);            
+
+    public void setPopParamValStr(int index, String ent) {
+        if (popFieldValStr.length < index) {
+            popFieldValStr = Arrays.copyOf(popFieldValStr, index + 1);
         }
-        popParamValStr[index] = ent;
+        popFieldValStr[index] = ent;
     }
 
     public void runSimulation() {
@@ -706,7 +708,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis implements 
                 = new int[]{360 * 50 + 1};
         thread.getInputParam()[Thread_PopRun.PARAM_INDEX_INTRO_PERIODICITY]
                 = new int[]{-1};
-        
+
         // Print output
         PrintWriter outputPrint = thread.getOutputPri();
 
@@ -718,10 +720,12 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis implements 
                 outputPrint.println("Thread ParamVal #" + i + " = " + threadParamValStr[i]);
 
             }
-        }       
-        
-        for (int i = 0; i < popParamValStr.length; i++) {
-            if (popParamValStr[i] != null) {
+        }
+
+        for (int i = 0; i < popFieldValStr.length; i++) {
+            if (popFieldValStr[i] != null) {
+
+                /*
                 Object orgVal = ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[i];
 
                 if (orgVal == null) {
@@ -742,12 +746,15 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis implements 
 
                 if (orgVal != null) {
                     ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[i]
-                            = PropValUtils.propStrToObject(popParamValStr[i],
+                            = PropValUtils.propStrToObject(popFieldValStr[i],
                                     orgVal.getClass());
 
-                    if (outputPrint != null) {
-                        outputPrint.println("Pop Field #" + i + " = " + popParamValStr[i]);
-                    }
+                   
+                }
+                 */
+                thread.updatePopFieldFromString(i, popFieldValStr[i]);                
+                if (outputPrint != null) {
+                    outputPrint.println("Pop Field #" + i + " = " + popFieldValStr[i]);
                 }
             }
         }

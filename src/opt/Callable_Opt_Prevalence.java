@@ -14,9 +14,22 @@ import population.Population_Remote_MetaPopulation;
 import random.RandomGenerator;
 import run.Thread_PopRun;
 import util.Default_Remote_MetaPopulation_AgeGrp_Classifier;
-import util.Default_Remote_MetaPopulation_Infection_Intro_Classifier;
 import util.PersonClassifier;
+import util.PropValUtils;
 
+/**
+ *
+ * @author Ben Hui
+ * @version 20180717
+ *
+ * <pre>
+ * History:
+ *   20180717
+ *      - Rework parameter setting for optimisation of traveler behaviour and infection parameter only
+ *      - Measure prevalence at remote only
+ *
+ * </pre>
+ */
 public class Callable_Opt_Prevalence implements Callable<double[]> {
 
     private final File popFile;
@@ -25,6 +38,7 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
     private final int numStep;
     private final double[] param;
     private boolean outputAsFile = true;
+    private final String[] propModelInitStr;
 
     public static final int OPT_PARAM_INDEX_TRAN_FEMALE_MALE_CT = 0;
     public static final int OPT_PARAM_INDEX_TRAN_MALE_FEMALE_EXTRA_CT = OPT_PARAM_INDEX_TRAN_FEMALE_MALE_CT + 1;
@@ -33,10 +47,11 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
     public static final int OPT_PARAM_INDEX_AVE_INF_DUR_CT = OPT_PARAM_INDEX_TRAN_MALE_FEMALE_EXTRA_NG + 1;
     public static final int OPT_PARAM_INDEX_AVE_INF_DUR_NG = OPT_PARAM_INDEX_AVE_INF_DUR_CT + 1;
 
-    public static final int OPT_PARAM_INDEX_INTRO_CT_MALE = OPT_PARAM_INDEX_AVE_INF_DUR_NG + 1;
-    public static final int OPT_PARAM_INDEX_INTRO_CT_FEMALE = OPT_PARAM_INDEX_INTRO_CT_MALE + 1;
-    public static final int OPT_PARAM_INDEX_INTRO_NG_MALE = OPT_PARAM_INDEX_INTRO_CT_FEMALE + 1;
-    public static final int OPT_PARAM_INDEX_INTRO_NG_FEMALE = OPT_PARAM_INDEX_INTRO_NG_MALE + 1;
+    public static final int OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_16_19 = OPT_PARAM_INDEX_AVE_INF_DUR_NG + 1;
+    public static final int OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_20_24 = OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_16_19 + 1;
+    public static final int OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_25_29 = OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_20_24 + 1;
+    public static final int OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_30_35 = OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_25_29 + 1;
+    public static final int OPT_PARAM_TOTAL = OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_30_35 + 1;
 
     private double[] target_preval = new double[]{
         0.118, 0.104, 0.074, 0.046, // CT, Male
@@ -45,12 +60,14 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
         0.135, 0.076, 0.028, 0.043 // NG, Female              
     };
 
-    public Callable_Opt_Prevalence(File optOutputDir, File popFile, int simId, int numStep, double[] param) {
+    public Callable_Opt_Prevalence(File optOutputDir, File popFile, int simId, int numStep, 
+            double[] param, String[] propModelInitStr) {
         this.popFile = popFile;
         this.optOutputDir = optOutputDir;
         this.simId = simId;
         this.numStep = numStep;
         this.param = param;
+        this.propModelInitStr = propModelInitStr;
     }
 
     public void setOutputAsFile(boolean outputAsFile) {
@@ -58,21 +75,59 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
     }
 
     public void loadParameters(Thread_PopRun thread, double[] param) {
-        ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_NUMBER_PARTNER_LAST_12_MONTHS_DECOMP]
-                = new float[][][]{
-                    new float[][]{
-                        // 16-19
-                        new float[]{0.09f, 0.40f, 0.42f, 0.09f},
-                        // 20-24
-                        new float[]{0.07f, 0.47f, 0.38f, 0.08f},
-                        // 25-29
-                        new float[]{0.09f, 0.55f, 0.32f, 0.04f},
-                        // 30-35 (descreasing based on linear trends for first 3 grp)
-                        new float[]{0.09f, 0.62f, 0.27f, 0.02f},},};
-
-        RandomGenerator infectionRNG = ((Population_Remote_MetaPopulation) thread.getPop()).getInfectionRNG();
 
         PrintWriter outputPrint = thread.getOutputPri();
+        
+        if(propModelInitStr != null){
+            
+            
+            for(int i = 0; i < propModelInitStr.length; i++){
+                if(propModelInitStr[i]!= null && !propModelInitStr[i].isEmpty()){                    
+                    if(i < OPT_PARAM_TOTAL){
+                        param[i] = Float.parseFloat(propModelInitStr[i]);                                                
+                    } else if (i - OPT_PARAM_TOTAL < Thread_PopRun.PARAM_TOTAL) {
+                        thread.getInputParam()[i - OPT_PARAM_TOTAL] = 
+                                PropValUtils.propStrToObject(propModelInitStr[i], thread.getInputParam()[i - OPT_PARAM_TOTAL].getClass());                                                                       
+                    } else{                        
+                        int popIndex = i - OPT_PARAM_TOTAL - Thread_PopRun.PARAM_TOTAL;
+                        thread.updatePopFieldFromString(popIndex, propModelInitStr[i]);                                                                        
+                        
+                    }
+                    
+                    
+                    if(outputPrint != null){
+                        outputPrint.println("Model init. setting #" + i + " = " + propModelInitStr[i]);
+                    }
+                    
+                    
+                }                                
+            }            
+        }
+        
+        float[][] defaultBehaviour = 
+                ((float[][][]) ((Population_Remote_MetaPopulation) thread.getPop()).getFields()
+                [Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_NUMBER_PARTNER_LAST_12_MONTHS_DECOMP])[0];
+
+        ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_NUMBER_PARTNER_LAST_12_MONTHS_DECOMP]
+                = new float[][][]{defaultBehaviour};
+
+        if (param.length > OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_16_19) {
+            float[][] adjustBehaviour = new float[defaultBehaviour.length][];
+            for(int r = 0; r < adjustBehaviour.length; r++){
+                adjustBehaviour[r] = Arrays.copyOf(defaultBehaviour[r], 5);
+                adjustBehaviour[r][4] = (float) param[OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_16_19 + r];                
+            }                                                                       
+
+            ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_NUMBER_PARTNER_LAST_12_MONTHS_DECOMP]
+                    = new float[][][]{defaultBehaviour, adjustBehaviour, adjustBehaviour, adjustBehaviour, adjustBehaviour};
+
+            if (outputPrint != null) {
+                outputPrint.println("Behaviour setting  = " + Arrays.deepToString((float[][][]) ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_NUMBER_PARTNER_LAST_12_MONTHS_DECOMP]));
+            }
+
+        }
+
+        RandomGenerator infectionRNG = ((Population_Remote_MetaPopulation) thread.getPop()).getInfectionRNG();
 
         ChlamydiaInfection ct_inf = new ChlamydiaInfection(infectionRNG);
         GonorrhoeaInfection ng_inf = new GonorrhoeaInfection(infectionRNG);
@@ -176,22 +231,12 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
         if (outputPrint != null) {
             outputPrint.println("Duration Sym (NG) = " + Arrays.toString((double[]) ng_inf.getParameter(key)));
         }
-        if (param.length >= OPT_PARAM_INDEX_INTRO_NG_FEMALE) {
-            float[][] introPreval = new float[][]{
-                new float[]{(float) param[OPT_PARAM_INDEX_INTRO_CT_MALE], (float) param[OPT_PARAM_INDEX_INTRO_CT_FEMALE],},
-                new float[]{(float) param[OPT_PARAM_INDEX_INTRO_NG_MALE], (float) param[OPT_PARAM_INDEX_INTRO_NG_FEMALE],},};
-
-            PersonClassifier introClassifier = new Default_Remote_MetaPopulation_Infection_Intro_Classifier();
-
-            ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_NEWPERSON_INFECTION_CLASSIFIER]
-                    = new PersonClassifier[]{introClassifier, introClassifier};
-
-            ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_NEWPERSON_INFECTION_PREVAL]
-                    = introPreval;
-            if (outputPrint != null) {
-                outputPrint.println("Intro prevalence = " + Arrays.deepToString(introPreval));
-            }
-        }
+        
+        
+        
+        
+        
+        
 
         if (outputPrint != null) {
             outputPrint.flush();
@@ -213,12 +258,11 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
     public double[] call() throws Exception {
         double[] res_single = new double[target_preval.length];
         File outputPopFile = null;
-        
-        if(optOutputDir != null){
+
+        if (optOutputDir != null) {
             outputPopFile = new File(optOutputDir, "Opt_" + popFile.getName());
         }
-        
-        
+
         Thread_PopRun thread = new Thread_PopRun(outputPopFile, popFile, simId, numStep);
         PrintWriter outputPrint = null;
 
@@ -266,14 +310,19 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
 
         AbstractIndividualInterface[] allPerson = thread.getPop().getPop();
 
+        
         for (AbstractIndividualInterface person : allPerson) {
-            int cI = prevalClassifer.classifyPerson(person);
-            numInGroup[cI]++;
-            if (person.getInfectionStatus()[0] != AbstractIndividualInterface.INFECT_S) {
-                numInfect[cI]++;
-            }
-            if (person.getInfectionStatus()[1] != AbstractIndividualInterface.INFECT_S) {
-                numInfect[prevalClassifer.numClass() + cI]++;
+            
+            // Remote only 
+            if (((Population_Remote_MetaPopulation) thread.getPop()).getCurrentLocation(person) != 0) {
+                int cI = prevalClassifer.classifyPerson(person);
+                numInGroup[cI]++;
+                if (person.getInfectionStatus()[0] != AbstractIndividualInterface.INFECT_S) {
+                    numInfect[cI]++;
+                }
+                if (person.getInfectionStatus()[1] != AbstractIndividualInterface.INFECT_S) {
+                    numInfect[prevalClassifer.numClass() + cI]++;
+                }
             }
         }
 

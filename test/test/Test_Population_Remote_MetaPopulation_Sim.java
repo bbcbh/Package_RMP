@@ -7,9 +7,10 @@ public class Test_Population_Remote_MetaPopulation_Sim {
 
     public static void main(String[] arg) throws IOException, InterruptedException, ClassNotFoundException {
         String[] baseDir = new String[]{                                                 
-            "C:\\Users\\Bhui\\OneDrive - UNSW\\RMP\\Test\\",
-            "Srn_S",
-            //"Syp_Tran_03",
+            "C:\\Users\\Bhui\\OneDrive - UNSW\\RMP\\Test\\",            
+            //"Syp_Tran_040",
+            //"Srn_S",
+            "Opt_NGCTBehav",
             //"C:\\Users\\Bhui\\OneDrive - UNSW\\RMP\\GenResults",             
             // NG_CT
             //"Srn_S", 

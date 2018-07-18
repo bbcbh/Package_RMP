@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package opt;
 
 import java.io.BufferedReader;
@@ -39,20 +34,23 @@ public class OptRun_Population_Remote_MetaPopulation_Infection_Intro {
     public static final String FILENAME_PRE_RESIDUE = "Pre_Residue.csv";
     public static final String FILENAME_P0 = "Pre_P0.csv";
 
-    File importDir, exportDir;
-    File[] popFiles;
+    protected File importDir, exportDir;
+    protected File[] popFiles;
 
-    int NUM_OPT_TO_KEEP = 10;
+    protected int NUM_OPT_TO_KEEP = 10;
 
-    private File[] OPT_RES_DIR_COLLECTION;
-    private double[] OPT_RES_SUM_SQS;
+    protected File[] OPT_RES_DIR_COLLECTION;
+    protected double[] OPT_RES_SUM_SQS;
+    protected String[] propModelInitStr = null;
 
-    private double[] TARGET_PREVAL = new double[]{
+    protected double[] TARGET_PREVAL = new double[]{
         0.118, 0.104, 0.074, 0.046, // CT, Male
         0.174, 0.082, 0.060, 0.035, // CT, Female
         0.137, 0.065, 0.040, 0.041, // NG, Male
         0.135, 0.076, 0.028, 0.043 // NG, Female              
     };
+    
+    protected int NUM_STEPS = 360 * 50;
 
     public OptRun_Population_Remote_MetaPopulation_Infection_Intro(String[] arg)
             throws IOException {
@@ -167,8 +165,8 @@ public class OptRun_Population_Remote_MetaPopulation_Infection_Intro {
         //</editor-fold>
 
         optimisationFunc = new Opt_ResidualFunc(popFiles, exportDir,
-                NUM_THREADS, TARGET_PREVAL,
-                OPT_RES_DIR_COLLECTION, OPT_RES_SUM_SQS
+                NUM_STEPS, NUM_THREADS, TARGET_PREVAL,
+                OPT_RES_DIR_COLLECTION, OPT_RES_SUM_SQS, getPropModelInitStr()
         );
 
         AbstractParameterOptimiser opt = new NelderMeadOptimiser(optimisationFunc);
@@ -294,12 +292,22 @@ public class OptRun_Population_Remote_MetaPopulation_Infection_Intro {
 
     }
 
-    public static void main(String[] arg) throws IOException, ClassNotFoundException {
-        OptRun_Population_Remote_MetaPopulation_Infection_Intro run
-                = new OptRun_Population_Remote_MetaPopulation_Infection_Intro(arg);
-
-        run.runOptimisation();
-
+    public String[] getPropModelInitStr() {
+        return propModelInitStr;
     }
+
+    public void setPropModelInitStr(String[] propModelInitStr) {
+        this.propModelInitStr = propModelInitStr;
+    }
+
+    public int getNumSteps() {
+        return NUM_STEPS;
+    }
+
+    public void setNumSteps(int NUM_STEPS) {
+        this.NUM_STEPS = NUM_STEPS;
+    }
+    
+    
 
 }

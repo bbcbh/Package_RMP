@@ -28,6 +28,7 @@ import util.ArrayUtilsRandomGenerator;
 import util.Default_Remote_MetaPopulation_AgeGrp_Classifier;
 import util.FileZipper;
 import util.PersonClassifier;
+import util.PropValUtils;
 
 /**
  *
@@ -62,6 +63,8 @@ import util.PersonClassifier;
  *  - Change notification to infectious only
  * 20180717
  *  - Change notficiation by infection state
+ * 20180718
+ *  - Add method to update population's field value
  * </pre>
  */
 public class Thread_PopRun implements Runnable {
@@ -167,7 +170,7 @@ public class Thread_PopRun implements Runnable {
         new float[]{
             // Regional        
             // Male
-            0.130f * (0.44f / 0.48f),
+            -0.130f * (0.44f / 0.48f),
             0.140f * (0.44f / 0.48f),
             0.110f * (0.44f / 0.48f),
             0.110f * (0.44f / 0.48f),
@@ -237,7 +240,12 @@ public class Thread_PopRun implements Runnable {
         // [min, range]
         // Alterative format
         // [min, cumul_liklihood_1, cumul_delay_range_1, cumul_liklihood_2, cumul_delay_range_2, .... total_liklihood]        
-        new int[][]{new int[]{7, 21}},
+        new int[][]{
+            new int[]{0, 90, 7, 100},
+            new int[]{0, 111, 0, 122, 2, 191, 5, 327, 113, 405},
+            new int[]{0, 111, 0, 122, 2, 191, 5, 327, 113, 405},
+            new int[]{0, 111, 0, 122, 2, 191, 5, 327, 113, 405},
+            new int[]{0, 111, 0, 122, 2, 191, 5, 327, 113, 405},},
         // 10: PARAM_INDEX_TESTING_SENSITIVITY
         0.98f
 
@@ -556,15 +564,15 @@ public class Thread_PopRun implements Runnable {
         File notificationFileName = new File(outputFilePath.getParent(),
                 FILE_PREFIX_TEST_AND_NOTIFICATION + simId + ".csv");
         boolean writeFirstLine = !notificationFileName.exists();
-        
+
         try (PrintWriter pri = new PrintWriter(new FileWriter(notificationFileName, true))) {
             if (writeFirstLine) {
                 pri.print("Time");
-                for (int infId = 0; infId < cumulativeTestAndNotification.length; infId++) {                   
+                for (int infId = 0; infId < cumulativeTestAndNotification.length; infId++) {
                     for (int classId = 0; classId < cumulativeTestAndNotification[infId].length; classId++) {
                         for (int statusId = 0; statusId < cumulativeTestAndNotification[infId][classId].length; statusId++) {
                             pri.print(',');
-                            pri.print("Inf #" + infId + " Class #" + classId + " Status #" + (statusId-1));
+                            pri.print("Inf #" + infId + " Class #" + classId + " Status #" + (statusId - 1));
                         }
                     }
                 }
@@ -578,7 +586,7 @@ public class Thread_PopRun implements Runnable {
                         pri.print(',');
                         pri.print(cumulativeTestAndNotification[infId][classId][statusId]);
                     }
-                }                
+                }
             }
             pri.println();
 
@@ -813,6 +821,32 @@ public class Thread_PopRun implements Runnable {
             }
 
         }
+    }
+
+    public void updatePopFieldFromString(int fieldIndex, String fieldEntry) {
+        Object orgVal = ((Population_Remote_MetaPopulation) getPop()).getFields()[fieldIndex];
+
+        if (orgVal == null) {
+            switch (fieldIndex) {
+                case Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_NEWPERSON_INFECTION_PREVAL:
+                    orgVal = new float[0][];
+                    break;
+                case Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_NEWPERSON_INFECTION_CLASSIFIER:
+                    orgVal = new PersonClassifier[0];
+                    break;
+                default:
+                    System.err.println("Default class for Pop #" + fieldIndex + " non defined");
+                    break;
+            }
+
+        }
+
+        if (orgVal != null) {
+            ((Population_Remote_MetaPopulation) getPop()).getFields()[fieldIndex]
+                    = PropValUtils.propStrToObject(fieldEntry, orgVal.getClass());
+
+        }
+
     }
 
 }

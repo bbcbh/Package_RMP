@@ -11,14 +11,14 @@ import sim.Simulation_Remote_MetaPopulation;
  *
  * @author Ben Hui
  * @version 20180615
- * 
+ *
  * <pre>
  * History:
- * 
- * 20180615 
+ *
+ * 20180615
  *  - Combine simulation and optimisaiton as one run file
  * </pre>
- * 
+ *
  */
 public class Run_Population_Remote_MetaPopulation_Pop_Intro_Infection {
 
@@ -49,14 +49,18 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Infection {
                 break;
             case 3:
                 try {
-                    OptRun_Population_Remote_MetaPopulation_Infection_Intro.main(rArg);
+                    OptRun_Population_Remote_MetaPopulation_Infection_Intro run
+                            = new OptRun_Population_Remote_MetaPopulation_Infection_Intro(arg);
+                    run.runOptimisation();
                 } catch (IOException | ClassNotFoundException ex) {
                     ex.printStackTrace(System.err);
                 }
                 break;
             case 4:
                 try {
-                    OptRun_Population_Remote_MetaPopulation_Infection_Intro_GA.main(rArg);
+                    OptRun_Population_Remote_MetaPopulation_Infection_Intro_GA run
+                            = new OptRun_Population_Remote_MetaPopulation_Infection_Intro_GA(arg);
+                    run.runOptimisation();
                 } catch (IOException | ClassNotFoundException ex) {
                     ex.printStackTrace(System.err);
                 }

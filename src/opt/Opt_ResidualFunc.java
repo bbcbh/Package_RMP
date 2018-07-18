@@ -21,22 +21,26 @@ public class Opt_ResidualFunc extends AbstractResidualFunc {
     File exportDir;
     ExecutorService executor = null;
 
-    final int NUM_STEPS = 360 * 50;
+    int NUM_STEPS = 360 * 50;
     int NUM_THREADS = Runtime.getRuntime().availableProcessors();
 
     private final File[] OPT_RES_DIR_COLLECTION;
     private final double[] OPT_RES_SUM_SQS;
     private final double[] TARGET_PREVAL;
+    private final String[] propModelInitStr;
 
     public Opt_ResidualFunc(File[] popFiles, File exportDir,
-            int NUM_THREADS, double[] targetPreval,
-            File[] OPT_RES_DIR_COLLECTION, double[] OPT_RES_SUM_SQS) {
-        this.popFiles = popFiles;
+            int numSteps, int NUM_THREADS,  double[] targetPreval,
+            File[] OPT_RES_DIR_COLLECTION, double[] OPT_RES_SUM_SQS, 
+            String[] propModelInitStr) {
+        this.popFiles = popFiles;        
         this.exportDir = exportDir;
-        this.NUM_THREADS = NUM_THREADS;
+        this.NUM_STEPS = numSteps;
+        this.NUM_THREADS = NUM_THREADS;        
         this.OPT_RES_DIR_COLLECTION = OPT_RES_DIR_COLLECTION;
         this.OPT_RES_SUM_SQS = OPT_RES_SUM_SQS;
         this.TARGET_PREVAL = targetPreval;
+        this.propModelInitStr = propModelInitStr;
          
     }
 
@@ -80,7 +84,8 @@ public class Opt_ResidualFunc extends AbstractResidualFunc {
                 executor = Executors.newFixedThreadPool(NUM_THREADS);
                 numInExe = 0;
             }
-            Callable_Opt_Prevalence opRun = new Callable_Opt_Prevalence(optOutputDir, popFiles[i], i, NUM_STEPS, param);
+            Callable_Opt_Prevalence opRun = new Callable_Opt_Prevalence(
+                    optOutputDir, popFiles[i], i, NUM_STEPS, param, propModelInitStr);
             opRun.setOutputAsFile(popFiles.length > 1);
             opRun.setTarget_preval(TARGET_PREVAL);
 

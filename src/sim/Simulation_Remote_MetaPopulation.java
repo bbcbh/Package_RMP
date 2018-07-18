@@ -7,6 +7,7 @@ import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.Properties;
+import opt.OptRun_Population_Remote_MetaPopulation_Infection_Intro;
 import run.Run_Population_Remote_MetaPopulation_Pop_Analysis;
 import run.Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT;
 import run.Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis;
@@ -30,6 +31,8 @@ import util.PropValUtils;
  *   - Add decode collection file for syphilis simulation runs
  * 20180622:
  *   - Uniting input format for both NG_CT and syphilis
+ * 20180718:
+ *   - Add support for optimisation
  *
  * </pre>
  */
@@ -199,10 +202,40 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                 } catch (IOException | ClassNotFoundException ex) {
                     ex.printStackTrace(System.err);
                 }
+                break;
+            case 2:
+                // 0: Base Dir
+                // 1: Import Dir
+                // 2: Num thread
+                // 3: Num sim
+                // 4: Num to keep
+                rArg = new String[5];
+                rArg[0] = baseDir.getAbsolutePath();
+                rArg[1] = propVal[PROP_POP_IMPORT_PATH] == null ? "" : (String) propVal[PROP_POP_IMPORT_PATH];
+                rArg[2] = propVal[PROP_USE_PARALLEL] == null ? "" : ((Integer) propVal[PROP_USE_PARALLEL]).toString();
+                rArg[3] = propVal[PROP_NUM_SIM_PER_SET] == null ? "" : ((Integer) propVal[PROP_NUM_SIM_PER_SET]).toString();
+                rArg[4] = "0";
+
+                OptRun_Population_Remote_MetaPopulation_Infection_Intro run
+                        = new OptRun_Population_Remote_MetaPopulation_Infection_Intro(rArg);
+                
+                 // Num step - in this case it is PROP_NUM_SNAP * PROP_SNAP_FREQ
+                if( propVal[PROP_NUM_SNAP] != null && propVal[PROP_SNAP_FREQ] != null){
+                    run.setNumSteps(((Integer) propVal[PROP_NUM_SNAP]) * ((Integer) propVal[PROP_SNAP_FREQ]));
+                }                                   
+
+                run.setPropModelInitStr(propModelInitStr);
+
+                try {
+                    run.runOptimisation();
+                } catch (IOException | ClassNotFoundException ex) {
+                    ex.printStackTrace(System.err);
+                }
 
                 break;
+
             default:
-                System.err.println("Error: Illegal PROP_RMP_SIM_TYPE. Set 0 for NG/CT and 1 for Syphilis");
+                System.err.println("Error: Illegal PROP_RMP_SIM_TYPE. Set 0 for NG/CT and 1 for Syphilis simulation, 2 for NG/CT optimisation");
 
         }
     }
