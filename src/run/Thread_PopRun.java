@@ -566,9 +566,9 @@ public class Thread_PopRun implements Runnable {
         boolean writeFirstLine = !notificationFileName.exists();
 
         try (PrintWriter pri = new PrintWriter(new FileWriter(notificationFileName, true))) {
-            if (writeFirstLine) {
+            if (writeFirstLine) {      
                 pri.print("Time");
-                for (int infId = 0; infId < cumulativeTestAndNotification.length; infId++) {
+                for (int infId = 0; infId < cumulativeTestAndNotification.length; infId++) {                    
                     for (int classId = 0; classId < cumulativeTestAndNotification[infId].length; classId++) {
                         for (int statusId = 0; statusId < cumulativeTestAndNotification[infId][classId].length; statusId++) {
                             pri.print(',');
@@ -578,9 +578,9 @@ public class Thread_PopRun implements Runnable {
                 }
                 pri.println();
             }
-
-            for (int infId = 0; infId < cumulativeTestAndNotification.length; infId++) {
-                pri.print(pop.getGlobalTime());
+            
+            pri.print(pop.getGlobalTime());
+            for (int infId = 0; infId < cumulativeTestAndNotification.length; infId++) {               
                 for (int classId = 0; classId < cumulativeTestAndNotification[infId].length; classId++) {
                     for (int statusId = 0; statusId < cumulativeTestAndNotification[infId][classId].length; statusId++) {
                         pri.print(',');

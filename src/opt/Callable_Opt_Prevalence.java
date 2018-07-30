@@ -60,7 +60,7 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
         0.135, 0.076, 0.028, 0.043 // NG, Female              
     };
 
-    public Callable_Opt_Prevalence(File optOutputDir, File popFile, int simId, int numStep, 
+    public Callable_Opt_Prevalence(File optOutputDir, File popFile, int simId, int numStep,
             double[] param, String[] propModelInitStr) {
         this.popFile = popFile;
         this.optOutputDir = optOutputDir;
@@ -77,46 +77,42 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
     public void loadParameters(Thread_PopRun thread, double[] param) {
 
         PrintWriter outputPrint = thread.getOutputPri();
-        
-        if(propModelInitStr != null){
-            
-            
-            for(int i = 0; i < propModelInitStr.length; i++){
-                if(propModelInitStr[i]!= null && !propModelInitStr[i].isEmpty()){                    
-                    if(i < OPT_PARAM_TOTAL){
-                        param[i] = Float.parseFloat(propModelInitStr[i]);                                                
+
+        if (propModelInitStr != null) {
+
+            for (int i = 0; i < propModelInitStr.length; i++) {
+                if (propModelInitStr[i] != null && !propModelInitStr[i].isEmpty()) {
+                    if (i < OPT_PARAM_TOTAL) {
+                        param[i] = Float.parseFloat(propModelInitStr[i]);
                     } else if (i - OPT_PARAM_TOTAL < Thread_PopRun.PARAM_TOTAL) {
-                        thread.getInputParam()[i - OPT_PARAM_TOTAL] = 
-                                PropValUtils.propStrToObject(propModelInitStr[i], thread.getInputParam()[i - OPT_PARAM_TOTAL].getClass());                                                                       
-                    } else{                        
+                        thread.getInputParam()[i - OPT_PARAM_TOTAL]
+                                = PropValUtils.propStrToObject(propModelInitStr[i], thread.getInputParam()[i - OPT_PARAM_TOTAL].getClass());
+                    } else {
                         int popIndex = i - OPT_PARAM_TOTAL - Thread_PopRun.PARAM_TOTAL;
-                        thread.updatePopFieldFromString(popIndex, propModelInitStr[i]);                                                                        
-                        
+                        thread.updatePopFieldFromString(popIndex, propModelInitStr[i]);
+
                     }
-                    
-                    
-                    if(outputPrint != null){
+
+                    if (outputPrint != null) {
                         outputPrint.println("Model init. setting #" + i + " = " + propModelInitStr[i]);
                     }
-                    
-                    
-                }                                
-            }            
+
+                }
+            }
         }
-        
-        float[][] defaultBehaviour = 
-                ((float[][][]) ((Population_Remote_MetaPopulation) thread.getPop()).getFields()
-                [Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_NUMBER_PARTNER_LAST_12_MONTHS_DECOMP])[0];
+
+        float[][] defaultBehaviour
+                = ((float[][][]) ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_NUMBER_PARTNER_LAST_12_MONTHS_DECOMP])[0];
 
         ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_NUMBER_PARTNER_LAST_12_MONTHS_DECOMP]
                 = new float[][][]{defaultBehaviour};
 
         if (param.length > OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_16_19) {
             float[][] adjustBehaviour = new float[defaultBehaviour.length][];
-            for(int r = 0; r < adjustBehaviour.length; r++){
+            for (int r = 0; r < adjustBehaviour.length; r++) {
                 adjustBehaviour[r] = Arrays.copyOf(defaultBehaviour[r], 5);
-                adjustBehaviour[r][4] = (float) param[OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_16_19 + r];                
-            }                                                                       
+                adjustBehaviour[r][4] = (float) param[OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_16_19 + r];
+            }
 
             ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_NUMBER_PARTNER_LAST_12_MONTHS_DECOMP]
                     = new float[][][]{defaultBehaviour, adjustBehaviour, adjustBehaviour, adjustBehaviour, adjustBehaviour};
@@ -231,12 +227,6 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
         if (outputPrint != null) {
             outputPrint.println("Duration Sym (NG) = " + Arrays.toString((double[]) ng_inf.getParameter(key)));
         }
-        
-        
-        
-        
-        
-        
 
         if (outputPrint != null) {
             outputPrint.flush();
@@ -310,9 +300,8 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
 
         AbstractIndividualInterface[] allPerson = thread.getPop().getPop();
 
-        
         for (AbstractIndividualInterface person : allPerson) {
-            
+
             // Remote only 
             if (((Population_Remote_MetaPopulation) thread.getPop()).getCurrentLocation(person) != 0) {
                 int cI = prevalClassifer.classifyPerson(person);
