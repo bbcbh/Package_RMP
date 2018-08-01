@@ -65,6 +65,10 @@ import util.PropValUtils;
  *  - Change notficiation by infection state
  * 20180718
  *  - Add method to update population's field value
+ * 20180801
+ *  - Add default testing classifier
+ *  - Changing the definition of PARAM_INDEX_TESTING_RATE_BY_HOME_LOC as boolean
+ *
  * </pre>
  */
 public class Thread_PopRun implements Runnable {
@@ -117,49 +121,7 @@ public class Thread_PopRun implements Runnable {
             -1,},
         // 6: PARAM_INDEX_TESTING_CLASSIFIER
         // type: PersonClassifier
-        new PersonClassifier() {
-            int numLoc = 5;
-            int numGender = 2;
-            int numAgeGrp = 4;
-
-            @Override
-            public int classifyPerson(AbstractIndividualInterface p) {
-                double a = p.getAge();
-                // Age
-                int res = -1;
-                if (a >= 16 * AbstractIndividualInterface.ONE_YEAR_INT) {
-                    res = 0;
-                    if (a >= 20 * AbstractIndividualInterface.ONE_YEAR_INT) {
-                        res++;
-                    }
-                    if (a >= 25 * AbstractIndividualInterface.ONE_YEAR_INT) {
-                        res++;
-                    }
-                    if (a >= 30 * AbstractIndividualInterface.ONE_YEAR_INT) {
-                        res++;
-                    }
-                    if (a >= 35 * AbstractIndividualInterface.ONE_YEAR_INT) {
-                        res = -1;
-                    }
-                }
-                if (res >= 0) {
-                    // Gender
-                    if (!p.isMale()) {
-                        res += numAgeGrp;
-                    }
-                    // Location
-                    int loc = ((MoveablePersonInterface) p).getHomeLocation();
-                    res += loc * numGender * numAgeGrp;
-                }
-
-                return res;
-            }
-
-            @Override
-            public int numClass() {
-                return numLoc * numGender * numAgeGrp; // 5 loc * 2 gender * 4 age grp
-            }
-        },
+        new DEFAULT_TESTING_CLASSIFIER(),
         // 7: PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER
         // Regional adjustment from GOANNA, p.43  
         // Remote from STRIVE (FNQ, LC's slides)
@@ -223,19 +185,8 @@ public class Thread_PopRun implements Runnable {
             0.240f,
             0.230f,
             0.190f,},
-        // 8: PARAM_INDEX_TESTING_RATE_BY_HOME_LOC
-        // From GOANNA, p.43        
-        /*
-           new float[]{
-            // Regional
-            0.44f,
-            // Remote
-            0.48f,
-            0.48f,
-            0.48f,
-            0.48f,},
-         */
-        new float[0],
+        // 8: PARAM_INDEX_TESTING_RATE_BY_HOME_LOC        
+        true,
         // 9: PARAM_INDEX_TESTING_TREATMENT_DELAY_BY_LOC
         // [min, range]
         // Alterative format
@@ -264,6 +215,59 @@ public class Thread_PopRun implements Runnable {
 
     public int getOutputFreq() {
         return this.outputFreq;
+    }
+
+    private class DEFAULT_TESTING_CLASSIFIER implements PersonClassifier {
+
+        int numLoc = 5;
+        int numGender = 2;
+        int numAgeGrp = 4;
+
+        @Override
+        public int classifyPerson(AbstractIndividualInterface p) {
+            double a = p.getAge();
+            // Age
+            int res = -1;
+            if (a >= 16 * AbstractIndividualInterface.ONE_YEAR_INT) {
+                res = 0;
+                if (a >= 20 * AbstractIndividualInterface.ONE_YEAR_INT) {
+                    res++;
+                }
+                if (a >= 25 * AbstractIndividualInterface.ONE_YEAR_INT) {
+                    res++;
+                }
+                if (a >= 30 * AbstractIndividualInterface.ONE_YEAR_INT) {
+                    res++;
+                }
+                if (a >= 35 * AbstractIndividualInterface.ONE_YEAR_INT) {
+                    res = -1;
+                }
+            }
+            if (res >= 0) {
+                // Gender
+                if (!p.isMale()) {
+                    res += numAgeGrp;
+                }
+                // Location
+                int loc = ((MoveablePersonInterface) p).getHomeLocation();
+
+                // Use current location instead for testing purpose
+                if (!(Boolean) getInputParam()[PARAM_INDEX_TESTING_RATE_BY_HOME_LOC]) {                    
+                    if (pop != null) {
+                        loc = pop.getCurrentLocation(p);
+                    }
+                }
+                res += loc * numGender * numAgeGrp;
+            }
+
+            return res;
+        }
+
+        @Override
+        public int numClass() {
+            return numLoc * numGender * numAgeGrp; // 5 loc * 2 gender * 4 age grp
+        }
+
     }
 
     private class DEFAULT_PREVAL_CLASSIFIER implements PersonClassifier {
@@ -440,7 +444,6 @@ public class Thread_PopRun implements Runnable {
                     } else {
 
                         float[] testRatebyClassifier = (float[]) getInputParam()[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER];
-                        float[] testRateByLoc = (float[]) getInputParam()[PARAM_INDEX_TESTING_RATE_BY_HOME_LOC];
 
                         for (AbstractIndividualInterface person : pop.getPop()) {
                             boolean testToday = false;
@@ -452,12 +455,6 @@ public class Thread_PopRun implements Runnable {
                                     float dailyRate = (float) (1 - Math.exp(Math.log(1 - testRate) / AbstractIndividualInterface.ONE_YEAR_INT));
                                     testToday = testRNG.nextFloat() < dailyRate;
                                 }
-                            }
-                            if (!testToday && testRateByLoc != null && testRateByLoc.length > 0) {
-                                int loc = ((MoveablePersonInterface) person).getHomeLocation();
-                                float testByLocRate = Math.abs(testRateByLoc[loc]);
-                                float dailyTestByLocRate = (float) (1 - Math.exp(Math.log(1 - testByLocRate) / AbstractIndividualInterface.ONE_YEAR_INT));
-                                testToday = testRNG.nextFloat() < dailyTestByLocRate;
                             }
                             if (testToday) {
                                 testingPerson(person, treatmentSchdule, testRNG, notificationClassifier);
@@ -566,9 +563,9 @@ public class Thread_PopRun implements Runnable {
         boolean writeFirstLine = !notificationFileName.exists();
 
         try (PrintWriter pri = new PrintWriter(new FileWriter(notificationFileName, true))) {
-            if (writeFirstLine) {      
+            if (writeFirstLine) {
                 pri.print("Time");
-                for (int infId = 0; infId < cumulativeTestAndNotification.length; infId++) {                    
+                for (int infId = 0; infId < cumulativeTestAndNotification.length; infId++) {
                     for (int classId = 0; classId < cumulativeTestAndNotification[infId].length; classId++) {
                         for (int statusId = 0; statusId < cumulativeTestAndNotification[infId][classId].length; statusId++) {
                             pri.print(',');
@@ -578,9 +575,9 @@ public class Thread_PopRun implements Runnable {
                 }
                 pri.println();
             }
-            
+
             pri.print(pop.getGlobalTime());
-            for (int infId = 0; infId < cumulativeTestAndNotification.length; infId++) {               
+            for (int infId = 0; infId < cumulativeTestAndNotification.length; infId++) {
                 for (int classId = 0; classId < cumulativeTestAndNotification[infId].length; classId++) {
                     for (int statusId = 0; statusId < cumulativeTestAndNotification[infId][classId].length; statusId++) {
                         pri.print(',');
@@ -600,22 +597,17 @@ public class Thread_PopRun implements Runnable {
 
         PersonClassifier testByClassifier = (PersonClassifier) getInputParam()[PARAM_INDEX_TESTING_CLASSIFIER];
         float[] testRatebyClassifier = (float[]) getInputParam()[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER];
-        float[] testRateByLoc = (float[]) getInputParam()[PARAM_INDEX_TESTING_RATE_BY_HOME_LOC];
+
         ArrayList<AbstractIndividualInterface> testing_schedule = new ArrayList<>();
         ArrayList<AbstractIndividualInterface>[] candidateByClassifier = null;
-        ArrayList<AbstractIndividualInterface>[] candidateByLocation = null;
+
         if (testByClassifier != null) {
             candidateByClassifier = new ArrayList[testByClassifier.numClass()];
             for (int i = 0; i < candidateByClassifier.length; i++) {
                 candidateByClassifier[i] = new ArrayList<>();
             }
         }
-        if (testRateByLoc != null && testRateByLoc.length > 0) {
-            candidateByLocation = new ArrayList[((int[]) pop.getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_POP_SIZE]).length];
-            for (int loc = 0; loc < candidateByLocation.length; loc++) {
-                candidateByLocation[loc] = new ArrayList<>();
-            }
-        }
+
         for (AbstractIndividualInterface person : pop.getPop()) {
             if (testByClassifier != null) {
                 int cI = testByClassifier.classifyPerson(person);
@@ -623,17 +615,11 @@ public class Thread_PopRun implements Runnable {
                     candidateByClassifier[cI].add(person);
                 }
             }
-            if (candidateByLocation != null) {
-                int loc = ((MoveablePersonInterface) person).getHomeLocation();
-                candidateByLocation[loc].add(person);
-            }
         }
         if (candidateByClassifier != null) {
             selectCandidateForTesting(candidateByClassifier, testRatebyClassifier, testRNG, testing_schedule);
         }
-        if (candidateByLocation != null) {
-            selectCandidateForTesting(candidateByLocation, testRateByLoc, testRNG, testing_schedule);
-        }
+
         return testing_schedule;
     }
 

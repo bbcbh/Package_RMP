@@ -18,7 +18,7 @@ public class Test_Population_Remote_MetaPopulation_Pop_Generate {
     public static void main(String[] arg) throws IOException, ClassNotFoundException, InterruptedException {
 
         int TEST_STEP = 0;
-        String[] rArg = new String[]{"", "", "C:\\Users\\Bhui\\Desktop\\VM_FTP\\RMP\\BasePop", "8"};
+        String[] rArg = new String[]{"8", "", "C:\\Users\\Bhui\\OneDrive - UNSW\\RMP\\Test\\BasePop_Full", "8"};
 
         Run_Population_Remote_MetaPopulation_Pop_Generate.main(rArg);
 
