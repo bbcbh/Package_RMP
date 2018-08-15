@@ -29,24 +29,26 @@ import util.PropValUtils;
 /**
  *
  * @author Ben Hui
- * @version 20180713
+ * @version 20180815
  *
  * History:
  *
  * <pre>
- * 20180523
- *  - Added support for repeated simulation runs
- * 20180612
- *  - Added support for user-defined input parameter
- * 20180614
- *  - Minor change to output print format
- * 20180622:
- *   - Uniting input format for both NG/CT and syphilis
- * 20180713
- *   - Introduce implementation of Interface_IntroInfection interface
- * </pre>
+  20180523
+   - Added support for repeated simulation runs
+  20180612
+   - Added support for user-defined input parameter
+  20180614
+   - Minor change to output print format
+  20180622
+   - Uniting input format for both NG/CT and syphilis
+  20180713
+   - Introduce implementation of Abstract_Run_IntroInfection interface
+  20180815
+   - Add support for Abstract_Run_IntroInfection class
+ </pre>
  */
-public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT implements Interface_IntroInfection {
+public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT extends Abstract_Run_IntroInfection {
 
     public String BASE_DIR_STR = "~/RMP/OptResults";
     public String IMPORT_DIR_STR = "~/RMP/ImportDir";
@@ -89,8 +91,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT implements Int
         // 7: PARAM_SD_NG - set to zero for fixed value
         0.02,};
 
-    protected String[] threadParamValStr = new String[Thread_PopRun.PARAM_TOTAL];
-    protected String[] popParamValStr = new String[0];
+    //protected String[] threadParamValStr = new String[Thread_PopRun.PARAM_TOTAL];
 
     // For Beta distribution, 
     // alpha = mean*(mean*(1-mean)/variance - 1)
@@ -143,24 +144,12 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT implements Int
         System.out.println("SAMP_FREQ = " + SAMP_FREQ);
     }
 
+    @Override
     public double[] getRunParamValues() {
         return paramVal_Run;
     }
+   
 
-    public String[] getThreadParamValStr() {
-        return threadParamValStr;
-    }
-
-    public String[] getPopParamValStr() {
-        return popParamValStr;
-    }
-
-    public void setPopParamValStr(int index, String ent) {
-        if (popParamValStr.length < index) {
-            popParamValStr = Arrays.copyOf(popParamValStr, index + 1);
-        }
-        popParamValStr[index] = ent;
-    }
 
     protected Object[] generateParam() {
         Object[] generatedDistribution = {
@@ -216,8 +205,9 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT implements Int
         if (NUM_SIM_TOTAL > 0 && NUM_SIM_TOTAL < popFiles.length) {
             popFiles = Arrays.copyOf(popFiles, NUM_SIM_TOTAL);
         }
-
-        System.out.println(popFiles.length + " population file(s) will be used in simulation");
+        
+        System.out.println(popFiles.length + " population file(s) will be used in simulation");        
+                        
 
         ExecutorService executor = null;
         int numInExe = 0;
@@ -229,9 +219,13 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT implements Int
             }
             File importPop = popFiles[sId];
             File outputPopFile = new File(exportDir, "Sim_" + importPop.getName());
+            
+            boolean skipPop = getPopSelection() != null && (Arrays.binarySearch(getPopSelection(), sId) < 0);
 
             if (outputPopFile.exists()) {
                 System.out.println("Pop file " + outputPopFile.getAbsolutePath() + " already exist. Simulation skipped.");
+            }else if(skipPop){
+                //System.out.println("Simulation for pop file " + outputPopFile.getAbsolutePath() + " skipped due to popSelection.");
 
             } else {
 
@@ -480,6 +474,6 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT implements Int
             outputPrint.flush();
         }
 
-    }
+    }    
 
 }

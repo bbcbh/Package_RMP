@@ -18,7 +18,7 @@ import util.PropValUtils;
  * Define a set of simulation using properties file
  *
  * @author Ben Hui
- * @version 20180622
+ * @version 20180815
  *
  * <pre>
  * History:
@@ -33,18 +33,18 @@ import util.PropValUtils;
  *   - Uniting input format for both NG_CT and syphilis
  * 20180718:
  *   - Add support for optimisation
+ * 20180815:
+ *   - Add support for pop selection
  *
  * </pre>
  */
 public class Simulation_Remote_MetaPopulation implements SimulationInterface {
 
     public static final String[] PROP_NAME_RMP = {
-        "PROP_RMP_SIM_TYPE", "PROP_STORE_INFECTION_HISTORY"
-    };
+        "PROP_RMP_SIM_TYPE", "PROP_STORE_INFECTION_HISTORY",};
     public static final Class[] PROP_CLASS_RMP = {
         Integer.class, // 0 = NG_CT, 1 = Syphilis
-        Boolean.class
-    };
+        Boolean.class,};
     public static final int PROP_RMP_SIM_TYPE = PROP_NAME.length;
     public static final int PROP_STORE_INFECTION_HISTORY = PROP_RMP_SIM_TYPE + 1;
 
@@ -124,6 +124,7 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
 
     @Override
     public void generateOneResultSet() throws IOException, InterruptedException {
+
         int simType = ((Integer) propVal[PROP_RMP_SIM_TYPE]);
         String[] rArg;
 
@@ -145,6 +146,11 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                 rArg[5] = propVal[PROP_SNAP_FREQ] == null ? "" : ((Integer) propVal[PROP_SNAP_FREQ]).toString();
 
                 Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT runNGCT = new Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT(rArg);
+
+                if (propVal[PROP_POP_SELECT_CSV] != null) {
+                    runNGCT.setPopSelectionCSV((String) propVal[PROP_POP_SELECT_CSV]);
+                }
+
                 if (propModelInitStr != null) {
                     for (int i = 0; i < propModelInitStr.length; i++) {
                         if (propModelInitStr[i] != null && !propModelInitStr[i].isEmpty()) {
@@ -179,6 +185,10 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                 rArg[5] = propVal[PROP_SNAP_FREQ] == null ? "" : ((Integer) propVal[PROP_SNAP_FREQ]).toString();
                 rArg[6] = propVal[PROP_STORE_INFECTION_HISTORY] == null ? "" : ((Boolean) propVal[PROP_STORE_INFECTION_HISTORY]).toString();
                 Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis runSyp = new Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis(rArg);
+                
+                if (propVal[PROP_POP_SELECT_CSV] != null) {
+                    runSyp.setPopSelectionCSV((String) propVal[PROP_POP_SELECT_CSV]);
+                }
 
                 if (propModelInitStr != null) {
                     for (int i = 0; i < propModelInitStr.length; i++) {
@@ -218,11 +228,11 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
 
                 OptRun_Population_Remote_MetaPopulation_Infection_Intro run
                         = new OptRun_Population_Remote_MetaPopulation_Infection_Intro(rArg);
-                
-                 // Num step - in this case it is PROP_NUM_SNAP * PROP_SNAP_FREQ
-                if( propVal[PROP_NUM_SNAP] != null && propVal[PROP_SNAP_FREQ] != null){
+
+                // Num step - in this case it is PROP_NUM_SNAP * PROP_SNAP_FREQ
+                if (propVal[PROP_NUM_SNAP] != null && propVal[PROP_SNAP_FREQ] != null) {
                     run.setNumSteps(((Integer) propVal[PROP_NUM_SNAP]) * ((Integer) propVal[PROP_SNAP_FREQ]));
-                }                                   
+                }
 
                 run.setPropModelInitStr(propModelInitStr);
 

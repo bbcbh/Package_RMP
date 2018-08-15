@@ -28,7 +28,6 @@ import org.apache.commons.math3.distribution.BetaDistribution;
 import person.AbstractIndividualInterface;
 import person.Person_Remote_MetaPopulation;
 import population.AbstractFieldsArrayPopulation;
-import population.Population_Remote_MetaPopulation;
 import random.RandomGenerator;
 import util.PersonClassifier;
 import util.PropValUtils;
@@ -36,39 +35,41 @@ import util.PropValUtils;
 /**
  *
  * @author Ben Hui
- * @version 20180718
+ * @version 20180815
  *
  * <pre>
  * History
  *
  * 20180517
- *  - Change the ordering of import file name by numberical index instead of file name
- *  - Add feedback for decodeCollectionFile
+ * - Change the ordering of import file name by numberical index instead of file name
+ * - Add feedback for decodeCollectionFile
  *
  * 20180518
- *  - Add support for varying tranmission probability
+ * - Add support for varying tranmission probability
  *
  * 20180522
- *  - Remove main method
+ * - Remove main method
  *
  * 20180523
- *  - Change messages for repeated simulation run from System.err to System.out
+ * - Change messages for repeated simulation run from System.err to System.out
  *
  * 20180612
- *  - Renaming of getParamValue to getRunParamValues
+ * - Renaming of getParamValue to getRunParamValues
  *
  * 20180618
- *  - Reset testing rate as an input (PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER)
+ * - Reset testing rate as an input (PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER)
  *
  * 20180713
- *   - Introduce implementation of Interface_IntroInfection interface
- * 
- * 20180718
- *   - Adapt usage of updatePopFieldFromString() from Thread_PopRun
+ * - Introduce implementation of Abstract_Run_IntroInfection interface
  *
+ * 20180718
+ * - Adapt usage of updatePopFieldFromString() from Thread_PopRun
+ *
+ * 20180815
+ * -  Add support for Abstract_Run_IntroInfection class
  * </pre>
  */
-public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis implements Interface_IntroInfection {
+public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abstract_Run_IntroInfection {
 
     public String BASE_DIR_STR = "~/RMP/OptResults";
     public String IMPORT_DIR_STR = "~/RMP/ImportDir";
@@ -78,7 +79,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis implements 
     public int SAMP_FREQ = 90;
     public boolean STORE_INFECTION_HISTORY = true;
 
-    final Pattern Pattern_importFile = Pattern.compile("pop_S(\\d+).zip");
+    final Pattern Pattern_importFile = Pattern.compile("\\w*pop_S(\\d+).zip");
     public static final int NUM_COLLECTION = 4;
     public static final String FILENAME_COLLECTION_STORE = "collectionStore.obj";
     public static final String FILENAME_NUM_IN_POP_CSV = "numInPop.csv";
@@ -144,8 +145,6 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis implements 
         0,};
 
     protected double[] paramVal_Run;
-    protected String[] threadParamValStr = new String[Thread_PopRun.PARAM_TOTAL];
-    protected String[] popFieldValStr = new String[0];
 
     public static final int PARAM_INDEX_TRAN_MF_INCUB = 0;
     public static final int PARAM_INDEX_TRAN_MF_PRI = PARAM_INDEX_TRAN_MF_INCUB + 1;
@@ -269,23 +268,8 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis implements 
 
     }
 
-    public String[] getThreadParamValStr() {
-        return threadParamValStr;
-    }
-
     public double[] getRunParamValues() {
         return paramVal_Run;
-    }
-
-    public String[] getPopParamValStr() {
-        return popFieldValStr;
-    }
-
-    public void setPopParamValStr(int index, String ent) {
-        if (popFieldValStr.length < index) {
-            popFieldValStr = Arrays.copyOf(popFieldValStr, index + 1);
-        }
-        popFieldValStr[index] = ent;
     }
 
     public void runSimulation() {
@@ -408,9 +392,13 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis implements 
 
             final File outputPopFile = new File(exportDir, "Sim_" + importPop.getName());
 
+            boolean skipPop = getPopSelection() != null && (Arrays.binarySearch(getPopSelection(), sId) < 0);
+
             if (outputPopFile.exists()) {
                 System.out.println("Output pop " + outputPopFile.getAbsolutePath()
                         + " already existed. Skipping simulation");
+            } else if (skipPop) {
+                System.out.println("Simulation for pop file " + outputPopFile.getAbsolutePath() + " skipped due to popSelection.");
             } else {
 
                 PrintWriter outputPrint = null;
@@ -722,8 +710,8 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis implements 
             }
         }
 
-        for (int i = 0; i < popFieldValStr.length; i++) {
-            if (popFieldValStr[i] != null) {
+        for (int i = 0; i < popParamValStr.length; i++) {
+            if (popParamValStr[i] != null) {
 
                 /*
                 Object orgVal = ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[i];
@@ -746,15 +734,15 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis implements 
 
                 if (orgVal != null) {
                     ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[i]
-                            = PropValUtils.propStrToObject(popFieldValStr[i],
+                            = PropValUtils.propStrToObject(popParamValStr[i],
                                     orgVal.getClass());
 
                    
                 }
                  */
-                thread.updatePopFieldFromString(i, popFieldValStr[i]);                
+                thread.updatePopFieldFromString(i, popParamValStr[i]);
                 if (outputPrint != null) {
-                    outputPrint.println("Pop Field #" + i + " = " + popFieldValStr[i]);
+                    outputPrint.println("Pop Field #" + i + " = " + popParamValStr[i]);
                 }
             }
         }
