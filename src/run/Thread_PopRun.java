@@ -33,7 +33,7 @@ import util.PropValUtils;
 /**
  *
  * @author Ben Hui
- * @version 20180602
+ * @version 20180816
  *
  * <pre>
  * History:
@@ -68,6 +68,8 @@ import util.PropValUtils;
  * 20180801
  *  - Add default testing classifier
  *  - Changing the definition of PARAM_INDEX_TESTING_RATE_BY_HOME_LOC as boolean
+ * 20180816
+ *  - Change intro at option so infection is only cleared at start of simulation if number of infection is different 
  *
  * </pre>
  */
@@ -252,7 +254,7 @@ public class Thread_PopRun implements Runnable {
                 int loc = ((MoveablePersonInterface) p).getHomeLocation();
 
                 // Use current location instead for testing purpose
-                if (!(Boolean) getInputParam()[PARAM_INDEX_TESTING_RATE_BY_HOME_LOC]) {                    
+                if (!(Boolean) getInputParam()[PARAM_INDEX_TESTING_RATE_BY_HOME_LOC]) {
                     if (pop != null) {
                         loc = pop.getCurrentLocation(p);
                     }
@@ -316,6 +318,7 @@ public class Thread_PopRun implements Runnable {
                 importPop();
             }
             if (pop != null) {
+
                 AbstractInfection[] modelledInfections = (AbstractInfection[]) getInputParam()[PARAM_INDEX_INFECTIONS];
                 int[] introAt = (int[]) getInputParam()[PARAM_INDEX_INTRO_AT];
                 int[] introPeriodicity = (int[]) getInputParam()[PARAM_INDEX_INTRO_PERIODICITY];
@@ -338,8 +341,10 @@ public class Thread_PopRun implements Runnable {
                 AbstractIndividualInterface[] allPerson = pop.getPop();
 
                 for (AbstractIndividualInterface person : allPerson) {
-                    Person_Remote_MetaPopulation prm = (Person_Remote_MetaPopulation) person;
-                    prm.setNumberOfInfections(modelledInfections.length);
+                    if (modelledInfections.length != person.getInfectionStatus().length) {
+                        Person_Remote_MetaPopulation prm = (Person_Remote_MetaPopulation) person;
+                        prm.setNumberOfInfections(modelledInfections.length);
+                    }
                 }
 
                 PersonClassifier testByClassifier = (PersonClassifier) getInputParam()[PARAM_INDEX_TESTING_CLASSIFIER];

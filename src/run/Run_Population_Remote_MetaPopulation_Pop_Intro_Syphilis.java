@@ -398,7 +398,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
                 System.out.println("Output pop " + outputPopFile.getAbsolutePath()
                         + " already existed. Skipping simulation");
             } else if (skipPop) {
-                System.out.println("Simulation for pop file " + outputPopFile.getAbsolutePath() + " skipped due to popSelection.");
+                //System.out.println("Simulation for pop file " + outputPopFile.getAbsolutePath() + " skipped due to popSelection.");
             } else {
 
                 PrintWriter outputPrint = null;
@@ -645,8 +645,8 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
         // Set syphilis setting
         SyphilisInfection syphilis = new SyphilisInfection(null);
         syphilis.setInfectionIndex(0);
-        RandomGenerator rng = ((population.Population_Remote_MetaPopulation) thread.getPop()).getInfectionRNG();
-
+        RandomGenerator rng = ((population.Population_Remote_MetaPopulation) thread.getPop()).getInfectionRNG();        
+        
         // Tranmission   
         double[] generateParam = new double[2];
         generateParam = setSyphilisTranProb(SyphilisInfection.DIST_INDEX_TRANS_INCUBATION_MF, PARAM_INDEX_TRAN_MF_INCUB, PARAM_INDEX_TRAN_MF_INCUB_SD,
@@ -763,7 +763,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
             outputPrint.println("Dist #" + i + " = " + distClass + ": " + Arrays.toString(param));
         }
 
-        outputPrint.flush();
+        outputPrint.flush();        
 
     }
 
