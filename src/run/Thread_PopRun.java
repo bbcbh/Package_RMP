@@ -69,8 +69,11 @@ import util.PropValUtils;
  *  - Add default testing classifier
  *  - Changing the definition of PARAM_INDEX_TESTING_RATE_BY_HOME_LOC as boolean
  * 20180816
- *  - Change intro at option so infection is only cleared at start of simulation if number of infection is different 
- *
+ *  - Change intro at option so infection is only cleared at start of simulation if number of infection is different
+ * 20180817
+ *  - Change screen rate definition to include non-annual screening. E.g. if 50% of population are screened biannually 
+ *    then the screen rate will be express as 2.50. Noted that for screening by probability it will check for all rate 
+ *    as oppose to only checking the first one
  * </pre>
  */
 public class Thread_PopRun implements Runnable {
@@ -385,28 +388,32 @@ public class Thread_PopRun implements Runnable {
                     cumulativeTestAndNotification[i] = new int[notificationClassifier.numClass()][pop.getInfList()[i].getNumState() + 1];
                 }
 
-                boolean useProportionTestCoverage = ((float[]) inputParam[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER])[0] < 0;
+                boolean useProportionTestCoverage = ((float[]) inputParam[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER])[0] < 0;                
+                int testing_schedule_freq = (int) ((float[]) inputParam[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER])[0];
+                
+                testing_schedule_freq = (testing_schedule_freq < 1)? AbstractIndividualInterface.ONE_YEAR_INT : 
+                        AbstractIndividualInterface.ONE_YEAR_INT/testing_schedule_freq;               
 
                 for (int t = 0; t < numSteps; t++) {
 
-                    if (!useProportionTestCoverage
-                            && (pop.getGlobalTime() - offset) % AbstractIndividualInterface.ONE_YEAR_INT == 0) {
+                    if (!useProportionTestCoverage && (pop.getGlobalTime() - offset) % testing_schedule_freq == 0) {
+                        
                         ArrayList<AbstractIndividualInterface> testing_schedule = generateTestingSchedule(testRNG);
 
                         testing_person = testing_schedule.toArray(new AbstractIndividualInterface[testing_schedule.size()]);
 
                         ArrayUtilsRandomGenerator.shuffleArray(testing_person, testRNG);
 
-                        testing_numPerDay = new int[AbstractIndividualInterface.ONE_YEAR_INT];
+                        testing_numPerDay = new int[testing_schedule_freq];
 
-                        int minTestPerDay = testing_person.length / AbstractIndividualInterface.ONE_YEAR_INT;
+                        int minTestPerDay = testing_person.length / testing_schedule_freq;
 
                         Arrays.fill(testing_numPerDay, minTestPerDay);
 
-                        int numExtra = testing_person.length - minTestPerDay * AbstractIndividualInterface.ONE_YEAR_INT;
+                        int numExtra = testing_person.length - minTestPerDay * testing_schedule_freq;
 
                         while (numExtra > 0) {
-                            testing_numPerDay[testRNG.nextInt(AbstractIndividualInterface.ONE_YEAR_INT)]++;
+                            testing_numPerDay[testRNG.nextInt(testing_schedule_freq)]++;
                             numExtra--;
                         }
 
@@ -438,7 +445,7 @@ public class Thread_PopRun implements Runnable {
                     // Testing
                     if (!useProportionTestCoverage) {
 
-                        int numTestToday = testing_numPerDay[(pop.getGlobalTime() - offset) % AbstractIndividualInterface.ONE_YEAR_INT];
+                        int numTestToday = testing_numPerDay[(pop.getGlobalTime() - offset) % testing_schedule_freq];
 
                         while (numTestToday != 0) {
                             testingPerson(testing_person[testing_pt], treatmentSchdule, testRNG, notificationClassifier);
@@ -448,16 +455,22 @@ public class Thread_PopRun implements Runnable {
 
                     } else {
 
-                        float[] testRatebyClassifier = (float[]) getInputParam()[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER];
+                        float[] testCoveragebyClassifier = (float[]) getInputParam()[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER];
 
                         for (AbstractIndividualInterface person : pop.getPop()) {
                             boolean testToday = false;
                             if (testByClassifier != null) {
                                 int cI = testByClassifier.classifyPerson(person);
                                 if (cI >= 0) {
-                                    float testRate = Math.abs(testRatebyClassifier[cI]);
-                                    // Rate is a yearly rate, so have to convert it into daily rate
-                                    float dailyRate = (float) (1 - Math.exp(Math.log(1 - testRate) / AbstractIndividualInterface.ONE_YEAR_INT));
+                                    float testRate = Math.abs(testCoveragebyClassifier[cI]);
+                                    float dailyRate;
+                                    // Rate                                          
+                                    int testFreq = (int) testRate; // Screen freq (by year). 
+                                    testRate = testRate - testFreq;
+                                    float srcPeriod = ((AbstractIndividualInterface.ONE_YEAR_INT/((testFreq < 1 ? 1: testFreq))));
+                                    
+                                    dailyRate = (float) (1 - Math.exp(Math.log(1 - testRate)/srcPeriod));
+
                                     testToday = testRNG.nextFloat() < dailyRate;
                                 }
                             }
@@ -632,7 +645,8 @@ public class Thread_PopRun implements Runnable {
             float[] rateCollection, RandomGenerator testRNG, ArrayList<AbstractIndividualInterface> testing_schedule) {
         for (int i = 0; i < candidateCollection.length; i++) {
             AbstractIndividualInterface[] candidate = candidateCollection[i].toArray(new AbstractIndividualInterface[candidateCollection[i].size()]);
-            int numSel = Math.round(rateCollection[i] * candidate.length);
+            int freqOffset = (int) rateCollection[i];                
+            int numSel = Math.round((rateCollection[i] -freqOffset) * candidate.length);
             candidate = ArrayUtilsRandomGenerator.randomSelect(candidate, numSel, testRNG);
             testing_schedule.addAll(Arrays.asList(candidate));
         }
