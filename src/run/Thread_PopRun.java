@@ -71,9 +71,11 @@ import util.PropValUtils;
  * 20180816
  *  - Change intro at option so infection is only cleared at start of simulation if number of infection is different
  * 20180817
- *  - Change screen rate definition to include non-annual screening. E.g. if 50% of population are screened biannually 
- *    then the screen rate will be express as 2.50. Noted that for screening by probability it will check for all rate 
+ *  - Change screen rate definition to include non-annual screening. E.g. if 50% of population are screened biannually
+ *    then the screen rate will be express as 2.50. Noted that for screening by probability it will check for all rate
  *    as oppose to only checking the first one
+ * 20180821
+ *  - Debug: Set current location as home location if current location is not found
  * </pre>
  */
 public class Thread_PopRun implements Runnable {
@@ -388,16 +390,16 @@ public class Thread_PopRun implements Runnable {
                     cumulativeTestAndNotification[i] = new int[notificationClassifier.numClass()][pop.getInfList()[i].getNumState() + 1];
                 }
 
-                boolean useProportionTestCoverage = ((float[]) inputParam[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER])[0] < 0;                
+                boolean useProportionTestCoverage = ((float[]) inputParam[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER])[0] < 0;
                 int testing_schedule_freq = (int) ((float[]) inputParam[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER])[0];
-                
-                testing_schedule_freq = (testing_schedule_freq < 1)? AbstractIndividualInterface.ONE_YEAR_INT : 
-                        AbstractIndividualInterface.ONE_YEAR_INT/testing_schedule_freq;               
+
+                testing_schedule_freq = (testing_schedule_freq < 1) ? AbstractIndividualInterface.ONE_YEAR_INT
+                        : AbstractIndividualInterface.ONE_YEAR_INT / testing_schedule_freq;
 
                 for (int t = 0; t < numSteps; t++) {
 
                     if (!useProportionTestCoverage && (pop.getGlobalTime() - offset) % testing_schedule_freq == 0) {
-                        
+
                         ArrayList<AbstractIndividualInterface> testing_schedule = generateTestingSchedule(testRNG);
 
                         testing_person = testing_schedule.toArray(new AbstractIndividualInterface[testing_schedule.size()]);
@@ -467,9 +469,9 @@ public class Thread_PopRun implements Runnable {
                                     // Rate                                          
                                     int testFreq = (int) testRate; // Screen freq (by year). 
                                     testRate = testRate - testFreq;
-                                    float srcPeriod = ((AbstractIndividualInterface.ONE_YEAR_INT/((testFreq < 1 ? 1: testFreq))));
-                                    
-                                    dailyRate = (float) (1 - Math.exp(Math.log(1 - testRate)/srcPeriod));
+                                    float srcPeriod = ((AbstractIndividualInterface.ONE_YEAR_INT / ((testFreq < 1 ? 1 : testFreq))));
+
+                                    dailyRate = (float) (1 - Math.exp(Math.log(1 - testRate) / srcPeriod));
 
                                     testToday = testRNG.nextFloat() < dailyRate;
                                 }
@@ -645,8 +647,8 @@ public class Thread_PopRun implements Runnable {
             float[] rateCollection, RandomGenerator testRNG, ArrayList<AbstractIndividualInterface> testing_schedule) {
         for (int i = 0; i < candidateCollection.length; i++) {
             AbstractIndividualInterface[] candidate = candidateCollection[i].toArray(new AbstractIndividualInterface[candidateCollection[i].size()]);
-            int freqOffset = (int) rateCollection[i];                
-            int numSel = Math.round((rateCollection[i] -freqOffset) * candidate.length);
+            int freqOffset = (int) rateCollection[i];
+            int numSel = Math.round((rateCollection[i] - freqOffset) * candidate.length);
             candidate = ArrayUtilsRandomGenerator.randomSelect(candidate, numSel, testRNG);
             testing_schedule.addAll(Arrays.asList(candidate));
         }
@@ -661,7 +663,10 @@ public class Thread_PopRun implements Runnable {
 
         float testSen = (float) getInputParam()[PARAM_INDEX_TESTING_SENSITIVITY];
 
-        int currentLoc = pop.getCurrentLocation(rmp_person);
+        int currentLoc = pop.getCurrentLocation(rmp_person);               
+        if(currentLoc < 0){
+            currentLoc = rmp_person.getHomeLocation();
+        }
 
         int notificationCI = -1;
 
@@ -686,8 +691,9 @@ public class Thread_PopRun implements Runnable {
         if (toBeTreated) {
 
             int[][] delaySettingAll = (int[][]) getInputParam()[PARAM_INDEX_TESTING_TREATMENT_DELAY_BY_LOC];
+            int[] delaySetting = null;
 
-            int[] delaySetting = delaySettingAll[currentLoc < delaySettingAll.length ? currentLoc : 0];
+            delaySetting = delaySettingAll[currentLoc < delaySettingAll.length ? currentLoc : 0];
 
             int delay = delaySetting[0];
 
