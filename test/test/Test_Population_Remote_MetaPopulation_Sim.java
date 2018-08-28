@@ -9,9 +9,9 @@ public class Test_Population_Remote_MetaPopulation_Sim {
         String[] baseDir = new String[]{                                                 
             "C:\\Users\\Bhui\\OneDrive - UNSW\\RMP\\Test\\",            
             "Syp_Select"
-            //"Srn_S_CL","Srn_S_80_CL",
-            //"Srn_S","Srn_S_80", 
-            //"Srn_AC_RM_Base_S"
+            //"Srn_AC_RM_Base_S",             
+            //"Srn_AC_RM_80A_S",
+            //"Srn_AC_RM_80R_S", 
             //"Opt_NGCTBehav",
            
         };        
