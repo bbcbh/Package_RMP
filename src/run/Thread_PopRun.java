@@ -231,10 +231,17 @@ public class Thread_PopRun implements Runnable {
     }
 
     private class DEFAULT_TESTING_CLASSIFIER implements PersonClassifier {
-
+        
         int numLoc = 5;
         int numGender = 2;
         int numAgeGrp = 4;
+        
+        public DEFAULT_TESTING_CLASSIFIER() {                 
+        } 
+
+        public DEFAULT_TESTING_CLASSIFIER(int numLoc) {
+            this.numLoc = numLoc;            
+        }                                        
 
         @Override
         public int classifyPerson(AbstractIndividualInterface p) {
@@ -357,6 +364,10 @@ public class Thread_PopRun implements Runnable {
                         prm.setNumberOfInfections(modelledInfections.length);
                     }
                 }
+                
+                int numPop = ((int[]) pop.getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_POP_SIZE]).length;
+                
+                getInputParam()[PARAM_INDEX_TESTING_CLASSIFIER] =  new DEFAULT_TESTING_CLASSIFIER(numPop);                                
 
                 PersonClassifier testByClassifier = (PersonClassifier) getInputParam()[PARAM_INDEX_TESTING_CLASSIFIER];
                 PersonClassifier incidenceClassifier, notificationClassifier;
@@ -404,11 +415,12 @@ public class Thread_PopRun implements Runnable {
                         || ((float[]) inputParam[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER])[0] < 0; // Backward compability
                 boolean sameTargetTest = (testSetting & (1 << TESTING_OPTION_FIX_TEST_SCHEDULE)) > 0;
                 
-                int testing_schedule_freq = (int) ((float[]) inputParam[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER])[0]; 
-                int testing_schedule_index = 0;
+                // If testing_schedule_freq < 1 then it will be annual 
+                int testing_schedule_freq = Math.max(Math.abs((int) ((float[]) inputParam[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER])[0]), 1);   
                 
-                int testing_schedule_period = (testing_schedule_freq < 1) ? AbstractIndividualInterface.ONE_YEAR_INT
-                        : AbstractIndividualInterface.ONE_YEAR_INT / testing_schedule_freq;
+                int testing_schedule_index = 0;                                                    
+                
+                int testing_schedule_period = AbstractIndividualInterface.ONE_YEAR_INT / testing_schedule_freq;
                 
                 
 

@@ -8,12 +8,13 @@ public class Test_Population_Remote_MetaPopulation_Sim {
     public static void main(String[] arg) throws IOException, InterruptedException, ClassNotFoundException {
         String[] baseDir = new String[]{                                                 
             "C:\\Users\\Bhui\\OneDrive - UNSW\\RMP\\Test\\",            
-            //"Syp_Select"
-            //"Srn_AC_RM_Base_S",             
-            //"Srn_AC_RM_80A_S",
+            "Syp_Select"
+            //"Srn_20RP_Base_S",             
+            //"Srn_20RP_80R_S",
             //"Srn_AC_RM_80R_S", 
             //"Opt_NGCTBehav",
-            "Pop_Gen"
+            //"Pop_Gen",
+            
         };        
         
         Simulation_Remote_MetaPopulation.main(baseDir);
