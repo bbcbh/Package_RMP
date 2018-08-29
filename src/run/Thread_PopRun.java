@@ -145,7 +145,7 @@ public class Thread_PopRun implements Runnable {
         new float[]{
             // Regional        
             // Male
-            -0.130f * (0.44f / 0.48f),
+            0.130f * (0.44f / 0.48f),
             0.140f * (0.44f / 0.48f),
             0.110f * (0.44f / 0.48f),
             0.110f * (0.44f / 0.48f),

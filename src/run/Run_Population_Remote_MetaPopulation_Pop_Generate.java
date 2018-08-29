@@ -3,13 +3,13 @@ package run;
 import java.io.File;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import random.MersenneTwisterRandomGenerator;
-
-
+import util.PropValUtils;
 
 public class Run_Population_Remote_MetaPopulation_Pop_Generate {
 
@@ -19,55 +19,81 @@ public class Run_Population_Remote_MetaPopulation_Pop_Generate {
     public int NUM_BURN_IN_STEPS;
     public String DIR_PATH;
     public int MAX_THREAD = -1;
-    
 
-    public static void main(String[] arg) throws IOException, ClassNotFoundException, InterruptedException {
+    int[] popSize = new int[]{15000, // Default
+        500, 500, 500, 500,
+        500, 500, 500, 500,
+        500, 500, 500, 500,
+        500, 500, 500, 500,
+        500, 500, 500, 500,};
+
+    public void setPopSize(int[] popSize) {
+        this.popSize = popSize;
+    }
+    
+    public int[] getPopSize( ) {
+        return popSize;
+    }
+
+    public static void runPopGenerate(String[] arg) throws IOException, ClassNotFoundException, InterruptedException {
 
         int NUM_SIM_TOTAL = 1000;
         int NUM_BURN_IN_STEPS = 360 * 50;
         String DIR_PATH = "~/RMP/BasePop";
         int MAX_THREAD = -1;
+        String popSizeStr = null;
 
         if (arg.length > 1) {
             if (!arg[0].isEmpty()) {
                 NUM_SIM_TOTAL = Integer.parseInt(arg[0]);
-                
+
             }
         }
 
         if (arg.length > 2) {
             if (!arg[1].isEmpty()) {
                 NUM_BURN_IN_STEPS = Integer.parseInt(arg[1]);
-               
+
             }
         }
 
         if (arg.length > 2) {
             if (!arg[2].isEmpty()) {
-                DIR_PATH = arg[2];                
+                DIR_PATH = arg[2];
             }
         }
-        
-        if(arg.length > 3){
+
+        if (arg.length > 3) {
             if (!arg[3].isEmpty()) {
-                MAX_THREAD =  Integer.parseInt(arg[3]);                
+                MAX_THREAD = Integer.parseInt(arg[3]);
             }
         }
         
-        
+        if (arg.length > 4){
+            if (!arg[4].isEmpty()) {
+               popSizeStr = arg[4];
+            }
+        }
+
         System.out.println("NUM_SIM_TOTAL = " + NUM_SIM_TOTAL);
-        System.out.println("NUM_BURN_IN_STEPS = " + NUM_BURN_IN_STEPS);        
+        System.out.println("NUM_BURN_IN_STEPS = " + NUM_BURN_IN_STEPS);
         System.out.println("DIR_PATH = " + DIR_PATH);
         System.out.println("MAX_THREAD = " + MAX_THREAD);
+        
 
         Run_Population_Remote_MetaPopulation_Pop_Generate popGen
                 = new Run_Population_Remote_MetaPopulation_Pop_Generate(NUM_SIM_TOTAL, NUM_BURN_IN_STEPS, DIR_PATH, MAX_THREAD);
+        
+        if(popSizeStr!= null){                                    
+            popGen.setPopSize((int[]) PropValUtils.propStrToObject(popSizeStr, int[].class));
+        }                                
+        System.out.println("POP_SIZE = " + Arrays.toString(popGen.getPopSize()));
 
         popGen.genPops();
 
     }
 
-    public Run_Population_Remote_MetaPopulation_Pop_Generate(int NUM_SIM_TOTAL, 
+    public Run_Population_Remote_MetaPopulation_Pop_Generate(int NUM_SIM_TOTAL,
             int NUM_BURN_IN_STEPS, String DIR_PATH, int MAX_THREAD) {
         this.NUM_SIM_TOTAL = NUM_SIM_TOTAL;
         this.NUM_BURN_IN_STEPS = NUM_BURN_IN_STEPS;
@@ -79,11 +105,11 @@ public class Run_Population_Remote_MetaPopulation_Pop_Generate {
 
         MersenneTwisterRandomGenerator rng = new MersenneTwisterRandomGenerator(BASE_SEED);
         File destDir = new File(DIR_PATH);
-        destDir.mkdirs();                        
-        
+        destDir.mkdirs();
+
         int NUM_THREADS = Runtime.getRuntime().availableProcessors();
-        
-        if(MAX_THREAD > 0 && MAX_THREAD < NUM_THREADS){
+
+        if (MAX_THREAD > 0 && MAX_THREAD < NUM_THREADS) {
             NUM_THREADS = MAX_THREAD;
         }
 
@@ -103,12 +129,12 @@ public class Run_Population_Remote_MetaPopulation_Pop_Generate {
                 System.out.println(popFile.getAbsolutePath() + " already exist. Thread not generated.");
             } else {
                 System.out.println("Submiting thread for generation of pop #" + s);
-                Thread_PopGen thread = new Thread_PopGen(s, NUM_BURN_IN_STEPS, DIR_PATH, rng.nextLong());
+                Thread_PopGenRemote thread = new Thread_PopGenRemote(s, NUM_BURN_IN_STEPS, DIR_PATH, rng.nextLong(), popSize);
                 executor.submit(thread);
                 numInExe++;
 
                 if (numInExe == NUM_THREADS) {
-                    executor.shutdown();                    
+                    executor.shutdown();
                     if (!executor.awaitTermination(3, TimeUnit.DAYS)) {
                         System.out.println("Inf Thread time-out!");
                     }
@@ -126,7 +152,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Generate {
                 System.out.println("Inf Thread time-out!");
             }
             System.out.println("Excution of " + numInExe + " thread(s) terminated.");
-             
+
         }
 
         System.out.println("Time required for population generation (s) = " + (System.currentTimeMillis() - tic) / 1000f);

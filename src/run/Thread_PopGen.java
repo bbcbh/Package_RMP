@@ -18,7 +18,8 @@ import util.FileZipper;
 
 /**
  *
- * @author bhui
+ * @author Ben Hui
+ * @deprecated  Use the more flexible Thread_PopGenRemote instead 
  */
 class Thread_PopGen implements Runnable {
 

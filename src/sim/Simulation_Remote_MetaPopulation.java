@@ -9,6 +9,7 @@ import java.util.Iterator;
 import java.util.Properties;
 import opt.OptRun_Population_Remote_MetaPopulation_Infection_Intro;
 import run.Run_Population_Remote_MetaPopulation_Pop_Analysis;
+import run.Run_Population_Remote_MetaPopulation_Pop_Generate;
 import run.Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT;
 import run.Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis;
 import util.PersonClassifier;
@@ -18,7 +19,7 @@ import util.PropValUtils;
  * Define a set of simulation using properties file
  *
  * @author Ben Hui
- * @version 20180815
+ * @version 20180829
  *
  * <pre>
  * History:
@@ -35,6 +36,8 @@ import util.PropValUtils;
  *   - Add support for optimisation
  * 20180815:
  *   - Add support for pop selection
+ * 20180829:
+ *   - Add support for pop generate
  *
  * </pre>
  */
@@ -185,7 +188,7 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                 rArg[5] = propVal[PROP_SNAP_FREQ] == null ? "" : ((Integer) propVal[PROP_SNAP_FREQ]).toString();
                 rArg[6] = propVal[PROP_STORE_INFECTION_HISTORY] == null ? "" : ((Boolean) propVal[PROP_STORE_INFECTION_HISTORY]).toString();
                 Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis runSyp = new Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis(rArg);
-                
+
                 if (propVal[PROP_POP_SELECT_CSV] != null) {
                     runSyp.setPopSelectionCSV((String) propVal[PROP_POP_SELECT_CSV]);
                 }
@@ -243,9 +246,28 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                 }
 
                 break;
+            case 3:
+                // 0: Num sim total
+                // 1: Num burn in step
+                // 2: Base Dir
+                // 3: Num thread
+                // 4: Popsize as string - propModelInitStr
+                rArg = new String[5];
+                rArg[0] = propVal[PROP_NUM_SIM_PER_SET] == null ? "" : ((Integer) propVal[PROP_NUM_SIM_PER_SET]).toString();
+                rArg[1] = "";
+                rArg[2] = baseDir.getAbsolutePath();
+                rArg[3] = propVal[PROP_USE_PARALLEL] == null ? "" : ((Integer) propVal[PROP_USE_PARALLEL]).toString();
+                rArg[4] = propModelInitStr[0] == null ? "" : propModelInitStr[0];
 
+                try {
+                    Run_Population_Remote_MetaPopulation_Pop_Generate.runPopGenerate(rArg);
+                } catch (ClassNotFoundException ex) {
+                    ex.printStackTrace(System.err);
+                }
+
+                break;
             default:
-                System.err.println("Error: Illegal PROP_RMP_SIM_TYPE. Set 0 for NG/CT and 1 for Syphilis simulation, 2 for NG/CT optimisation");
+                System.err.println("Error: Illegal PROP_RMP_SIM_TYPE. Set 0 for NG/CT and 1 for Syphilis simulation, 2 for NG/CT optimisation, 3 for Pop Generate");
 
         }
     }
