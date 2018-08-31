@@ -263,6 +263,8 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
                 ex.printStackTrace(System.err);
                 outputPrint = new PrintWriter(System.out);
             }
+        } else {
+            //outputPrint = new PrintWriter(System.out);
         }
 
         thread.setOutputPri(outputPrint, false);
@@ -303,7 +305,10 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
         for (AbstractIndividualInterface person : allPerson) {
 
             // Remote only 
-            if (((Population_Remote_MetaPopulation) thread.getPop()).getCurrentLocation(person) != 0) {
+            int loc = ((Population_Remote_MetaPopulation) thread.getPop()).getCurrentLocation(person);
+
+            int popType = ((int[]) ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_POP_TYPE])[loc];
+            if (popType == 3) {
                 int cI = prevalClassifer.classifyPerson(person);
                 numInGroup[cI]++;
                 if (person.getInfectionStatus()[0] != AbstractIndividualInterface.INFECT_S) {

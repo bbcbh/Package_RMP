@@ -85,7 +85,7 @@ public class Opt_ResidualFunc extends AbstractResidualFunc {
                 numInExe = 0;
             }
             Callable_Opt_Prevalence opRun = new Callable_Opt_Prevalence(
-                    optOutputDir, popFiles[i], i, NUM_STEPS, param, propModelInitStr);
+                    optOutputDir, popFiles[i], i, NUM_STEPS, param, propModelInitStr);                       
             opRun.setOutputAsFile(popFiles.length > 1);
             opRun.setTarget_preval(TARGET_PREVAL);
 

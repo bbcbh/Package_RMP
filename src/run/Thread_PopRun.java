@@ -33,7 +33,7 @@ import util.PropValUtils;
 /**
  *
  * @author Ben Hui
- * @version 20180828
+ * @version 20180831
  *
  * <pre>
  * History:
@@ -77,8 +77,12 @@ import util.PropValUtils;
  * 20180821
  *  - Debug: Set current location as home location if current location is not found
  * 20180828
- *  - Change testing rate definition to include the option of retesting of the same scheduled person, and 
+ *  - Change testing rate definition to include the option of retesting of the same scheduled person, and
  *    the implementation of optional screening setting parameter
+ * 20180831
+ *  - Skip generation of notification and incident file if outputFilePath is not set (e.g. under optimisation)
+ *  - Implementation of multiple screening / mass screening options
+ *
  * </pre>
  */
 public class Thread_PopRun implements Runnable {
@@ -141,7 +145,12 @@ public class Thread_PopRun implements Runnable {
         // type: float[]           
         // From RG
         // Alterative format
-        // if the first rate is negative use proprotion testing rate instead
+        //    - if the first rate is negative use proprotion testing rate instead (for backward compatbility)
+        //    - if length of test rate > number of class in testing classifiers
+        //       [ RATE_BY_CLASSIFIER_DEFAULT, test_setting_default 
+        //         start_time_1, duration_1, periodcity_1,
+        //         RATE_BY_CLASSIFIER_SET_1, test_setting_1, ...]         
+        //      see  TESTING_OPTION_* for test_setting
         new float[]{
             // Regional        
             // Male
@@ -231,17 +240,17 @@ public class Thread_PopRun implements Runnable {
     }
 
     private class DEFAULT_TESTING_CLASSIFIER implements PersonClassifier {
-        
+
         int numLoc = 5;
         int numGender = 2;
         int numAgeGrp = 4;
-        
-        public DEFAULT_TESTING_CLASSIFIER() {                 
-        } 
+
+        public DEFAULT_TESTING_CLASSIFIER() {
+        }
 
         public DEFAULT_TESTING_CLASSIFIER(int numLoc) {
-            this.numLoc = numLoc;            
-        }                                        
+            this.numLoc = numLoc;
+        }
 
         @Override
         public int classifyPerson(AbstractIndividualInterface p) {
@@ -345,9 +354,9 @@ public class Thread_PopRun implements Runnable {
                 // Testing 
                 random.RandomGenerator testRNG = new MersenneTwisterRandomGenerator(pop.getSeed());
 
-                int[] testing_numPerDay = null;
-                int testing_pt = 0;
-                AbstractIndividualInterface[] testing_person = null;
+                int[][] testing_numPerDay = null;
+                int[] testing_pt = null;
+                AbstractIndividualInterface[][] testing_person = null;
 
                 // Treatment
                 HashMap<Integer, int[][]> treatmentSchdule = new HashMap();
@@ -364,10 +373,10 @@ public class Thread_PopRun implements Runnable {
                         prm.setNumberOfInfections(modelledInfections.length);
                     }
                 }
-                
+
                 int numPop = ((int[]) pop.getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_POP_SIZE]).length;
-                
-                getInputParam()[PARAM_INDEX_TESTING_CLASSIFIER] =  new DEFAULT_TESTING_CLASSIFIER(numPop);                                
+
+                getInputParam()[PARAM_INDEX_TESTING_CLASSIFIER] = new DEFAULT_TESTING_CLASSIFIER(numPop);
 
                 PersonClassifier testByClassifier = (PersonClassifier) getInputParam()[PARAM_INDEX_TESTING_CLASSIFIER];
                 PersonClassifier incidenceClassifier, notificationClassifier;
@@ -407,49 +416,111 @@ public class Thread_PopRun implements Runnable {
                     cumulativeTestAndNotification[i] = new int[notificationClassifier.numClass()][pop.getInfList()[i].getNumState() + 1];
                 }
 
-                int testSetting = ((float[]) inputParam[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER]).length > testByClassifier.numClass()
-                        ? (int) ((float[]) inputParam[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER])[testByClassifier.numClass()] : 0;
+                // [RATE_BY_CLASSIFIER_DEFAULT, test_setting_default 
+                //         start_time_1, end_time_1, periodcity_1, 
+                //         RATE_BY_CLASSIFIER_SET_1, test_setting_1, ...] 
+                int numberOfTestRateOptions = 0;
+                int numberOfTestRateIndex = 0;
 
-                boolean useProportionTestCoverage
-                        = (testSetting & (1 << TESTING_OPTION_USE_PROPORTION_TEST_COVERAGE)) > 0
-                        || ((float[]) inputParam[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER])[0] < 0; // Backward compability
-                boolean sameTargetTest = (testSetting & (1 << TESTING_OPTION_FIX_TEST_SCHEDULE)) > 0;
-                
-                // If testing_schedule_freq < 1 then it will be annual 
-                int testing_schedule_freq = Math.max(Math.abs((int) ((float[]) inputParam[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER])[0]), 1);   
-                
-                int testing_schedule_index = 0;                                                    
-                
-                int testing_schedule_period = AbstractIndividualInterface.ONE_YEAR_INT / testing_schedule_freq;
-                
-                
+                while (numberOfTestRateIndex < ((float[]) inputParam[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER]).length) {
+                    numberOfTestRateOptions++;
+                    numberOfTestRateIndex += testByClassifier.numClass() + 1;    // RATE_BY_CLASSIFIER_SET_n, test_setting_n                
+                    numberOfTestRateIndex += 3;                                  // start_time_n+1, duration_n+1, periodcity_n+1,
+                }
+
+                int[] testing_schedule_index = new int[numberOfTestRateOptions];
+                int[] testing_offset = new int[numberOfTestRateOptions];
+                int[] testing_schedule_duration = new int[numberOfTestRateOptions];
+                int[] testing_schedule_period = new int[numberOfTestRateOptions];
+
+                float[][] testing_rate_by_classifier = new float[numberOfTestRateOptions][];
+                float[][] testing_set_time_range = new float[numberOfTestRateOptions][];
+
+                Arrays.fill(testing_offset, offset);
+
+                testing_pt = new int[numberOfTestRateOptions];
+                testing_person = new AbstractIndividualInterface[numberOfTestRateOptions][];
+                testing_numPerDay = new int[numberOfTestRateOptions][];
+
+                int testing_set_index = 0;
+
+                for (int i = 0; i < numberOfTestRateOptions; i++) {
+                    if (i == 0) {
+                        testing_set_time_range[i] = new float[]{0, Float.POSITIVE_INFINITY}; // Default background        
+                        // If testing_schedule_freq < 1 then it will be annual                         
+                        int testing_schedule_freq = Math.max(Math.abs((int) ((float[]) inputParam[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER])[0]), 1);
+                        testing_schedule_duration[i] = AbstractIndividualInterface.ONE_YEAR_INT / testing_schedule_freq;
+                        testing_schedule_period[i] = AbstractIndividualInterface.ONE_YEAR_INT / testing_schedule_freq;
+
+                    } else {
+                        testing_set_time_range[i] = Arrays.copyOfRange(
+                                (float[]) inputParam[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER],
+                                testing_set_index, testing_set_index + 3); // start_time_n+1, duration_n+1, periodcity_n+1                        
+
+                        testing_offset[i] = (int) testing_set_time_range[i][0];
+                        testing_schedule_duration[i] = (int) testing_set_time_range[i][1];
+                        testing_schedule_period[i] = (int) testing_set_time_range[i][2];
+
+                        testing_set_index += 3;
+                    }
+                    testing_rate_by_classifier[i] = Arrays.copyOfRange(
+                            (float[]) inputParam[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER],
+                            testing_set_index, testing_set_index + testByClassifier.numClass() + 1);
+
+                    testing_set_index += testByClassifier.numClass() + 1;
+
+                }
 
                 for (int t = 0; t < numSteps; t++) {
 
-                    if (!useProportionTestCoverage && (pop.getGlobalTime() - offset) % testing_schedule_period == 0) {
+                    for (int testing_set_num = 0; testing_set_num < testing_rate_by_classifier.length; testing_set_num++) {
 
-                        if (!sameTargetTest || testing_schedule_index == 0) {
-                            ArrayList<AbstractIndividualInterface> testing_schedule = generateTestingSchedule(testRNG);
-                            testing_person = testing_schedule.toArray(new AbstractIndividualInterface[testing_schedule.size()]);
+                        float[] time_range = testing_set_time_range[testing_set_num];
+
+                        if (pop.getGlobalTime() >= time_range[0] && pop.getGlobalTime() < time_range[0] + time_range[1]) {
+
+                            float[] currentTestRateByClassifier = testing_rate_by_classifier[testing_set_num];
+
+                            int testSetting = currentTestRateByClassifier.length > testByClassifier.numClass()
+                                    ? (int) currentTestRateByClassifier[testByClassifier.numClass()] : 0;
+
+                            boolean useProportionTestCoverage
+                                    = (testSetting & (1 << TESTING_OPTION_USE_PROPORTION_TEST_COVERAGE)) > 0
+                                    || currentTestRateByClassifier[0] < 0; // Backward compability
+
+                            boolean sameTargetTest = (testSetting & (1 << TESTING_OPTION_FIX_TEST_SCHEDULE)) > 0;
+
+                            int testing_schedule_freq = Math.max(Math.abs((int) currentTestRateByClassifier[0]), 1);
+
+                            int offset_time = pop.getGlobalTime() - testing_offset[testing_set_num];
+                            if (!useProportionTestCoverage && (offset_time == 0
+                                    || (testing_schedule_period[testing_set_num] > 0 && offset_time % testing_schedule_period[testing_set_num] == 0))) {
+
+                                if (!sameTargetTest || testing_schedule_index[testing_set_num] == 0) {
+                                    ArrayList<AbstractIndividualInterface> testing_schedule = generateTestingSchedule(testRNG, currentTestRateByClassifier);
+                                    testing_person[testing_set_num] = testing_schedule.toArray(new AbstractIndividualInterface[testing_schedule.size()]);
+                                }
+
+                                ArrayUtilsRandomGenerator.shuffleArray(testing_person[testing_set_num], testRNG);
+
+                                testing_numPerDay[testing_set_num] = new int[testing_schedule_duration[testing_set_num]];
+
+                                int minTestPerDay = testing_person[testing_set_num].length / testing_schedule_duration[testing_set_num];
+
+                                Arrays.fill(testing_numPerDay[testing_set_num], minTestPerDay);
+
+                                int numExtra = testing_person[testing_set_num].length - minTestPerDay * testing_schedule_duration[testing_set_num];
+
+                                while (numExtra > 0) {
+                                    testing_numPerDay[testing_set_num][testRNG.nextInt(testing_schedule_duration[testing_set_num])]++;
+                                    numExtra--;
+                                }
+
+                                testing_pt[testing_set_num] = 0;
+                                testing_schedule_index[testing_set_num] = (testing_schedule_index[testing_set_num] + 1) % testing_schedule_freq;
+
+                            }
                         }
-
-                        ArrayUtilsRandomGenerator.shuffleArray(testing_person, testRNG);
-
-                        testing_numPerDay = new int[testing_schedule_period];
-
-                        int minTestPerDay = testing_person.length / testing_schedule_period;
-
-                        Arrays.fill(testing_numPerDay, minTestPerDay);
-
-                        int numExtra = testing_person.length - minTestPerDay * testing_schedule_period;
-
-                        while (numExtra > 0) {
-                            testing_numPerDay[testRNG.nextInt(testing_schedule_period)]++;
-                            numExtra--;
-                        }
-
-                        testing_pt = 0;
-                        testing_schedule_index = (testing_schedule_index + 1) % testing_schedule_freq;
 
                     }
 
@@ -475,43 +546,60 @@ public class Thread_PopRun implements Runnable {
                     }
 
                     // Testing
-                    if (!useProportionTestCoverage) {
+                    for (int testing_set_num = 0; testing_set_num < testing_numPerDay.length; testing_set_num++) {
 
-                        int numTestToday = testing_numPerDay[(pop.getGlobalTime() - offset) % testing_schedule_period];
+                        float[] currentTestRateByClassifier = testing_rate_by_classifier[testing_set_num];
+                        int testSetting = currentTestRateByClassifier.length > testByClassifier.numClass()
+                                ? (int) currentTestRateByClassifier[testByClassifier.numClass()] : 0;
+                        boolean useProportionTestCoverage
+                                = (testSetting & (1 << TESTING_OPTION_USE_PROPORTION_TEST_COVERAGE)) > 0
+                                || currentTestRateByClassifier[0] < 0; // Backward compability       
 
-                        while (numTestToday != 0) {
-                            testingPerson(testing_person[testing_pt], treatmentSchdule, testRNG, notificationClassifier);
-                            testing_pt++;
-                            numTestToday--;
-                        }
+                        if (!useProportionTestCoverage && testing_person[testing_set_num] != null) {
 
-                    } else {
+                            int dayIndex = (pop.getGlobalTime() - testing_offset[testing_set_num]);
 
-                        float[] testCoveragebyClassifier = (float[]) getInputParam()[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER];
+                            if (testing_schedule_period[testing_set_num] > 0) {
+                                dayIndex = dayIndex % testing_schedule_period[testing_set_num];
+                            }
 
-                        for (AbstractIndividualInterface person : pop.getPop()) {
-                            boolean testToday = false;
-                            if (testByClassifier != null) {
-                                int cI = testByClassifier.classifyPerson(person);
-                                if (cI >= 0) {
-                                    float testRate = Math.abs(testCoveragebyClassifier[cI]);
-                                    float dailyRate;
-                                    // Rate                                          
-                                    int testFreq = (int) testRate; // Screen freq (by year). 
-                                    testRate = testRate - testFreq;
-                                    float srcPeriod = ((AbstractIndividualInterface.ONE_YEAR_INT / ((testFreq < 1 ? 1 : testFreq))));
+                            if (dayIndex < testing_numPerDay[testing_set_num].length) {
 
-                                    dailyRate = (float) (1 - Math.exp(Math.log(1 - testRate) / srcPeriod));
+                                int numTestToday = testing_numPerDay[testing_set_num][dayIndex];
 
-                                    testToday = testRNG.nextFloat() < dailyRate;
+                                while (numTestToday != 0) {
+                                    testingPerson(testing_person[testing_set_num][testing_pt[testing_set_num]], treatmentSchdule, testRNG, notificationClassifier);
+                                    testing_pt[testing_set_num]++;
+                                    numTestToday--;
                                 }
                             }
-                            if (testToday) {
-                                testingPerson(person, treatmentSchdule, testRNG, notificationClassifier);
+
+                        } else if(useProportionTestCoverage) {
+
+                            for (AbstractIndividualInterface person : pop.getPop()) {
+                                boolean testToday = false;
+                                if (testByClassifier != null) {
+                                    int cI = testByClassifier.classifyPerson(person);
+                                    if (cI >= 0) {
+                                        float testRate = Math.abs(currentTestRateByClassifier[cI]);
+                                        float dailyRate;
+                                        // Rate                                          
+                                        int testFreq = (int) testRate; // Screen freq (by year). 
+                                        testRate = testRate - testFreq;
+                                        float srcPeriod = ((AbstractIndividualInterface.ONE_YEAR_INT / ((testFreq < 1 ? 1 : testFreq))));
+
+                                        dailyRate = (float) (1 - Math.exp(Math.log(1 - testRate) / srcPeriod));
+
+                                        testToday = testRNG.nextFloat() < dailyRate;
+                                    }
+                                }
+                                if (testToday) {
+                                    testingPerson(person, treatmentSchdule, testRNG, notificationClassifier);
+                                }
+
                             }
 
                         }
-
                     }
 
                     if (treatmentSchdule.containsKey(pop.getGlobalTime())) {
@@ -595,58 +683,62 @@ public class Thread_PopRun implements Runnable {
         }
         outputPri.flush();
 
-        File incidentFileName = new File(outputFilePath.getParent(), FILE_PREFIX_INCIDENCE + simId + ".csv");
-        try (PrintWriter pri = new PrintWriter(new FileWriter(incidentFileName, true))) {
-            pri.print(pop.getGlobalTime());
-            for (int i = 0; i < cumulativeIncident.length; i++) {
-                pri.print(',');
-                pri.print(cumulativeIncident[i]);
+        if (outputFilePath != null) {
+
+            File incidentFileName = new File(outputFilePath.getParent(), FILE_PREFIX_INCIDENCE + simId + ".csv");
+            try (PrintWriter pri = new PrintWriter(new FileWriter(incidentFileName, true))) {
+                pri.print(pop.getGlobalTime());
+                for (int i = 0; i < cumulativeIncident.length; i++) {
+                    pri.print(',');
+                    pri.print(cumulativeIncident[i]);
+                }
+                pri.println();
+            } catch (IOException ex) {
+                ex.printStackTrace(outputPri);
             }
-            pri.println();
-        } catch (IOException ex) {
-            ex.printStackTrace(outputPri);
-        }
 
-        // cumulativeTestAndNotification[infectionId][classId][1+infStatus]
-        File notificationFileName = new File(outputFilePath.getParent(),
-                FILE_PREFIX_TEST_AND_NOTIFICATION + simId + ".csv");
-        boolean writeFirstLine = !notificationFileName.exists();
+            // cumulativeTestAndNotification[infectionId][classId][1+infStatus]
+            File notificationFileName = new File(outputFilePath.getParent(),
+                    FILE_PREFIX_TEST_AND_NOTIFICATION + simId + ".csv");
+            boolean writeFirstLine = !notificationFileName.exists();
 
-        try (PrintWriter pri = new PrintWriter(new FileWriter(notificationFileName, true))) {
-            if (writeFirstLine) {
-                pri.print("Time");
+            try (PrintWriter pri = new PrintWriter(new FileWriter(notificationFileName, true))) {
+                if (writeFirstLine) {
+                    pri.print("Time");
+                    for (int infId = 0; infId < cumulativeTestAndNotification.length; infId++) {
+                        for (int classId = 0; classId < cumulativeTestAndNotification[infId].length; classId++) {
+                            for (int statusId = 0; statusId < cumulativeTestAndNotification[infId][classId].length; statusId++) {
+                                pri.print(',');
+                                pri.print("Inf #" + infId + " Class #" + classId + " Status #" + (statusId - 1));
+                            }
+                        }
+                    }
+                    pri.println();
+                }
+
+                pri.print(pop.getGlobalTime());
                 for (int infId = 0; infId < cumulativeTestAndNotification.length; infId++) {
                     for (int classId = 0; classId < cumulativeTestAndNotification[infId].length; classId++) {
                         for (int statusId = 0; statusId < cumulativeTestAndNotification[infId][classId].length; statusId++) {
                             pri.print(',');
-                            pri.print("Inf #" + infId + " Class #" + classId + " Status #" + (statusId - 1));
+                            pri.print(cumulativeTestAndNotification[infId][classId][statusId]);
                         }
                     }
                 }
                 pri.println();
-            }
 
-            pri.print(pop.getGlobalTime());
-            for (int infId = 0; infId < cumulativeTestAndNotification.length; infId++) {
-                for (int classId = 0; classId < cumulativeTestAndNotification[infId].length; classId++) {
-                    for (int statusId = 0; statusId < cumulativeTestAndNotification[infId][classId].length; statusId++) {
-                        pri.print(',');
-                        pri.print(cumulativeTestAndNotification[infId][classId][statusId]);
-                    }
-                }
+            } catch (IOException ex) {
+                ex.printStackTrace(outputPri);
             }
-            pri.println();
-
-        } catch (IOException ex) {
-            ex.printStackTrace(outputPri);
         }
 
     }
 
-    public ArrayList<AbstractIndividualInterface> generateTestingSchedule(RandomGenerator testRNG) {
+    public ArrayList<AbstractIndividualInterface> generateTestingSchedule(RandomGenerator testRNG,
+            float[] testRatebyClassifier) {
 
         PersonClassifier testByClassifier = (PersonClassifier) getInputParam()[PARAM_INDEX_TESTING_CLASSIFIER];
-        float[] testRatebyClassifier = (float[]) getInputParam()[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER];
+        //float[] testRatebyClassifier = (float[]) getInputParam()[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER];
 
         ArrayList<AbstractIndividualInterface> testing_schedule = new ArrayList<>();
         ArrayList<AbstractIndividualInterface>[] candidateByClassifier = null;
