@@ -19,7 +19,7 @@ import util.PropValUtils;
  * Define a set of simulation using properties file
  *
  * @author Ben Hui
- * @version 20180829
+ * @version 20180831
  *
  * <pre>
  * History:
@@ -38,6 +38,8 @@ import util.PropValUtils;
  *   - Add support for pop selection
  * 20180829:
  *   - Add support for pop generate
+ * 20180831:
+ *   - Add support for pop generate with custom popType and popConnc
  *
  * </pre>
  */
@@ -251,14 +253,18 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                 // 1: Num burn in step
                 // 2: Base Dir
                 // 3: Num thread
-                // 4: Popsize as string - propModelInitStr
-                rArg = new String[5];
+                // 4: Popsize as string - propModelInitStr[0]
+                // 5: PopType as string - propModelInitStr[1]
+                // 6: Popconnc as string - propModelInitStr[2] 
+
+                rArg = new String[7];
                 rArg[0] = propVal[PROP_NUM_SIM_PER_SET] == null ? "" : ((Integer) propVal[PROP_NUM_SIM_PER_SET]).toString();
                 rArg[1] = "";
                 rArg[2] = baseDir.getAbsolutePath();
                 rArg[3] = propVal[PROP_USE_PARALLEL] == null ? "" : ((Integer) propVal[PROP_USE_PARALLEL]).toString();
-                rArg[4] = propModelInitStr[0] == null ? "" : propModelInitStr[0];
-
+                rArg[4] = (propModelInitStr.length < 0 ||  propModelInitStr[0] == null) ? "" : propModelInitStr[0];
+                rArg[5] = (propModelInitStr.length < 1 || propModelInitStr[1] == null) ? "" : propModelInitStr[1];
+                rArg[6] = (propModelInitStr.length < 2 || propModelInitStr[2] == null) ? "" : propModelInitStr[2];
                 try {
                     Run_Population_Remote_MetaPopulation_Pop_Generate.runPopGenerate(rArg);
                 } catch (ClassNotFoundException ex) {

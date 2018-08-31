@@ -20,19 +20,32 @@ public class Run_Population_Remote_MetaPopulation_Pop_Generate {
     public String DIR_PATH;
     public int MAX_THREAD = -1;
 
-    int[] popSize = new int[]{15000, // Default
-        500, 500, 500, 500,
-        500, 500, 500, 500,
-        500, 500, 500, 500,
-        500, 500, 500, 500,
-        500, 500, 500, 500,};
+    int[] popSize = null;
+    int[] popType = null;
+    int[][] popConnc = null;
 
     public void setPopSize(int[] popSize) {
         this.popSize = popSize;
     }
-    
-    public int[] getPopSize( ) {
+
+    public int[] getPopSize() {
         return popSize;
+    }
+
+    public int[] getPopType() {
+        return popType;
+    }
+
+    public void setPopType(int[] popType) {
+        this.popType = popType;
+    }
+
+    public int[][] getPopConnc() {
+        return popConnc;
+    }
+
+    public void setPopConnc(int[][] popConnc) {
+        this.popConnc = popConnc;
     }
 
     public static void runPopGenerate(String[] arg) throws IOException, ClassNotFoundException, InterruptedException {
@@ -42,6 +55,8 @@ public class Run_Population_Remote_MetaPopulation_Pop_Generate {
         String DIR_PATH = "~/RMP/BasePop";
         int MAX_THREAD = -1;
         String popSizeStr = null;
+        String popTypeStr = null;
+        String popConncStr = null;
 
         if (arg.length > 1) {
             if (!arg[0].isEmpty()) {
@@ -68,10 +83,22 @@ public class Run_Population_Remote_MetaPopulation_Pop_Generate {
                 MAX_THREAD = Integer.parseInt(arg[3]);
             }
         }
-        
-        if (arg.length > 4){
+
+        if (arg.length > 4) {
             if (!arg[4].isEmpty()) {
-               popSizeStr = arg[4];
+                popSizeStr = arg[4];
+            }
+        }
+
+        if (arg.length > 5) {
+            if (!arg[5].isEmpty()) {
+                popTypeStr = arg[5];
+            }
+        }
+
+        if (arg.length > 6) {
+            if (!arg[6].isEmpty()) {
+                popConncStr = arg[6];
             }
         }
 
@@ -79,15 +106,25 @@ public class Run_Population_Remote_MetaPopulation_Pop_Generate {
         System.out.println("NUM_BURN_IN_STEPS = " + NUM_BURN_IN_STEPS);
         System.out.println("DIR_PATH = " + DIR_PATH);
         System.out.println("MAX_THREAD = " + MAX_THREAD);
-        
 
         Run_Population_Remote_MetaPopulation_Pop_Generate popGen
                 = new Run_Population_Remote_MetaPopulation_Pop_Generate(NUM_SIM_TOTAL, NUM_BURN_IN_STEPS, DIR_PATH, MAX_THREAD);
-        
-        if(popSizeStr!= null){                                    
+
+        if (popSizeStr != null) {
             popGen.setPopSize((int[]) PropValUtils.propStrToObject(popSizeStr, int[].class));
-        }                                
+        }
+
+        if (popTypeStr != null) {
+            popGen.setPopType((int[]) PropValUtils.propStrToObject(popTypeStr, int[].class));
+        }
+
+        if (popConncStr != null) {
+            popGen.setPopConnc((int[][]) PropValUtils.propStrToObject(popConncStr, int[][].class));
+        }
+
         System.out.println("POP_SIZE = " + Arrays.toString(popGen.getPopSize()));
+        System.out.println("POP_TYPE = " + Arrays.toString(popGen.getPopType()));
+        System.out.println("POP_CONNC = " + Arrays.deepToString(popGen.getPopConnc()));
 
         popGen.genPops();
 
@@ -129,7 +166,8 @@ public class Run_Population_Remote_MetaPopulation_Pop_Generate {
                 System.out.println(popFile.getAbsolutePath() + " already exist. Thread not generated.");
             } else {
                 System.out.println("Submiting thread for generation of pop #" + s);
-                Thread_PopGenRemote thread = new Thread_PopGenRemote(s, NUM_BURN_IN_STEPS, DIR_PATH, rng.nextLong(), popSize);
+                Thread_PopGenRemote thread = new Thread_PopGenRemote(s, NUM_BURN_IN_STEPS, DIR_PATH, rng.nextLong(),
+                        popSize, popType, popConnc);
                 executor.submit(thread);
                 numInExe++;
 
