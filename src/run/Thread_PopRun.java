@@ -471,29 +471,28 @@ public class Thread_PopRun implements Runnable {
 
                 }
 
+                boolean[] testing_in_timestep = new boolean[numberOfTestRateOptions];
+                boolean[] testing_use_proportion_in_timestep = new boolean[numberOfTestRateOptions];
+
                 for (int t = 0; t < numSteps; t++) {
 
                     for (int testing_set_num = 0; testing_set_num < testing_rate_by_classifier.length; testing_set_num++) {
-
                         float[] time_range = testing_set_time_range[testing_set_num];
-
-                        if (pop.getGlobalTime() >= time_range[0] && pop.getGlobalTime() < time_range[0] + time_range[1]) {
-
+                        testing_in_timestep[testing_set_num] = pop.getGlobalTime() >= time_range[0] && pop.getGlobalTime() < time_range[0] + time_range[1];
+                        if (testing_in_timestep[testing_set_num]) {
                             float[] currentTestRateByClassifier = testing_rate_by_classifier[testing_set_num];
 
                             int testSetting = currentTestRateByClassifier.length > testByClassifier.numClass()
                                     ? (int) currentTestRateByClassifier[testByClassifier.numClass()] : 0;
 
-                            boolean useProportionTestCoverage
+                            testing_use_proportion_in_timestep[testing_set_num]
                                     = (testSetting & (1 << TESTING_OPTION_USE_PROPORTION_TEST_COVERAGE)) > 0
                                     || currentTestRateByClassifier[0] < 0; // Backward compability
-
                             boolean sameTargetTest = (testSetting & (1 << TESTING_OPTION_FIX_TEST_SCHEDULE)) > 0;
-
                             int testing_schedule_freq = Math.max(Math.abs((int) currentTestRateByClassifier[0]), 1);
 
                             int offset_time = pop.getGlobalTime() - testing_offset[testing_set_num];
-                            if (!useProportionTestCoverage && (offset_time == 0
+                            if (!testing_use_proportion_in_timestep[testing_set_num] && (offset_time == 0
                                     || (testing_schedule_period[testing_set_num] > 0 && offset_time % testing_schedule_period[testing_set_num] == 0))) {
 
                                 if (!sameTargetTest || testing_schedule_index[testing_set_num] == 0) {
@@ -547,58 +546,48 @@ public class Thread_PopRun implements Runnable {
 
                     // Testing
                     for (int testing_set_num = 0; testing_set_num < testing_numPerDay.length; testing_set_num++) {
-
-                        float[] currentTestRateByClassifier = testing_rate_by_classifier[testing_set_num];
-                        int testSetting = currentTestRateByClassifier.length > testByClassifier.numClass()
-                                ? (int) currentTestRateByClassifier[testByClassifier.numClass()] : 0;
-                        boolean useProportionTestCoverage
-                                = (testSetting & (1 << TESTING_OPTION_USE_PROPORTION_TEST_COVERAGE)) > 0
-                                || currentTestRateByClassifier[0] < 0; // Backward compability       
-
-                        if (!useProportionTestCoverage && testing_person[testing_set_num] != null) {
-
-                            int dayIndex = (pop.getGlobalTime() - testing_offset[testing_set_num]);
-
-                            if (testing_schedule_period[testing_set_num] > 0) {
-                                dayIndex = dayIndex % testing_schedule_period[testing_set_num];
-                            }
-
-                            if (dayIndex < testing_numPerDay[testing_set_num].length) {
-
-                                int numTestToday = testing_numPerDay[testing_set_num][dayIndex];
-
-                                while (numTestToday != 0) {
-                                    testingPerson(testing_person[testing_set_num][testing_pt[testing_set_num]], treatmentSchdule, testRNG, notificationClassifier);
-                                    testing_pt[testing_set_num]++;
-                                    numTestToday--;
+                        if (testing_in_timestep[testing_set_num]) {
+                            float[] currentTestRateByClassifier = testing_rate_by_classifier[testing_set_num];
+                            if (!testing_use_proportion_in_timestep[testing_set_num] && testing_person[testing_set_num] != null) {
+                                int dayIndex = (pop.getGlobalTime() - testing_offset[testing_set_num]);
+                                if (testing_schedule_period[testing_set_num] > 0) {
+                                    dayIndex = dayIndex % testing_schedule_period[testing_set_num];
                                 }
-                            }
-
-                        } else if(useProportionTestCoverage) {
-
-                            for (AbstractIndividualInterface person : pop.getPop()) {
-                                boolean testToday = false;
-                                if (testByClassifier != null) {
-                                    int cI = testByClassifier.classifyPerson(person);
-                                    if (cI >= 0) {
-                                        float testRate = Math.abs(currentTestRateByClassifier[cI]);
-                                        float dailyRate;
-                                        // Rate                                          
-                                        int testFreq = (int) testRate; // Screen freq (by year). 
-                                        testRate = testRate - testFreq;
-                                        float srcPeriod = ((AbstractIndividualInterface.ONE_YEAR_INT / ((testFreq < 1 ? 1 : testFreq))));
-
-                                        dailyRate = (float) (1 - Math.exp(Math.log(1 - testRate) / srcPeriod));
-
-                                        testToday = testRNG.nextFloat() < dailyRate;
+                                if (dayIndex < testing_numPerDay[testing_set_num].length) {
+                                    int numTestToday = testing_numPerDay[testing_set_num][dayIndex];
+                                    while (numTestToday != 0) {
+                                        testingPerson(testing_person[testing_set_num][testing_pt[testing_set_num]], treatmentSchdule, testRNG, notificationClassifier);
+                                        testing_pt[testing_set_num]++;
+                                        numTestToday--;
                                     }
                                 }
-                                if (testToday) {
-                                    testingPerson(person, treatmentSchdule, testRNG, notificationClassifier);
+
+                            } else if (testing_use_proportion_in_timestep[testing_set_num]) {
+
+                                for (AbstractIndividualInterface person : pop.getPop()) {
+                                    boolean testToday = false;
+                                    if (testByClassifier != null) {
+                                        int cI = testByClassifier.classifyPerson(person);
+                                        if (cI >= 0) {
+                                            float testRate = Math.abs(currentTestRateByClassifier[cI]);
+                                            float dailyRate;
+                                            // Rate                                          
+                                            int testFreq = (int) testRate; // Screen freq (by year). 
+                                            testRate = testRate - testFreq;
+                                            float srcPeriod = ((AbstractIndividualInterface.ONE_YEAR_INT / ((testFreq < 1 ? 1 : testFreq))));
+
+                                            dailyRate = (float) (1 - Math.exp(Math.log(1 - testRate) / srcPeriod));
+
+                                            testToday = testRNG.nextFloat() < dailyRate;
+                                        }
+                                    }
+                                    if (testToday) {
+                                        testingPerson(person, treatmentSchdule, testRNG, notificationClassifier);
+                                    }
+
                                 }
 
                             }
-
                         }
                     }
 

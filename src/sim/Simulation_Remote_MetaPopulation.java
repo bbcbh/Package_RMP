@@ -262,9 +262,9 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                 rArg[1] = "";
                 rArg[2] = baseDir.getAbsolutePath();
                 rArg[3] = propVal[PROP_USE_PARALLEL] == null ? "" : ((Integer) propVal[PROP_USE_PARALLEL]).toString();
-                rArg[4] = (propModelInitStr.length < 0 ||  propModelInitStr[0] == null) ? "" : propModelInitStr[0];
-                rArg[5] = (propModelInitStr.length < 1 || propModelInitStr[1] == null) ? "" : propModelInitStr[1];
-                rArg[6] = (propModelInitStr.length < 2 || propModelInitStr[2] == null) ? "" : propModelInitStr[2];
+                rArg[4] = (propModelInitStr.length < 1 ||  propModelInitStr[0] == null) ? "" : propModelInitStr[0];
+                rArg[5] = (propModelInitStr.length < 2 || propModelInitStr[1] == null) ? "" : propModelInitStr[1];
+                rArg[6] = (propModelInitStr.length < 3 || propModelInitStr[2] == null) ? "" : propModelInitStr[2];
                 try {
                     Run_Population_Remote_MetaPopulation_Pop_Generate.runPopGenerate(rArg);
                 } catch (ClassNotFoundException ex) {
