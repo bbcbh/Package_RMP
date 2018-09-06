@@ -84,7 +84,8 @@ import util.PropValUtils;
  *  - Implementation of multiple screening / mass screening
  * 20180904
  *  - Addition of fixed number of test count under multiple screening option
- *
+ * 20180906
+ *  - Add overwrite background option
  * </pre>
  */
 public class Thread_PopRun implements Runnable {
@@ -113,6 +114,7 @@ public class Thread_PopRun implements Runnable {
 
     public static final int TESTING_OPTION_USE_PROPORTION_TEST_COVERAGE = 0;
     public static final int TESTING_OPTION_FIX_TEST_SCHEDULE = TESTING_OPTION_USE_PROPORTION_TEST_COVERAGE + 1;
+    public static final int TESTING_OPTION_OVERWRITE_BACKGROUND = TESTING_OPTION_FIX_TEST_SCHEDULE + 1;
 
     public static final int TESTING_TIMERANGE_START = 0;
     public static final int TESTING_TIMERANGE_DURATION = TESTING_TIMERANGE_START + 1;
@@ -435,13 +437,13 @@ public class Thread_PopRun implements Runnable {
                 while (numberOfTestRateIndex < ((float[]) inputParam[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER]).length) {
                     numberOfTestRateOptions++;
                     numberOfTestRateIndex += testByClassifier.numClass() + 1;    // RATE_BY_CLASSIFIER_SET_n, test_setting_n                
-                    numberOfTestRateIndex += TESTING_TIMERANGE_LENGTH;                                  // start_time_n+1, duration_n+1, periodcity_n+1,
+                    numberOfTestRateIndex += TESTING_TIMERANGE_LENGTH;           // start_time_n+1, duration_n+1, periodcity_n+1,
                 }
 
                 boolean[] testing_use_daily_rate = new boolean[numberOfTestRateOptions];
                 boolean[] testing_same_targetTest = new boolean[numberOfTestRateOptions];
 
-                int[] testing_schedule_count = new int[numberOfTestRateOptions];              
+                int[] testing_schedule_count = new int[numberOfTestRateOptions];
                 int[] testing_schedule_freq = new int[numberOfTestRateOptions];
 
                 float[][] testing_rate_by_classifier = new float[numberOfTestRateOptions][];
@@ -469,15 +471,20 @@ public class Thread_PopRun implements Runnable {
                     testing_schedule_freq[testing_set_num] = Math.max(Math.abs((int) testing_rate_by_classifier[testing_set_num][0]), 1);
 
                     if (testing_set_num == 0) {
-                        testing_set_time_range[testing_set_num]                                 
-                                = new float[]{offset, AbstractIndividualInterface.ONE_YEAR_INT / testing_schedule_freq[testing_set_num], 
-                                    AbstractIndividualInterface.ONE_YEAR_INT / testing_schedule_freq[testing_set_num],  -1}; // Default background                          
-                       
+                        testing_set_time_range[testing_set_num]
+                                = new float[]{offset, AbstractIndividualInterface.ONE_YEAR_INT / testing_schedule_freq[testing_set_num],
+                                    AbstractIndividualInterface.ONE_YEAR_INT / testing_schedule_freq[testing_set_num], -1}; // Default background                          
+
                     } else {
                         testing_set_time_range[testing_set_num] = Arrays.copyOfRange(
                                 (float[]) inputParam[PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER],
                                 testing_rate_set_index - TESTING_TIMERANGE_LENGTH, testing_rate_set_index);
                         // start_time_n+1, duration_n+1, periodcity_n+1, testScheduleCount_n+1                           
+
+                        if ((testSetting & 1 << TESTING_OPTION_OVERWRITE_BACKGROUND) > 0) {
+                            testing_set_time_range[0][TESTING_TIMERANGE_MAX_COUNT]
+                                    = -testing_set_time_range[testing_set_num][TESTING_TIMERANGE_START];
+                        }
 
                     }
 
@@ -493,9 +500,10 @@ public class Thread_PopRun implements Runnable {
                     for (int testing_set_num = 0; testing_set_num < testing_rate_by_classifier.length; testing_set_num++) {
                         float[] time_range = testing_set_time_range[testing_set_num];
                         testing_in_timestep[testing_set_num] = pop.getGlobalTime() >= time_range[TESTING_TIMERANGE_START]
-                                && (time_range[TESTING_TIMERANGE_MAX_COUNT] < 0 // Inf count 
-                                    || testing_schedule_count[testing_set_num] < time_range[TESTING_TIMERANGE_MAX_COUNT] // fix count testing 
-                                );
+                                && (time_range[TESTING_TIMERANGE_MAX_COUNT] >= 0
+                                        ? testing_schedule_count[testing_set_num] < time_range[TESTING_TIMERANGE_MAX_COUNT] // +ive :fix count testing 
+                                        : (-time_range[TESTING_TIMERANGE_MAX_COUNT] < time_range[TESTING_TIMERANGE_START] // -ive: if end time of screening option unless it is smaller than start time
+                                        || pop.getGlobalTime() < -time_range[TESTING_TIMERANGE_MAX_COUNT]));
 
                         if (testing_in_timestep[testing_set_num]) {
                             int offset_time = pop.getGlobalTime() - (int) time_range[TESTING_TIMERANGE_START];
@@ -565,8 +573,14 @@ public class Thread_PopRun implements Runnable {
                                         float dailyRate;
                                         // Rate                                          
                                         int testFreq = (int) testRate; // Screen freq (by year). 
-                                        testRate = testRate - testFreq;
-                                        float srcPeriod = ((AbstractIndividualInterface.ONE_YEAR_INT / ((testFreq < 1 ? 1 : testFreq))));
+                                        float srcPeriod = testing_set_time_range[testing_set_num][TESTING_TIMERANGE_PERIOD];
+                                        
+                                        if(testFreq != 0){
+                                             // Alterative format for period declartion 
+                                             testRate = testRate - testFreq;
+                                             srcPeriod = ((AbstractIndividualInterface.ONE_YEAR_INT / ((testFreq < 1 ? 1 : testFreq)))); 
+                                            
+                                        }
                                         dailyRate = (float) (1 - Math.exp(Math.log(1 - testRate) / srcPeriod));
                                         testToday = testRNG.nextFloat() < dailyRate;
                                     }
