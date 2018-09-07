@@ -11,13 +11,15 @@ import java.util.Arrays;
  * An abstract class to define share method for Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT and Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis
  *
  * @author Ben Hui
- * @version 20180713
+ * @version 20180907
  *
  * History:
  *
  * <pre>
  * 20180815
  *   - Change from interface to abstract class, implementation of PopSelectionCSV methods
+ * 20180907:
+ *   - Add support for PROP_STORE_TESTING_HISTORY
  * </pre>
  */
 public abstract class Abstract_Run_IntroInfection {
@@ -27,6 +29,38 @@ public abstract class Abstract_Run_IntroInfection {
     protected String[] popParamValStr = new String[0];
     protected String[] threadParamValStr = new String[Thread_PopRun.PARAM_TOTAL];       
     protected Integer[] popSelectionIndex = null;
+    
+    protected boolean storeInfectionHistory = false;
+    protected boolean storeTestingHistory = false;
+    protected boolean storeTreatmentHistory = false;
+
+    public boolean isStoreTreatmentHistory() {
+        return storeTreatmentHistory;
+    }
+
+    public void setStoreTreatmentHistory(boolean storeTreatmentHistory) {
+        this.storeTreatmentHistory = storeTreatmentHistory;
+    }
+    
+
+    public boolean isStoreInfectionHistory() {
+        return storeInfectionHistory;
+    }
+
+    public void setStoreInfectionHistory(boolean storeInfectionHistory) {
+        this.storeInfectionHistory = storeInfectionHistory;
+    }
+
+    public boolean isStoreTestingHistory() {
+        return storeTestingHistory;
+    }
+
+    public void setStoreTestingHistory(boolean storeTestingHistory) {
+        this.storeTestingHistory = storeTestingHistory;
+    }
+    
+    
+    
 
     public Integer[] getPopSelection() {
         return popSelectionIndex;

@@ -67,6 +67,9 @@ import util.PropValUtils;
  *
  * 20180815
  * -  Add support for Abstract_Run_IntroInfection class
+ * 
+ * 20180907 
+ *  - Add support for indivudal infection, testing and treatment history, removal of duplciate code that serve the same purpose 
  * </pre>
  */
 public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abstract_Run_IntroInfection {
@@ -76,8 +79,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
     public int NUM_THREADS = Runtime.getRuntime().availableProcessors();
     public int NUM_SIM_TOTAL = 1000;
     public int NUM_STEPS = 360 * 50;
-    public int SAMP_FREQ = 90;
-    public boolean STORE_INFECTION_HISTORY = true;
+    public int SAMP_FREQ = 90;   
 
     final Pattern Pattern_importFile = Pattern.compile("\\w*pop_S(\\d+).zip");
     public static final int NUM_COLLECTION = 4;
@@ -184,6 +186,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
     public static final int PARAM_INDEX_TRAN_FM_RECURRENT_SD = PARAM_INDEX_TRAN_FM_EARLY_LT_SD + 1;
 
     public Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis(String[] arg) {
+        
         // 0: Base Dir
         if (arg.length > 0) {
             if (!arg[0].isEmpty()) {
@@ -227,9 +230,11 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
         // 6: Store infection history
         if (arg.length > 6) {
             if (!arg[6].isEmpty()) {
-                STORE_INFECTION_HISTORY = Boolean.parseBoolean(arg[6]);
+                setStoreInfectionHistory(Boolean.parseBoolean(arg[6]));
             }
         }
+        
+        
 
         paramVal_Run = Arrays.copyOf(DEFAULT_PARAM_VALUES, DEFAULT_PARAM_VALUES.length);
 
@@ -239,7 +244,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
         System.out.println("NUM_SIM_TOTAL = " + NUM_SIM_TOTAL);
         System.out.println("NUM_STEPS = " + NUM_STEPS);
         System.out.println("SAMP_FREQ = " + SAMP_FREQ);
-        System.out.println("STORE_INFECTION_HISTORY = " + STORE_INFECTION_HISTORY);
+        System.out.println("STORE_INFECTION_HISTORY = " + isStoreInfectionHistory());
 
         File inputParamFile = new File(BASE_DIR_STR, FILENAME_INPUT_PARAM_VALUES);
 
@@ -384,7 +389,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
             File infectionHistoryStore = new File(BASE_DIR_STR,
                     FILENAME_INFECTION_HISTORY_OBJ_PREFIX + "_" + sId + ".obj");
 
-            if (STORE_INFECTION_HISTORY && !infectionHistoryStore.exists()) {
+            if (isStoreInfectionHistory() && !infectionHistoryStore.exists()) {
                 collection_InfectionHistory[sId] = new HashMap<>();
             } else {
                 collection_InfectionHistory[sId] = null;
@@ -414,11 +419,12 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
                     @Override
                     protected void generateOutput() {
                         super.generateOutput();
-                        int snapFreq = super.getOutputFreq();
+                        int snapFreq = super.getOutputFreq(); 
+                        /*
                         int numNewInf = 0;
                         int numInfected = 0;
-                        int numInfectious = 0;
-
+                        int numInfectious = 0;                       
+                       
                         for (AbstractIndividualInterface person : super.getPop().getPop()) {
                             Person_Remote_MetaPopulation rmp = (Person_Remote_MetaPopulation) person;
 
@@ -454,6 +460,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
                                 }
                             }
                         }
+                        
 
                         if (!collection_NumIndividuals.containsKey(super.getPop().getGlobalTime())) {
                             collection_NumIndividuals.put(super.getPop().getGlobalTime(), new int[numPopFiles]);
@@ -467,7 +474,8 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
                         if (!collection_NewInfection.containsKey(super.getPop().getGlobalTime())) {
                             collection_NewInfection.put(super.getPop().getGlobalTime(), new int[numPopFiles]);
                         }
-                        collection_NewInfection.get(super.getPop().getGlobalTime())[super.getSimId()] = numNewInf;
+                        collection_NewInfection.get(super.getPop().getGlobalTime())[super.getSimId()] = numNewInf;                        
+                        */
 
                     }
 
@@ -475,6 +483,18 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
 
                 thread.setOutputFreq(SAMP_FREQ);
                 thread.setOutputPri(outputPrint, false);
+                
+                if(isStoreInfectionHistory()){
+                    thread.setIndiv_history(Thread_PopRun.INDIV_HIST_INFECTION, new HashMap<Integer, int[]>());                    
+                }
+                if(isStoreTestingHistory()){
+                    thread.setIndiv_history(Thread_PopRun.INDIV_HIST_TEST, new HashMap<Integer, int[]>());   
+                }
+                if(isStoreTreatmentHistory()){
+                    thread.setIndiv_history(Thread_PopRun.INDIV_HIST_TREAT, new HashMap<Integer, int[]>());   
+                }
+                
+                
                 try {
                     thread.importPop();
                 } catch (IOException | ClassNotFoundException ex) {

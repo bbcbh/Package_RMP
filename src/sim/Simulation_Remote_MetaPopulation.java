@@ -40,18 +40,24 @@ import util.PropValUtils;
  *   - Add support for pop generate
  * 20180831:
  *   - Add support for pop generate with custom popType and popConnc
+ * 20180907:
+ *   - Add support for PROP_STORE_TESTING_HISTORY and PROP_STORE_TREATMENT_HISTORY
  *
  * </pre>
  */
 public class Simulation_Remote_MetaPopulation implements SimulationInterface {
 
     public static final String[] PROP_NAME_RMP = {
-        "PROP_RMP_SIM_TYPE", "PROP_STORE_INFECTION_HISTORY",};
+        "PROP_RMP_SIM_TYPE", "PROP_STORE_INFECTION_HISTORY", "PROP_STORE_TESTING_HISTORY", "PROP_STORE_TREATMENT_HISTORY"};
     public static final Class[] PROP_CLASS_RMP = {
         Integer.class, // 0 = NG_CT, 1 = Syphilis
+        Boolean.class,
+        Boolean.class,
         Boolean.class,};
     public static final int PROP_RMP_SIM_TYPE = PROP_NAME.length;
     public static final int PROP_STORE_INFECTION_HISTORY = PROP_RMP_SIM_TYPE + 1;
+    public static final int PROP_STORE_TESTING_HISTORY = PROP_STORE_INFECTION_HISTORY + 1;
+    public static final int PROP_STORE_TREATMENT_HISTORY = PROP_STORE_TESTING_HISTORY + 1;
 
     public static final String POP_PROP_INIT_PREFIX = "POP_PROP_INIT_PREFIX_";
     protected String[] propModelInitStr = null;
@@ -152,6 +158,10 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
 
                 Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT runNGCT = new Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT(rArg);
 
+                runNGCT.setStoreInfectionHistory(propVal[PROP_STORE_INFECTION_HISTORY] == null ? false : ((Boolean) propVal[PROP_STORE_INFECTION_HISTORY]));
+                runNGCT.setStoreInfectionHistory(propVal[PROP_STORE_TESTING_HISTORY] == null ? false : ((Boolean) propVal[PROP_STORE_TESTING_HISTORY]));
+                runNGCT.setStoreInfectionHistory(propVal[PROP_STORE_TREATMENT_HISTORY] == null ? false : ((Boolean) propVal[PROP_STORE_TREATMENT_HISTORY]));
+
                 if (propVal[PROP_POP_SELECT_CSV] != null) {
                     runNGCT.setPopSelectionCSV((String) propVal[PROP_POP_SELECT_CSV]);
                 }
@@ -189,7 +199,12 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                         : Integer.toString(((Integer) propVal[PROP_NUM_SNAP]) * ((Integer) propVal[PROP_SNAP_FREQ]));
                 rArg[5] = propVal[PROP_SNAP_FREQ] == null ? "" : ((Integer) propVal[PROP_SNAP_FREQ]).toString();
                 rArg[6] = propVal[PROP_STORE_INFECTION_HISTORY] == null ? "" : ((Boolean) propVal[PROP_STORE_INFECTION_HISTORY]).toString();
+
                 Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis runSyp = new Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis(rArg);
+
+                runSyp.setStoreInfectionHistory(propVal[PROP_STORE_INFECTION_HISTORY] == null ? false : ((Boolean) propVal[PROP_STORE_INFECTION_HISTORY]));
+                runSyp.setStoreTestingHistory(propVal[PROP_STORE_TESTING_HISTORY] == null ? false : ((Boolean) propVal[PROP_STORE_TESTING_HISTORY]));
+                runSyp.setStoreTreatmentHistory(propVal[PROP_STORE_TREATMENT_HISTORY] == null ? false : ((Boolean) propVal[PROP_STORE_TREATMENT_HISTORY]));
 
                 if (propVal[PROP_POP_SELECT_CSV] != null) {
                     runSyp.setPopSelectionCSV((String) propVal[PROP_POP_SELECT_CSV]);
@@ -262,7 +277,7 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                 rArg[1] = "";
                 rArg[2] = baseDir.getAbsolutePath();
                 rArg[3] = propVal[PROP_USE_PARALLEL] == null ? "" : ((Integer) propVal[PROP_USE_PARALLEL]).toString();
-                rArg[4] = (propModelInitStr.length < 1 ||  propModelInitStr[0] == null) ? "" : propModelInitStr[0];
+                rArg[4] = (propModelInitStr.length < 1 || propModelInitStr[0] == null) ? "" : propModelInitStr[0];
                 rArg[5] = (propModelInitStr.length < 2 || propModelInitStr[1] == null) ? "" : propModelInitStr[1];
                 rArg[6] = (propModelInitStr.length < 3 || propModelInitStr[2] == null) ? "" : propModelInitStr[2];
                 try {

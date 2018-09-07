@@ -8,6 +8,7 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -33,7 +34,7 @@ import util.PropValUtils;
 /**
  *
  * @author Ben Hui
- * @version 20180904
+ * @version 20180907
  *
  * <pre>
  * History:
@@ -86,6 +87,13 @@ import util.PropValUtils;
  *  - Addition of fixed number of test count under multiple screening option
  * 20180906
  *  - Add overwrite background option
+ * 20180907
+ *  - Add support for infection, testing and treatment history
+ *  - Add ramping effect and replace the defintion of testing rate defintiion under ramping - for example if
+ *    ramping is set and ramp from rate from set #1, then the testing rate will be 1.n, where n is the testing rate it
+ *    ramped to. Noted that it will only apply if TESTING_OPTION_RAMPING is set. Otherwise it will be defined using
+ *    defintion defined in 20180817 but only apply to background testing (i.e. testing rate #0)
+ *    as same function can be acheived by setting TESTING_TIMERANGE_PERIOD for non background testing
  * </pre>
  */
 public class Thread_PopRun implements Runnable {
@@ -115,6 +123,7 @@ public class Thread_PopRun implements Runnable {
     public static final int TESTING_OPTION_USE_PROPORTION_TEST_COVERAGE = 0;
     public static final int TESTING_OPTION_FIX_TEST_SCHEDULE = TESTING_OPTION_USE_PROPORTION_TEST_COVERAGE + 1;
     public static final int TESTING_OPTION_OVERWRITE_BACKGROUND = TESTING_OPTION_FIX_TEST_SCHEDULE + 1;
+    public static final int TESTING_OPTION_RAMPING = TESTING_OPTION_OVERWRITE_BACKGROUND + 1;
 
     public static final int TESTING_TIMERANGE_START = 0;
     public static final int TESTING_TIMERANGE_DURATION = TESTING_TIMERANGE_START + 1;
@@ -122,11 +131,25 @@ public class Thread_PopRun implements Runnable {
     public static final int TESTING_TIMERANGE_MAX_COUNT = TESTING_TIMERANGE_PERIOD + 1;
     public static final int TESTING_TIMERANGE_LENGTH = TESTING_TIMERANGE_MAX_COUNT + 1;
 
+    public static final int INDIV_HIST_INFECTION = 0;
+    // Id, [end_index, global time at first infection, 
+    //       age at first infect * 10^(pop.getInfList().length /10) + 1 + infection id, 
+    //       age at first infect * 10^(pop.getInfList().length /10) + 1 + infection id,...]
+    public static final int INDIV_HIST_TEST = INDIV_HIST_INFECTION + 1; // Id, [end_index, global time at first test, age at first test, age at second test ...]
+    public static final int INDIV_HIST_TREAT = INDIV_HIST_TEST + 1;     // Id, [end_index, global time at first treatment, age at first treatment, age at second treatment ...]
+
+    public static final String[] INDIV_HIST_PREFIX = new String[]{"indiv_history_infection", "indiv_history_test", "indiv_history_treatment"};
+
     protected int[] cumulativeIncident;
     protected int[][][] cumulativeTestAndNotification;   // cumulativeTestAndNotification[infectionId][classId][1+infStatus]
 
     public static final String FILE_PREFIX_INCIDENCE = "incident_S";
     public static final String FILE_PREFIX_TEST_AND_NOTIFICATION = "test_and_notification_S";
+
+    //private HashMap<Integer, int[]> indiv_history_infection = null; 
+    //private HashMap<Integer, int[]> indiv_history_test = null; 
+    //private HashMap<Integer, int[]> indiv_history_treatment = null; 
+    private HashMap<Integer, int[]>[] indiv_hist = new HashMap[INDIV_HIST_PREFIX.length];
 
     protected Object[] inputParam = new Object[]{
         // 1: PARAM_INDEX_INFECTIONS
@@ -241,6 +264,14 @@ public class Thread_PopRun implements Runnable {
         this.importFilePath = importPath;
         this.simId = simId;
         this.numSteps = numSteps;
+    }
+
+    public HashMap<Integer, int[]> getIndiv_history(int index) {
+        return indiv_hist[index];
+    }
+
+    public void setIndiv_history(int index, HashMap<Integer, int[]> indiv_history_ent) {
+        indiv_hist[index] = indiv_history_ent;
     }
 
     public void setOutputFreq(int outputFreq) {
@@ -442,6 +473,7 @@ public class Thread_PopRun implements Runnable {
 
                 boolean[] testing_use_daily_rate = new boolean[numberOfTestRateOptions];
                 boolean[] testing_same_targetTest = new boolean[numberOfTestRateOptions];
+                boolean[] testing_use_ramping = new boolean[numberOfTestRateOptions];
 
                 int[] testing_schedule_count = new int[numberOfTestRateOptions];
                 int[] testing_schedule_freq = new int[numberOfTestRateOptions];
@@ -466,6 +498,7 @@ public class Thread_PopRun implements Runnable {
                     testing_use_daily_rate[testing_set_num]
                             = (testSetting & (1 << TESTING_OPTION_USE_PROPORTION_TEST_COVERAGE)) > 0;
                     testing_same_targetTest[testing_set_num] = (testSetting & (1 << TESTING_OPTION_FIX_TEST_SCHEDULE)) > 0;
+                    testing_use_ramping[testing_set_num] = (testSetting & (1 << TESTING_OPTION_RAMPING)) > 0;
 
                     // If testing_schedule_freq < 1 then it will be annual 
                     testing_schedule_freq[testing_set_num] = Math.max(Math.abs((int) testing_rate_by_classifier[testing_set_num][0]), 1);
@@ -510,7 +543,19 @@ public class Thread_PopRun implements Runnable {
                             if (!testing_use_daily_rate[testing_set_num] && (offset_time == 0
                                     || (time_range[TESTING_TIMERANGE_PERIOD] > 0 && offset_time % (int) time_range[TESTING_TIMERANGE_PERIOD] == 0))) {
                                 if (!testing_same_targetTest[testing_set_num] || testing_schedule_count[testing_set_num] == 0) {
-                                    ArrayList<AbstractIndividualInterface> testing_schedule = generateTestingSchedule(testRNG, testing_rate_by_classifier[testing_set_num]);
+
+                                    float[] testing_rate = testing_rate_by_classifier[testing_set_num];
+
+                                    if (testing_use_ramping[testing_set_num]) {
+                                        testing_rate = adjustedRampTestRate(testing_rate, testByClassifier.numClass(),
+                                                testing_rate_by_classifier,
+                                                (int) testing_set_time_range[testing_set_num][TESTING_TIMERANGE_START],
+                                                (int) testing_set_time_range[testing_set_num][TESTING_TIMERANGE_PERIOD]
+                                                * (int) testing_set_time_range[testing_set_num][TESTING_TIMERANGE_MAX_COUNT]);
+
+                                    }
+
+                                    ArrayList<AbstractIndividualInterface> testing_schedule = generateTestingSchedule(testRNG, testing_rate);
                                     testing_person[testing_set_num] = testing_schedule.toArray(new AbstractIndividualInterface[testing_schedule.size()]);
                                 }
                                 ArrayUtilsRandomGenerator.shuffleArray(testing_person[testing_set_num], testRNG);
@@ -538,6 +583,11 @@ public class Thread_PopRun implements Runnable {
                         // Record incident
                         for (AbstractIndividualInterface p : pop.getPop()) {
                             if (p.getLastInfectedAtAge(infId) == p.getAge()) {
+
+                                if (indiv_hist[INDIV_HIST_INFECTION] != null) {
+                                    storeIndivdualHistory(indiv_hist[INDIV_HIST_INFECTION], p, infId);
+                                }
+
                                 int cI = incidenceClassifier.classifyPerson(p);
                                 if (cI >= 0) {
                                     cumulativeIncident[infId * incidenceClassifier.numClass() + cI]++;
@@ -565,22 +615,33 @@ public class Thread_PopRun implements Runnable {
                                 }
 
                             } else if (testing_use_daily_rate[testing_set_num]) {
+
+                                float[] testing_rate = testing_rate_by_classifier[testing_set_num];
+                                if (testing_use_ramping[testing_set_num]) {
+                                    testing_rate = adjustedRampTestRate(testing_rate, testByClassifier.numClass(),
+                                            testing_rate_by_classifier,
+                                            (int) testing_set_time_range[testing_set_num][TESTING_TIMERANGE_START],
+                                            (int) testing_set_time_range[testing_set_num][TESTING_TIMERANGE_PERIOD]
+                                            * (int) testing_set_time_range[testing_set_num][TESTING_TIMERANGE_MAX_COUNT]);
+                                }
+
                                 for (AbstractIndividualInterface person : pop.getPop()) {
                                     boolean testToday = false;
                                     int cI = testByClassifier.classifyPerson(person);
                                     if (cI >= 0) {
-                                        float testRate = Math.abs(testing_rate_by_classifier[testing_set_num][cI]);
+                                        float testRate = Math.abs(testing_rate[cI]);
                                         float dailyRate;
                                         // Rate                                          
                                         int testFreq = (int) testRate; // Screen freq (by year). 
                                         float srcPeriod = testing_set_time_range[testing_set_num][TESTING_TIMERANGE_PERIOD];
-                                        
-                                        if(testFreq != 0){
-                                             // Alterative format for period declartion 
-                                             testRate = testRate - testFreq;
-                                             srcPeriod = ((AbstractIndividualInterface.ONE_YEAR_INT / ((testFreq < 1 ? 1 : testFreq)))); 
-                                            
+
+                                        if (testing_set_num == 0 && testFreq != 0) {
+                                            // Alterative format for period declartion for baseline
+                                            testRate = testRate - testFreq;
+                                            srcPeriod = ((AbstractIndividualInterface.ONE_YEAR_INT / ((testFreq < 1 ? 1 : testFreq))));
+
                                         }
+
                                         dailyRate = (float) (1 - Math.exp(Math.log(1 - testRate) / srcPeriod));
                                         testToday = testRNG.nextFloat() < dailyRate;
                                     }
@@ -620,6 +681,12 @@ public class Thread_PopRun implements Runnable {
 
                 }
 
+                for (int i = 0; i < indiv_hist.length; i++) {
+                    if (indiv_hist[i] != null) {
+                        exportIndivdualHist(indiv_hist[i], INDIV_HIST_PREFIX[i]);
+                    }
+                }
+
                 if (outputPri != null) {
                     outputPri.println("File exported to " + outputFilePath.getAbsolutePath());
                     outputPri.println("Time required = " + ((System.currentTimeMillis() - tic) / 1000f));
@@ -634,6 +701,45 @@ public class Thread_PopRun implements Runnable {
             outputPri.close();
         }
 
+    }
+
+    protected void exportIndivdualHist(HashMap<Integer, int[]> histMap, String fName) throws FileNotFoundException {
+        if (histMap != null) {
+            File indiv_hist_file = new File(outputFilePath, fName + '_' + getSimId() + ".csv");
+            Integer[] ids = histMap.keySet().toArray(new Integer[histMap.size()]);
+            Arrays.sort(ids);
+            try (PrintWriter pWri = new PrintWriter(indiv_hist_file)) {
+                for (Integer id : ids) {
+                    pWri.print(id);
+                    int[] ent = histMap.get(id);
+                    int validEntLength = ent[0]; // Pointing to last entry
+                    for (int i = 1; i <= validEntLength; i++) {
+                        pWri.print(',');
+                        pWri.print(ent[i]);
+                    }
+                    pWri.println();
+                }
+            }
+        }
+    }
+
+    protected float[] adjustedRampTestRate(float[] testing_rate, int numClass,
+            float[][] testing_rate_by_classifier, int startRampTime, int rampDuration) {
+
+        float[] adjRate = new float[testing_rate.length];
+        for (int cI = 0; cI < testing_rate.length; cI++) {
+            if (cI < numClass) {
+
+                int baseIndex = (int) testing_rate[cI];
+                float test_rate_base = testing_rate_by_classifier[baseIndex][cI];
+                adjRate[cI] = test_rate_base
+                        + (testing_rate[cI] - test_rate_base)
+                        * (pop.getGlobalTime() - startRampTime) / rampDuration;
+            } else {
+                adjRate[cI] = testing_rate[cI];
+            }
+        }
+        return adjRate;
     }
 
     protected void generateOutput() {
@@ -772,7 +878,12 @@ public class Thread_PopRun implements Runnable {
     public void testingPerson(AbstractIndividualInterface person,
             HashMap<Integer, int[][]> treatmentSchdule, random.RandomGenerator testRNG,
             PersonClassifier notificationClassifier) {
+
         Person_Remote_MetaPopulation rmp_person = (Person_Remote_MetaPopulation) person;
+
+        if (indiv_hist[INDIV_HIST_TEST] != null) {
+            storeIndivdualHistory(indiv_hist[INDIV_HIST_TEST], rmp_person);
+        }
 
         boolean toBeTreated = false;
 
@@ -854,6 +965,39 @@ public class Thread_PopRun implements Runnable {
 
     }
 
+    protected void storeIndivdualHistory(HashMap<Integer, int[]> indiv_map,
+            AbstractIndividualInterface rmp_person) {
+        storeIndivdualHistory(indiv_map, rmp_person, -1);
+    }
+
+    protected void storeIndivdualHistory(HashMap<Integer, int[]> indiv_map,
+            AbstractIndividualInterface rmp_person, int infId) {
+
+        int[] ent = indiv_map.get(rmp_person.getId());
+
+        if (ent == null) {
+            ent = new int[10]; // Default size           
+            ent[0] = 1;        // Index
+            ent[1] = pop.getGlobalTime(); // Global time at first entry
+            indiv_map.put(rmp_person.getId(), ent);
+        }
+        
+        ent[0]++;
+
+        if (ent[0] >= ent.length) {
+            ent = Arrays.copyOf(ent, ent.length + 10);
+            indiv_map.put(rmp_person.getId(), ent);
+        }
+
+        if (infId < 0) { // Store age only
+            ent[ent[0]] = (int) rmp_person.getAge();
+        } else {
+            int numDigitOffset = (pop.getInfList().length / 10) + 1;
+            ent[ent[0]] = (int) (rmp_person.getAge() * Math.pow(10, numDigitOffset)) + infId;
+
+        }
+    }
+
     public void treatingToday(int[][] treatmentSchdule) {
         for (AbstractIndividualInterface person : pop.getPop()) {
             Person_Remote_MetaPopulation rmp_person = (Person_Remote_MetaPopulation) person;
@@ -872,6 +1016,9 @@ public class Thread_PopRun implements Runnable {
                                         rmp_person.setTimeUntilNextStage(infId, Double.POSITIVE_INFINITY);
                                     }
                                     rmp_person.setLastTreatedAt((int) rmp_person.getAge());
+                                    if (indiv_hist[INDIV_HIST_TREAT] != null) {
+                                        storeIndivdualHistory(indiv_hist[INDIV_HIST_TREAT], rmp_person);
+                                    }
                                 }
                             }
 

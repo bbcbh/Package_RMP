@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -34,19 +35,21 @@ import util.PropValUtils;
  * History:
  *
  * <pre>
-  20180523
-   - Added support for repeated simulation runs
-  20180612
-   - Added support for user-defined input parameter
-  20180614
-   - Minor change to output print format
-  20180622
-   - Uniting input format for both NG/CT and syphilis
-  20180713
-   - Introduce implementation of Abstract_Run_IntroInfection interface
-  20180815
-   - Add support for Abstract_Run_IntroInfection class
- </pre>
+ * 20180523
+ * - Added support for repeated simulation runs
+ * 20180612
+ * - Added support for user-defined input parameter
+ * 20180614
+ * - Minor change to output print format
+ * 20180622
+ * - Uniting input format for both NG/CT and syphilis
+ * 20180713
+ * - Introduce implementation of Abstract_Run_IntroInfection interface
+ * 20180815
+ * - Add support for Abstract_Run_IntroInfection class
+ * 20180907
+ * - Add support for indivudal infection, testing and treatment history
+ * </pre>
  */
 public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT extends Abstract_Run_IntroInfection {
 
@@ -92,7 +95,6 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT extends Abstra
         0.02,};
 
     //protected String[] threadParamValStr = new String[Thread_PopRun.PARAM_TOTAL];
-
     // For Beta distribution, 
     // alpha = mean*(mean*(1-mean)/variance - 1)
     // beta = (1-mean)*(mean*(1-mean)/variance - 1)
@@ -148,8 +150,6 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT extends Abstra
     public double[] getRunParamValues() {
         return paramVal_Run;
     }
-   
-
 
     protected Object[] generateParam() {
         Object[] generatedDistribution = {
@@ -205,9 +205,8 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT extends Abstra
         if (NUM_SIM_TOTAL > 0 && NUM_SIM_TOTAL < popFiles.length) {
             popFiles = Arrays.copyOf(popFiles, NUM_SIM_TOTAL);
         }
-        
-        System.out.println(popFiles.length + " population file(s) will be used in simulation");        
-                        
+
+        System.out.println(popFiles.length + " population file(s) will be used in simulation");
 
         ExecutorService executor = null;
         int numInExe = 0;
@@ -219,12 +218,12 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT extends Abstra
             }
             File importPop = popFiles[sId];
             File outputPopFile = new File(exportDir, "Sim_" + importPop.getName());
-            
+
             boolean skipPop = getPopSelection() != null && (Arrays.binarySearch(getPopSelection(), sId) < 0);
 
             if (outputPopFile.exists()) {
                 System.out.println("Pop file " + outputPopFile.getAbsolutePath() + " already exist. Simulation skipped.");
-            }else if(skipPop){
+            } else if (skipPop) {
                 //System.out.println("Simulation for pop file " + outputPopFile.getAbsolutePath() + " skipped due to popSelection.");
 
             } else {
@@ -241,6 +240,16 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT extends Abstra
                 Thread_PopRun thread = new Thread_PopRun(outputPopFile, importPop, sId, NUM_STEPS);
                 thread.setOutputFreq(SAMP_FREQ);
                 thread.setOutputPri(outputPrint, false);
+
+                if (isStoreInfectionHistory()) {
+                    thread.setIndiv_history(Thread_PopRun.INDIV_HIST_INFECTION, new HashMap<Integer, int[]>());
+                }
+                if (isStoreTestingHistory()) {
+                    thread.setIndiv_history(Thread_PopRun.INDIV_HIST_TEST, new HashMap<Integer, int[]>());
+                }
+                if (isStoreTreatmentHistory()) {
+                    thread.setIndiv_history(Thread_PopRun.INDIV_HIST_TREAT, new HashMap<Integer, int[]>());
+                }
 
                 try {
                     thread.importPop();
@@ -474,6 +483,6 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT extends Abstra
             outputPrint.flush();
         }
 
-    }    
+    }
 
 }
