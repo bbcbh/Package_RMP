@@ -94,6 +94,8 @@ import util.PropValUtils;
  *    ramped to. Noted that it will only apply if TESTING_OPTION_RAMPING is set. Otherwise it will be defined using
  *    defintion defined in 20180817 but only apply to background testing (i.e. testing rate #0)
  *    as same function can be acheived by setting TESTING_TIMERANGE_PERIOD for non background testing
+ * 20180910
+ *  - Debug: corrected export path for infection, testing and treatment history
  * </pre>
  */
 public class Thread_PopRun implements Runnable {
@@ -705,7 +707,7 @@ public class Thread_PopRun implements Runnable {
 
     protected void exportIndivdualHist(HashMap<Integer, int[]> histMap, String fName) throws FileNotFoundException {
         if (histMap != null) {
-            File indiv_hist_file = new File(outputFilePath, fName + '_' + getSimId() + ".csv");
+            File indiv_hist_file = new File(outputFilePath.getParentFile(), fName + '_' + getSimId() + ".csv");
             Integer[] ids = histMap.keySet().toArray(new Integer[histMap.size()]);
             Arrays.sort(ids);
             try (PrintWriter pWri = new PrintWriter(indiv_hist_file)) {
