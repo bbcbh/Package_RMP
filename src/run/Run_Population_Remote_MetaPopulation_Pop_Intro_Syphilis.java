@@ -420,7 +420,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
                     protected void generateOutput() {
                         super.generateOutput();
                         int snapFreq = super.getOutputFreq(); 
-                        /*
+                        
                         int numNewInf = 0;
                         int numInfected = 0;
                         int numInfectious = 0;                       
@@ -475,7 +475,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
                             collection_NewInfection.put(super.getPop().getGlobalTime(), new int[numPopFiles]);
                         }
                         collection_NewInfection.get(super.getPop().getGlobalTime())[super.getSimId()] = numNewInf;                        
-                        */
+                        
 
                     }
 
