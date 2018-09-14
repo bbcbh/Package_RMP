@@ -96,6 +96,8 @@ import util.PropValUtils;
  *    as same function can be acheived by setting TESTING_TIMERANGE_PERIOD for non background testing
  * 20180910
  *  - Debug: corrected export path for infection, testing and treatment history
+ * 20180914
+ *  - Debug: Ramping coverage adjustment and fixed schedule count under daily rate
  * </pre>
  */
 public class Thread_PopRun implements Runnable {
@@ -477,8 +479,8 @@ public class Thread_PopRun implements Runnable {
                 boolean[] testing_same_targetTest = new boolean[numberOfTestRateOptions];
                 boolean[] testing_use_ramping = new boolean[numberOfTestRateOptions];
 
-                int[] testing_schedule_count = new int[numberOfTestRateOptions];
-                int[] testing_schedule_freq = new int[numberOfTestRateOptions];
+                int[] testing_schedule_completed_count = new int[numberOfTestRateOptions];
+                //int[] testing_schedule_freq = new int[numberOfTestRateOptions];
 
                 float[][] testing_rate_by_classifier = new float[numberOfTestRateOptions][];
                 float[][] testing_set_time_range = new float[numberOfTestRateOptions][];
@@ -503,12 +505,12 @@ public class Thread_PopRun implements Runnable {
                     testing_use_ramping[testing_set_num] = (testSetting & (1 << TESTING_OPTION_RAMPING)) > 0;
 
                     // If testing_schedule_freq < 1 then it will be annual 
-                    testing_schedule_freq[testing_set_num] = Math.max(Math.abs((int) testing_rate_by_classifier[testing_set_num][0]), 1);
+                    int numSchedulesInYear = Math.max(Math.abs((int) testing_rate_by_classifier[testing_set_num][0]), 1);
 
                     if (testing_set_num == 0) {
                         testing_set_time_range[testing_set_num]
-                                = new float[]{offset, AbstractIndividualInterface.ONE_YEAR_INT / testing_schedule_freq[testing_set_num],
-                                    AbstractIndividualInterface.ONE_YEAR_INT / testing_schedule_freq[testing_set_num], -1}; // Default background                          
+                                = new float[]{offset, AbstractIndividualInterface.ONE_YEAR_INT / numSchedulesInYear,
+                                    AbstractIndividualInterface.ONE_YEAR_INT / numSchedulesInYear, -1}; // Default background                          
 
                     } else {
                         testing_set_time_range[testing_set_num] = Arrays.copyOfRange(
@@ -533,44 +535,54 @@ public class Thread_PopRun implements Runnable {
                 for (int t = 0; t < numSteps; t++) {
 
                     for (int testing_set_num = 0; testing_set_num < testing_rate_by_classifier.length; testing_set_num++) {
+
                         float[] time_range = testing_set_time_range[testing_set_num];
-                        testing_in_timestep[testing_set_num] = pop.getGlobalTime() >= time_range[TESTING_TIMERANGE_START]
+
+                        int offset_time = pop.getGlobalTime() - (int) time_range[TESTING_TIMERANGE_START];
+
+                        boolean startPeriod = time_range[TESTING_TIMERANGE_PERIOD] > 0
+                                && (offset_time % (int) time_range[TESTING_TIMERANGE_PERIOD] == 0);
+                        boolean endPeriod = time_range[TESTING_TIMERANGE_PERIOD] > 0
+                                && ((offset_time + 1) % (int) time_range[TESTING_TIMERANGE_PERIOD] == 0);
+
+                        testing_in_timestep[testing_set_num] = offset_time >= 0
                                 && (time_range[TESTING_TIMERANGE_MAX_COUNT] >= 0
-                                        ? testing_schedule_count[testing_set_num] < time_range[TESTING_TIMERANGE_MAX_COUNT] // +ive :fix count testing 
+                                        ? testing_schedule_completed_count[testing_set_num] < time_range[TESTING_TIMERANGE_MAX_COUNT] // +ive :fix count testing - including start
                                         : (-time_range[TESTING_TIMERANGE_MAX_COUNT] < time_range[TESTING_TIMERANGE_START] // -ive: if end time of screening option unless it is smaller than start time
                                         || pop.getGlobalTime() < -time_range[TESTING_TIMERANGE_MAX_COUNT]));
 
                         if (testing_in_timestep[testing_set_num]) {
-                            int offset_time = pop.getGlobalTime() - (int) time_range[TESTING_TIMERANGE_START];
-                            if (!testing_use_daily_rate[testing_set_num] && (offset_time == 0
-                                    || (time_range[TESTING_TIMERANGE_PERIOD] > 0 && offset_time % (int) time_range[TESTING_TIMERANGE_PERIOD] == 0))) {
-                                if (!testing_same_targetTest[testing_set_num] || testing_schedule_count[testing_set_num] == 0) {
+                            if (offset_time == 0 || startPeriod) {
+                                if (!testing_use_daily_rate[testing_set_num]) {
+                                    if (!testing_same_targetTest[testing_set_num] || testing_schedule_completed_count[testing_set_num] == 0) {
 
-                                    float[] testing_rate = testing_rate_by_classifier[testing_set_num];
+                                        float[] testing_rate = testing_rate_by_classifier[testing_set_num];
 
-                                    if (testing_use_ramping[testing_set_num]) {
-                                        testing_rate = adjustedRampTestRate(testing_rate, testByClassifier.numClass(),
-                                                testing_rate_by_classifier,
-                                                (int) testing_set_time_range[testing_set_num][TESTING_TIMERANGE_START],
-                                                (int) testing_set_time_range[testing_set_num][TESTING_TIMERANGE_PERIOD]
-                                                * (int) testing_set_time_range[testing_set_num][TESTING_TIMERANGE_MAX_COUNT]);
+                                        if (testing_use_ramping[testing_set_num]) {
 
+                                            testing_rate = adjustedRampTestRate(testing_rate, testByClassifier.numClass(),
+                                                    testing_rate_by_classifier,
+                                                    testing_set_time_range[testing_set_num]);
+                                        }
+
+                                        ArrayList<AbstractIndividualInterface> testing_schedule = generateTestingSchedule(testRNG, testing_rate);
+                                        testing_person[testing_set_num] = testing_schedule.toArray(new AbstractIndividualInterface[testing_schedule.size()]);
                                     }
 
-                                    ArrayList<AbstractIndividualInterface> testing_schedule = generateTestingSchedule(testRNG, testing_rate);
-                                    testing_person[testing_set_num] = testing_schedule.toArray(new AbstractIndividualInterface[testing_schedule.size()]);
+                                    ArrayUtilsRandomGenerator.shuffleArray(testing_person[testing_set_num], testRNG);
+                                    testing_numPerDay[testing_set_num] = new int[(int) time_range[TESTING_TIMERANGE_DURATION]];
+                                    int minTestPerDay = testing_person[testing_set_num].length / (int) time_range[TESTING_TIMERANGE_DURATION];
+                                    Arrays.fill(testing_numPerDay[testing_set_num], minTestPerDay);
+                                    int numExtra = testing_person[testing_set_num].length - minTestPerDay * (int) time_range[TESTING_TIMERANGE_DURATION];
+                                    while (numExtra > 0) {
+                                        testing_numPerDay[testing_set_num][testRNG.nextInt((int) time_range[TESTING_TIMERANGE_DURATION])]++;
+                                        numExtra--;
+                                    }
+                                    testing_pt[testing_set_num] = 0;
                                 }
-                                ArrayUtilsRandomGenerator.shuffleArray(testing_person[testing_set_num], testRNG);
-                                testing_numPerDay[testing_set_num] = new int[(int) time_range[TESTING_TIMERANGE_DURATION]];
-                                int minTestPerDay = testing_person[testing_set_num].length / (int) time_range[TESTING_TIMERANGE_DURATION];
-                                Arrays.fill(testing_numPerDay[testing_set_num], minTestPerDay);
-                                int numExtra = testing_person[testing_set_num].length - minTestPerDay * (int) time_range[TESTING_TIMERANGE_DURATION];
-                                while (numExtra > 0) {
-                                    testing_numPerDay[testing_set_num][testRNG.nextInt((int) time_range[TESTING_TIMERANGE_DURATION])]++;
-                                    numExtra--;
-                                }
-                                testing_pt[testing_set_num] = 0;
-                                testing_schedule_count[testing_set_num]++;
+                            }
+                            if (endPeriod) {
+                                testing_schedule_completed_count[testing_set_num]++;
                             }
                         }
                     }
@@ -621,10 +633,7 @@ public class Thread_PopRun implements Runnable {
                                 float[] testing_rate = testing_rate_by_classifier[testing_set_num];
                                 if (testing_use_ramping[testing_set_num]) {
                                     testing_rate = adjustedRampTestRate(testing_rate, testByClassifier.numClass(),
-                                            testing_rate_by_classifier,
-                                            (int) testing_set_time_range[testing_set_num][TESTING_TIMERANGE_START],
-                                            (int) testing_set_time_range[testing_set_num][TESTING_TIMERANGE_PERIOD]
-                                            * (int) testing_set_time_range[testing_set_num][TESTING_TIMERANGE_MAX_COUNT]);
+                                            testing_rate_by_classifier, testing_set_time_range[testing_set_num]);
                                 }
 
                                 for (AbstractIndividualInterface person : pop.getPop()) {
@@ -726,7 +735,18 @@ public class Thread_PopRun implements Runnable {
     }
 
     protected float[] adjustedRampTestRate(float[] testing_rate, int numClass,
-            float[][] testing_rate_by_classifier, int startRampTime, int rampDuration) {
+            float[][] testing_rate_by_classifier, float[] time_range) {
+
+        int startRampTime = (int) time_range[TESTING_TIMERANGE_START];
+        int rampDuration;
+
+        if (time_range[TESTING_TIMERANGE_MAX_COUNT] >= 0) {
+
+            rampDuration = (int) time_range[TESTING_TIMERANGE_PERIOD]
+                    * (int) time_range[TESTING_TIMERANGE_MAX_COUNT];
+        } else {
+            rampDuration = -(int) time_range[TESTING_TIMERANGE_MAX_COUNT] - startRampTime;
+        }
 
         float[] adjRate = new float[testing_rate.length];
         for (int cI = 0; cI < testing_rate.length; cI++) {
@@ -983,7 +1003,7 @@ public class Thread_PopRun implements Runnable {
             ent[1] = pop.getGlobalTime(); // Global time at first entry
             indiv_map.put(rmp_person.getId(), ent);
         }
-        
+
         ent[0]++;
 
         if (ent[0] >= ent.length) {
