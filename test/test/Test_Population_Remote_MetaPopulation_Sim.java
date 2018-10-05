@@ -10,7 +10,12 @@ public class Test_Population_Remote_MetaPopulation_Sim {
             "C:\\Users\\Bhui\\OneDrive - UNSW\\RMP\\Test\\",            
             "Syp_Select",
             //"PopGen",
-            //"Opt_NGCTBehav",                                                          
+            //"Opt_NGCTBehav",                    
+            //"Syp_Baseline_10_Yr"
+            //"Syp_Sel_MassScr_50_180P10_DS", "Syp_Sel_MassScr_50_180P10_TS",
+            //"Syp_Sel_MassScr_50_360P5_DS", "Syp_Sel_MassScr_50_360P5_TS",
+            //"Syp_Sel_Baseline", "Syp_Sel_DS", "Syp_Sel_TS"
+            
         };        
         
         Simulation_Remote_MetaPopulation.main(baseDir);

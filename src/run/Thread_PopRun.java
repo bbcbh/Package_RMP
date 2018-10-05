@@ -414,12 +414,21 @@ public class Thread_PopRun implements Runnable {
 
                 AbstractIndividualInterface[] allPerson = pop.getPop();
 
+                int[] numInfectedT0 = new int[pop.getInfList().length];
                 for (AbstractIndividualInterface person : allPerson) {
                     if (modelledInfections.length != person.getInfectionStatus().length) {
                         Person_Remote_MetaPopulation prm = (Person_Remote_MetaPopulation) person;
                         prm.setNumberOfInfections(modelledInfections.length);
                     }
+                    for (int i = 0; i < numInfectedT0.length; i++) {
+                        if (person.getInfectionStatus()[i] != AbstractIndividualInterface.INFECT_S) {
+                            numInfectedT0[i]++;
+                        }
+                    }
+
                 }
+
+                outputPri.println("Num Infect at timestep 0 (t = " + pop.getGlobalTime() + "): " + Arrays.toString(numInfectedT0));
 
                 int numPop = ((int[]) pop.getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_POP_SIZE]).length;
 
@@ -1033,10 +1042,12 @@ public class Thread_PopRun implements Runnable {
                             if (pop.getInfList()[infId] instanceof TreatableInfectionInterface) {
                                 if (rmp_person.getInfectionStatus()[infId] != AbstractIndividualInterface.INFECT_S) {
                                     ((TreatableInfectionInterface) pop.getInfList()[infId]).applyTreatmentAt(rmp_person, pop.getGlobalTime());
+                                    /*
                                     if (rmp_person.getInfectionStatus()[infId] != AbstractIndividualInterface.INFECT_S) {
                                         rmp_person.getInfectionStatus()[infId] = AbstractIndividualInterface.INFECT_S;
                                         rmp_person.setTimeUntilNextStage(infId, Double.POSITIVE_INFINITY);
                                     }
+                                    */
                                     rmp_person.setLastTreatedAt((int) rmp_person.getAge());
                                     if (indiv_hist[INDIV_HIST_TREAT] != null) {
                                         storeIndivdualHistory(indiv_hist[INDIV_HIST_TREAT], rmp_person);
@@ -1068,6 +1079,7 @@ public class Thread_PopRun implements Runnable {
             pop = Population_Remote_MetaPopulation.decodeFromStream(oIStream);
         }
         tempPop.delete();
+
     }
 
     // Introduction of infection
