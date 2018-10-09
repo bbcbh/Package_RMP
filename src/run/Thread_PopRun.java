@@ -428,7 +428,9 @@ public class Thread_PopRun implements Runnable {
 
                 }
 
-                outputPri.println("Num Infect at timestep 0 (t = " + pop.getGlobalTime() + "): " + Arrays.toString(numInfectedT0));
+                if (outputPri != null) {
+                    outputPri.println("Num Infect at timestep 0 (t = " + pop.getGlobalTime() + "): " + Arrays.toString(numInfectedT0));
+                }
 
                 int numPop = ((int[]) pop.getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_POP_SIZE]).length;
 
@@ -1047,7 +1049,7 @@ public class Thread_PopRun implements Runnable {
                                         rmp_person.getInfectionStatus()[infId] = AbstractIndividualInterface.INFECT_S;
                                         rmp_person.setTimeUntilNextStage(infId, Double.POSITIVE_INFINITY);
                                     }
-                                    */
+                                     */
                                     rmp_person.setLastTreatedAt((int) rmp_person.getAge());
                                     if (indiv_hist[INDIV_HIST_TREAT] != null) {
                                         storeIndivdualHistory(indiv_hist[INDIV_HIST_TREAT], rmp_person);
