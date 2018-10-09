@@ -101,21 +101,22 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
             }
         }
 
-        float[][] defaultBehaviour
-                = ((float[][][]) ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_NUMBER_PARTNER_LAST_12_MONTHS_DECOMP])[0];
-
-        ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_NUMBER_PARTNER_LAST_12_MONTHS_DECOMP]
-                = new float[][][]{defaultBehaviour};
-
         if (param.length > OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_16_19) {
-            float[][] adjustBehaviour = new float[defaultBehaviour.length][];
-            for (int r = 0; r < adjustBehaviour.length; r++) {
-                adjustBehaviour[r] = Arrays.copyOf(defaultBehaviour[r], 5);
-                adjustBehaviour[r][4] = (float) param[OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_16_19 + r];
+            float[][][] org_behavior = (float[][][]) 
+                    ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_NUMBER_PARTNER_LAST_12_MONTHS_DECOMP];
+
+            for (int i = 0; i < org_behavior.length; i++) {
+                float[][] adjustBehaviour = Arrays.copyOf(org_behavior[i], org_behavior[i].length);
+
+                for (int r = 0; r < adjustBehaviour.length; r++) {                    
+                    adjustBehaviour[r][4] = (float) param[OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_16_19 + r];
+                }
+
+                org_behavior[i] = Arrays.copyOf(adjustBehaviour, adjustBehaviour.length);
             }
 
             ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_NUMBER_PARTNER_LAST_12_MONTHS_DECOMP]
-                    = new float[][][]{defaultBehaviour, adjustBehaviour, adjustBehaviour, adjustBehaviour, adjustBehaviour};
+                    = org_behavior;
 
             if (outputPrint != null) {
                 outputPrint.println("Behaviour setting  = " + Arrays.deepToString((float[][][]) ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_NUMBER_PARTNER_LAST_12_MONTHS_DECOMP]));
