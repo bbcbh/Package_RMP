@@ -9,7 +9,7 @@ import java.util.Arrays;
 import optimisation.AbstractParameterOptimiser;
 import optimisation.AbstractResidualFunc;
 import optimisation.GeneticAlgorithmOptimiser;
-import optimisation.ParameterConstraintTransform;
+import transform.ParameterConstraintTransform;
 
 public class OptRun_Population_Remote_MetaPopulation_Infection_Intro_GA extends OptRun_Population_Remote_MetaPopulation_Infection_Intro {
 
@@ -47,7 +47,7 @@ public class OptRun_Population_Remote_MetaPopulation_Infection_Intro_GA extends 
 
             while ((line = constraintReader2.readLine()) != null) {
                 String[] ent = line.split(",");
-                constraints[lnNum] = new ParameterConstraintTransform(new double[]{
+                constraints[lnNum] = new transform.ParameterConstraintTransformSineCurve(new double[]{
                     Double.parseDouble(ent[0]), Double.parseDouble(ent[1])});
                 lnNum++;
             }

@@ -16,7 +16,7 @@ import java.util.Comparator;
 import optimisation.AbstractParameterOptimiser;
 import optimisation.AbstractResidualFunc;
 import optimisation.NelderMeadOptimiser;
-import optimisation.ParameterConstraintTransform;
+import transform.ParameterConstraintTransform;
 
 public class OptRun_Population_Remote_MetaPopulation_Infection_Intro {
 
@@ -157,7 +157,7 @@ public class OptRun_Population_Remote_MetaPopulation_Infection_Intro {
 
             while ((line = constraintReader2.readLine()) != null) {
                 String[] ent = line.split(",");
-                constraints[lnNum] = new ParameterConstraintTransform(new double[]{
+                constraints[lnNum] = new transform.ParameterConstraintTransformSineCurve(new double[]{
                     Double.parseDouble(ent[0]), Double.parseDouble(ent[1])});
                 lnNum++;
             }
