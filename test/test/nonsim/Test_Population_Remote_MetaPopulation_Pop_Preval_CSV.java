@@ -1,4 +1,4 @@
-package test;
+package test.nonsim;
 
 import java.io.BufferedReader;
 import java.io.File;

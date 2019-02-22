@@ -162,8 +162,8 @@ public class Run_Population_Remote_MetaPopulation_Pop_Generate {
             }
 
             File popFile = new File(destDir, "pop_S" + s + ".zip");
-            if (popFile.exists()) {
-                System.out.println(popFile.getAbsolutePath() + " already exist. Thread not generated.");
+            if (popFile.exists()) {                               
+                System.out.println(popFile.getAbsolutePath() + " already exist. Thread with RNG seed of " + rng.nextLong() +  " not generated.");
             } else {
                 System.out.println("Submiting thread for generation of pop #" + s);
                 Thread_PopGenRemote thread = new Thread_PopGenRemote(s, NUM_BURN_IN_STEPS, DIR_PATH, rng.nextLong(),
