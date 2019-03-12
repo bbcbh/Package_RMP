@@ -132,7 +132,7 @@ public class Thread_PopRun implements Runnable {
     public static final int TESTING_TIMERANGE_START = 0;
     public static final int TESTING_TIMERANGE_DURATION = TESTING_TIMERANGE_START + 1;
     public static final int TESTING_TIMERANGE_PERIOD = TESTING_TIMERANGE_DURATION + 1;
-    public static final int TESTING_TIMERANGE_MAX_COUNT = TESTING_TIMERANGE_PERIOD + 1;
+    public static final int TESTING_TIMERANGE_MAX_COUNT = TESTING_TIMERANGE_PERIOD + 1; // +ive: fix count testing - including start , -ive: end time of screening option (unless it is smaller than start time)
     public static final int TESTING_TIMERANGE_LENGTH = TESTING_TIMERANGE_MAX_COUNT + 1;
 
     public static final int INDIV_HIST_INFECTION = 0;
@@ -520,8 +520,8 @@ public class Thread_PopRun implements Runnable {
 
                     if (testing_set_num == 0) {
                         testing_set_time_range[testing_set_num]
-                                = new float[]{offset, AbstractIndividualInterface.ONE_YEAR_INT / numSchedulesInYear,
-                                    AbstractIndividualInterface.ONE_YEAR_INT / numSchedulesInYear, -1}; // Default background                          
+                                = new float[]{offset, 360 / numSchedulesInYear,
+                                    360 / numSchedulesInYear, -1}; // Default background                          
 
                     } else {
                         testing_set_time_range[testing_set_num] = Arrays.copyOfRange(
@@ -544,7 +544,6 @@ public class Thread_PopRun implements Runnable {
                 boolean[] testing_in_timestep = new boolean[numberOfTestRateOptions];
 
                 for (int t = 0; t < numSteps; t++) {
-
                     for (int testing_set_num = 0; testing_set_num < testing_rate_by_classifier.length; testing_set_num++) {
 
                         float[] time_range = testing_set_time_range[testing_set_num];
@@ -559,7 +558,7 @@ public class Thread_PopRun implements Runnable {
                         testing_in_timestep[testing_set_num] = offset_time >= 0
                                 && (time_range[TESTING_TIMERANGE_MAX_COUNT] >= 0
                                         ? testing_schedule_completed_count[testing_set_num] < time_range[TESTING_TIMERANGE_MAX_COUNT] // +ive :fix count testing - including start
-                                        : (-time_range[TESTING_TIMERANGE_MAX_COUNT] < time_range[TESTING_TIMERANGE_START] // -ive: if end time of screening option unless it is smaller than start time
+                                        : (-time_range[TESTING_TIMERANGE_MAX_COUNT] < time_range[TESTING_TIMERANGE_START] // -ive: End time of screening option unless it is smaller than start time
                                         || pop.getGlobalTime() < -time_range[TESTING_TIMERANGE_MAX_COUNT]));
 
                         if (testing_in_timestep[testing_set_num]) {
@@ -646,6 +645,8 @@ public class Thread_PopRun implements Runnable {
                                     testing_rate = adjustedRampTestRate(testing_rate, testByClassifier.numClass(),
                                             testing_rate_by_classifier, testing_set_time_range[testing_set_num]);
                                 }
+                                
+                                
 
                                 for (AbstractIndividualInterface person : pop.getPop()) {
                                     boolean testToday = false;
@@ -665,7 +666,8 @@ public class Thread_PopRun implements Runnable {
                                         }
 
                                         dailyRate = (float) (1 - Math.exp(Math.log(1 - testRate) / srcPeriod));
-                                        testToday = testRNG.nextFloat() < dailyRate;
+                                        testToday = testRNG.nextFloat() < dailyRate;                                      
+                                                                                
                                     }
                                     if (testToday) {
                                         testingPerson(person, treatmentSchdule, testRNG, notificationClassifier);
