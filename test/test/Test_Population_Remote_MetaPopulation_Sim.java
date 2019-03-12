@@ -11,14 +11,12 @@ public class Test_Population_Remote_MetaPopulation_Sim {
             //"Pop_Gen",            
             //"Syp_Baseline",    
             //"Opt_NGCTBehav",    
-            "Syp_Test",
-            //"Syp_Sel_Baseline",
-            //"Syp_Sel_Plus10A",
-            //"Syp_Sel_Plus20A",
-            //"Syp_Sel_Plus10A_MSR_50_360P_5",
-            //"Syp_Sel_Plus20A_MSR_50_360P_5", 
-            //"Syp_Sel_Plus10A_MSR_50_180P_10",            
-            //"Syp_Sel_Plus20A_MSR_50_180P_10",                       
+            //"Syp_Test",
+            "Syp_Sel_Baseline_Full",
+            "Syp_Sel_Plus10A_Full",
+            "Syp_Sel_Plus20A_Full",
+            "Syp_Sel_Plus10A_MSR_50_360P_5_Full",
+            "Syp_Sel_Plus20A_MSR_50_360P_5_Full",                       
         };
 
         Simulation_Remote_MetaPopulation.main(baseDir);

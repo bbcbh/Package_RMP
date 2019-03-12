@@ -127,7 +127,7 @@ public class Thread_PopRun implements Runnable {
     public static final int TESTING_OPTION_USE_PROPORTION_TEST_COVERAGE = 0;
     public static final int TESTING_OPTION_FIX_TEST_SCHEDULE = TESTING_OPTION_USE_PROPORTION_TEST_COVERAGE + 1;
     public static final int TESTING_OPTION_OVERWRITE_BACKGROUND = TESTING_OPTION_FIX_TEST_SCHEDULE + 1;
-    public static final int TESTING_OPTION_RAMPING = TESTING_OPTION_OVERWRITE_BACKGROUND + 1;
+    public static final int TESTING_OPTION_RAMPING = TESTING_OPTION_OVERWRITE_BACKGROUND + 1; // if use ramping, and test rate > 1, then use ((int) testing rate)-th testing rate  as base rate 
 
     public static final int TESTING_TIMERANGE_START = 0;
     public static final int TESTING_TIMERANGE_DURATION = TESTING_TIMERANGE_START + 1;
@@ -544,6 +544,7 @@ public class Thread_PopRun implements Runnable {
                 boolean[] testing_in_timestep = new boolean[numberOfTestRateOptions];
 
                 for (int t = 0; t < numSteps; t++) {
+                    
                     for (int testing_set_num = 0; testing_set_num < testing_rate_by_classifier.length; testing_set_num++) {
 
                         float[] time_range = testing_set_time_range[testing_set_num];
@@ -645,8 +646,6 @@ public class Thread_PopRun implements Runnable {
                                     testing_rate = adjustedRampTestRate(testing_rate, testByClassifier.numClass(),
                                             testing_rate_by_classifier, testing_set_time_range[testing_set_num]);
                                 }
-                                
-                                
 
                                 for (AbstractIndividualInterface person : pop.getPop()) {
                                     boolean testToday = false;
@@ -666,8 +665,7 @@ public class Thread_PopRun implements Runnable {
                                         }
 
                                         dailyRate = (float) (1 - Math.exp(Math.log(1 - testRate) / srcPeriod));
-                                        testToday = testRNG.nextFloat() < dailyRate;                                      
-                                                                                
+                                        testToday = testRNG.nextFloat() < dailyRate;                                        
                                     }
                                     if (testToday) {
                                         testingPerson(person, treatmentSchdule, testRNG, notificationClassifier);
@@ -764,11 +762,10 @@ public class Thread_PopRun implements Runnable {
         float[] adjRate = new float[testing_rate.length];
         for (int cI = 0; cI < testing_rate.length; cI++) {
             if (cI < numClass) {
-
                 int baseIndex = (int) testing_rate[cI];
-                float test_rate_base = testing_rate_by_classifier[baseIndex][cI];
+                float test_rate_base = testing_rate_by_classifier[baseIndex][cI];                                                               
                 adjRate[cI] = test_rate_base
-                        + (testing_rate[cI] - test_rate_base)
+                        + ((testing_rate[cI]- baseIndex) - test_rate_base)
                         * (pop.getGlobalTime() - startRampTime) / rampDuration;
             } else {
                 adjRate[cI] = testing_rate[cI];
