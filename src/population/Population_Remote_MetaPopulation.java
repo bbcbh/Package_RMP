@@ -42,7 +42,10 @@ import util.PersonClassifier;
  *  - Randomising the age a candidate is removed from the population
  *
  * 20180716
- *  - Implement alterative format for FIELDS_REMOTE_METAPOP_NUMBER_PARTNER_LAST_12_MONTHS_DECOMP
+ *  - Implement alterative format for FIELDS_REMOTE_METAPOP_NUMBER_PARTNER_LAST_12_MONTHS_DECOMP 
+ * 
+ * 20190328
+ *  - Add support for circular mobility
  * </pre>
  */
 public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
@@ -62,6 +65,7 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
     public static final int FIELDS_REMOTE_METAPOP_RELATIONSHIP_DURATION_FACTORY = FIELDS_REMOTE_METAPOP_AWAY_FROM_HOME_DURATION_FACTORY + 1;
     public static final int FIELDS_REMOTE_METAPOP_NEWPERSON_INFECTION_CLASSIFIER = FIELDS_REMOTE_METAPOP_RELATIONSHIP_DURATION_FACTORY + 1;
     public static final int FIELDS_REMOTE_METAPOP_NEWPERSON_INFECTION_PREVAL = FIELDS_REMOTE_METAPOP_NEWPERSON_INFECTION_CLASSIFIER + 1;
+    public static final int FIELDS_REMOTE_METAPOP_CIR_MOBILITY_MAP = FIELDS_REMOTE_METAPOP_NEWPERSON_INFECTION_PREVAL + 1;
 
     public static final int RELMAP_GLOBAL_SEXUAL = 0;
 
@@ -111,6 +115,8 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
         new float[]{0.54f},
         // FIELDS_REMOTE_METAPOP_AWAY_FROM_HOME_BY_LOCATION
         // float[loc][gender+ageIndex]
+        // Alt format:
+        // float[loc]{[gender+ageIndex], cir_mobility_len_1, proabability_1...} 
         new float[][]{},
         // FIELDS_REMOTE_METAPOP_AWAY_FROM_HOME_DURATION_FACTORY
         new util.Factory_AwayDuration(),
@@ -121,7 +127,10 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
         null,
         // FIELDS_REMOTE_METAPOP_INTRO_INF_PREVAL
         // Format: float[infId][cI]
-        null,};
+        null,
+        // FIELDS_REMOTE_METAPOP_CIR_MOBILITY_MAP
+        // Format: HashMap(Id, int[]{age_1, location_1 ...})
+        new HashMap<Integer, int[]>(),};
 
     // A matrix ArrayList of AbstractIndividualInterface, index by home_loc, gender + age    
     protected transient ArrayList<AbstractIndividualInterface>[][] home_loc_age_gender_collection = null;
@@ -578,7 +587,6 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
 
         // Traveller seeking
         // Set off a one-off sexual contact       
-
         if (travellerSeekingPt > 0) {
             float[] condomUsageAll = (float[]) getFields()[FIELDS_REMOTE_METAPOP_CONDOM_USAGE_BY_LOCATION];
 
@@ -640,12 +648,14 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
         }
 
         // Movement           
-        returnHome();
+        predefinedMove();
 
         updateCollectionHomeLocAgeGenderHomeOrAway();
 
         for (int loc = 0; loc < home_loc_age_gender_home_or_away_collection.length; loc++) {
             ArrayList<AbstractIndividualInterface>[][] byLocation = home_loc_age_gender_home_or_away_collection[loc];
+
+            float[] proportionAwayDataByLoc = ((float[][]) getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_AWAY_FROM_HOME_BY_LOCATION])[loc];
 
             for (int ga = 0; ga < byLocation.length; ga++) {
                 ArrayList<AbstractIndividualInterface>[] byLocationDemographic = byLocation[ga];
@@ -655,7 +665,7 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
                 AbstractIndividualInterface[] homeArr = byLocationDemographic[0].toArray(new AbstractIndividualInterface[numberAtHome]);
 
                 float proportionAwayPop = ((float) numberAway) / (numberAtHome + numberAway);
-                float proportionAwayData = ((float[][]) getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_AWAY_FROM_HOME_BY_LOCATION])[loc][ga];
+                float proportionAwayData = proportionAwayDataByLoc[ga];
 
                 if (proportionAwayData > proportionAwayPop) {
                     // (Away + numToMove) /  Total = proportionAwayData
@@ -669,7 +679,67 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
                         if (dest != -1) {
                             Factory_AwayDuration awayDur = (Factory_AwayDuration) getFields()[FIELDS_REMOTE_METAPOP_AWAY_FROM_HOME_DURATION_FACTORY];
                             int daysAway = awayDur.numberOfDaysStayAway(movePerson, getRNG());
+                            int numCirMob = 0;
+
+                            if (proportionAwayDataByLoc.length > byLocation.length) {
+                                // Cir movement                      
+                                // Format: {...cir_mobility_len_1, proabability_1...}
+                                int numCirMobPt = byLocation.length;
+                                float probCirMob = getRNG().nextFloat();
+                                while ((numCirMobPt + 1) < proportionAwayDataByLoc.length && probCirMob >= proportionAwayDataByLoc[numCirMobPt + 1]) {
+                                    numCirMobPt += 2;
+                                }
+                                numCirMob = (int) proportionAwayDataByLoc[numCirMobPt];
+                                if ((numCirMobPt - 2) >= byLocation.length) {
+                                    numCirMob = 1 + (int) proportionAwayDataByLoc[numCirMobPt - 2]
+                                            + getRNG().nextInt(numCirMob - (int) proportionAwayDataByLoc[numCirMobPt - 2]);
+                                }
+                                numCirMob = Math.min(daysAway, numCirMob);
+                            }
+                            if (numCirMob > 0) {
+                                boolean[] prev_destinations = new boolean[home_loc_age_gender_home_or_away_collection.length];
+
+                                prev_destinations[((MoveablePersonInterface) movePerson).getHomeLocation()] = true;
+                                prev_destinations[dest] = true; // First destination
+
+                                int[] daysAwayByLoc = new int[numCirMob + 1];
+                                Arrays.fill(daysAwayByLoc, daysAway / daysAwayByLoc.length);
+                                int rem = daysAway - ((daysAway / daysAwayByLoc.length) * daysAwayByLoc.length);
+                                while (rem > 0) {
+                                    daysAwayByLoc[getRNG().nextInt(daysAwayByLoc.length)]++;
+                                    rem--;
+                                }
+
+                                // Format: HashMap(Id, int[]{age_1, location_1 ...})
+                                HashMap<Integer, int[]> cir_move_map
+                                        = (HashMap<Integer, int[]>) getFields()[FIELDS_REMOTE_METAPOP_CIR_MOBILITY_MAP];
+
+                                int firstDest = dest;
+
+                                int[] cir_ent = new int[daysAwayByLoc.length * 2];
+                                int pt = 0;
+                                int dayAwayAcc = 0;
+                                for (int i = 0; i < daysAwayByLoc.length; i++) {
+                                    dest = (i == daysAwayByLoc.length - 1) ? ((MoveablePersonInterface) movePerson).getHomeLocation()
+                                            : // The last entry should be home                                     
+                                            determineDestination(movePerson, prev_destinations);
+                                    if (dest != -1) {
+                                        dayAwayAcc += daysAwayByLoc[i];
+                                        cir_ent[pt] = (int) (dayAwayAcc + movePerson.getAge());
+                                        pt++;
+                                        cir_ent[pt] = dest;
+                                        pt++;
+                                        prev_destinations[dest] = true;
+                                    }
+                                }
+                                if (pt > 0) {
+                                    cir_move_map.put(movePerson.getId(), Arrays.copyOf(cir_ent, pt - 2));
+                                }
+                                dest = firstDest;
+
+                            }
                             movePerson(movePerson, dest, (int) (daysAway + movePerson.getAge()));
+
                         }
                     }
 
@@ -681,12 +751,19 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
     }
 
     protected int determineDestination(AbstractIndividualInterface person) {
+        return determineDestination(person, null);
+    }
+
+    protected int determineDestination(AbstractIndividualInterface person, boolean[] prev_destinations) {
         int dest = -1;
+
+        HashMap<Integer, int[]> cir_move_map
+                = (HashMap<Integer, int[]>) getFields()[FIELDS_REMOTE_METAPOP_CIR_MOBILITY_MAP];
 
         if (person instanceof MoveablePersonInterface) {
             int homeLoc = ((MoveablePersonInterface) person).getHomeLocation();
             int curLoc = getCurrentLocation(person);
-            if (curLoc != homeLoc) {
+            if (curLoc != homeLoc && !cir_move_map.containsKey(person.getId())) {
                 dest = homeLoc;
             } else {
                 // Moving away from home 
@@ -695,7 +772,8 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
                 int prob = 0;
 
                 for (int i = 0; i < cumProb.length; i++) {
-                    if (i != curLoc && connOption[i] > 0) {
+                    if (i != curLoc && connOption[i] > 0
+                            && (prev_destinations == null || !prev_destinations[i])) {
                         prob += connOption[i];
                     }
                     cumProb[i] = prob;
@@ -868,19 +946,29 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
         return res;
     }
 
-    public int returnHome() {
-        HashMap<Integer, Integer> map
+    // Include return home and circular movement
+    public int predefinedMove() {
+        HashMap<Integer, Integer> return_home_map
                 = (HashMap<Integer, Integer>) getFields()[FIELDS_META_POP_AWAY_UNTIL_AGE];
         int numberReturnHome = 0;
-        AbstractIndividualInterface person;
-        AbstractIndividualInterface[] toReturnHome = new AbstractIndividualInterface[map.keySet().size()];
 
-        for (int pid : map.keySet()) {
+        // Format: HashMap(Id, int[]{age_1, location_1 ...})
+        HashMap<Integer, int[]> cir_move_map
+                = (HashMap<Integer, int[]>) getFields()[FIELDS_REMOTE_METAPOP_CIR_MOBILITY_MAP];
+        int numberCirMove = 0;
+
+        AbstractIndividualInterface person;
+        AbstractIndividualInterface[] toReturnHome = new AbstractIndividualInterface[return_home_map.keySet().size()];
+
+        AbstractIndividualInterface[] toCirMove = new AbstractIndividualInterface[cir_move_map.keySet().size()];
+        int[] toCirMoveTarget = new int[cir_move_map.keySet().size()];
+        int[] toCirMoveUntilAge = new int[cir_move_map.keySet().size()];
+
+        for (int pid : return_home_map.keySet()) {
             person = getLocalData().get(pid);
             int ageToReturnHome = isAwayFromHomeUntilAge(person);
             if (person.getAge() >= ageToReturnHome) {
                 toReturnHome[numberReturnHome] = person;
-                //movePerson(person, ((MoveablePersonInterface) person).getHomeLocation(), -1);
                 numberReturnHome++;
             }
         }
@@ -888,6 +976,39 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
         for (int i = 0; i < numberReturnHome; i++) {
             person = toReturnHome[i];
             movePerson(person, ((MoveablePersonInterface) person).getHomeLocation(), -1);
+        }
+
+        for (int pid : cir_move_map.keySet()) {
+            int[] moveTarget = cir_move_map.get(pid);
+            person = getLocalData().get(pid);
+            int ageIndex = 0;
+            while (ageIndex < moveTarget.length && moveTarget[ageIndex] < person.getAge()) {
+                ageIndex += 2;
+            }
+            moveTarget = Arrays.copyOfRange(moveTarget, ageIndex, moveTarget.length);
+
+            if (moveTarget.length >= 2) {
+                cir_move_map.put(pid, moveTarget);
+                if (person.getAge() == moveTarget[0]) {
+                    toCirMove[numberCirMove] = person;
+                    toCirMoveTarget[numberCirMove] = moveTarget[1];
+
+                    if (moveTarget.length > 2) {
+                        toCirMoveUntilAge[numberCirMove] = moveTarget[2];
+                    } else if (return_home_map.containsKey(pid)) {
+                        toCirMoveUntilAge[numberCirMove] = return_home_map.get(pid);
+                    } else {
+                        toCirMoveUntilAge[numberCirMove] = Integer.MAX_VALUE;
+                    }
+                    numberCirMove++;
+                }
+            } else {
+                cir_move_map.remove(pid);
+            }
+        }
+
+        for (int i = 0; i < numberCirMove; i++) {
+            movePerson(toCirMove[i], toCirMoveTarget[i], toCirMoveUntilAge[i]);
         }
 
         return numberReturnHome;

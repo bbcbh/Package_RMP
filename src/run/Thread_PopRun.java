@@ -98,6 +98,8 @@ import util.PropValUtils;
  *  - Debug: corrected export path for infection, testing and treatment history
  * 20180914
  *  - Debug: Ramping coverage adjustment and fixed schedule count under daily rate
+ * 20190326
+ *  - Add testing option for no delay treatment
  * </pre>
  */
 public class Thread_PopRun implements Runnable {
@@ -128,6 +130,7 @@ public class Thread_PopRun implements Runnable {
     public static final int TESTING_OPTION_FIX_TEST_SCHEDULE = TESTING_OPTION_USE_PROPORTION_TEST_COVERAGE + 1;
     public static final int TESTING_OPTION_OVERWRITE_BACKGROUND = TESTING_OPTION_FIX_TEST_SCHEDULE + 1;
     public static final int TESTING_OPTION_RAMPING = TESTING_OPTION_OVERWRITE_BACKGROUND + 1; // if use ramping, and test rate > 1, then use ((int) testing rate)-th testing rate  as base rate 
+    public static final int TESTING_OPTION_NO_DELAY_TREATMENT = TESTING_OPTION_RAMPING + 1;
 
     public static final int TESTING_TIMERANGE_START = 0;
     public static final int TESTING_TIMERANGE_DURATION = TESTING_TIMERANGE_START + 1;
@@ -562,7 +565,7 @@ public class Thread_PopRun implements Runnable {
                                         : (-time_range[TESTING_TIMERANGE_MAX_COUNT] < time_range[TESTING_TIMERANGE_START] // -ive: End time of screening option unless it is smaller than start time
                                         || pop.getGlobalTime() < -time_range[TESTING_TIMERANGE_MAX_COUNT]));
 
-                        if (testing_in_timestep[testing_set_num]) {
+                        if (testing_in_timestep[testing_set_num]) {                            
                             if (offset_time == 0 || startPeriod) {
                                 if (!testing_use_daily_rate[testing_set_num]) {
                                     if (!testing_same_targetTest[testing_set_num] || testing_schedule_completed_count[testing_set_num] == 0) {
@@ -622,8 +625,11 @@ public class Thread_PopRun implements Runnable {
                     }
 
                     // Testing
-                    for (int testing_set_num = 0; testing_set_num < testing_numPerDay.length; testing_set_num++) {
+                    for (int testing_set_num = 0; testing_set_num < testing_numPerDay.length; testing_set_num++) {                                                                        
                         if (testing_in_timestep[testing_set_num]) {
+                            
+                            int testing_option = testing_rate_by_classifier[testing_set_num].length > testByClassifier.numClass()
+                            ? (int) testing_rate_by_classifier[testing_set_num][testByClassifier.numClass()] : 0;
 
                             if (!testing_use_daily_rate[testing_set_num] && testing_person[testing_set_num] != null) {
                                 int dayIndex = (pop.getGlobalTime() - (int) testing_set_time_range[testing_set_num][TESTING_TIMERANGE_START]);
@@ -633,7 +639,8 @@ public class Thread_PopRun implements Runnable {
                                 if (dayIndex < testing_numPerDay[testing_set_num].length) {
                                     int numTestToday = testing_numPerDay[testing_set_num][dayIndex];
                                     while (numTestToday != 0) {
-                                        testingPerson(testing_person[testing_set_num][testing_pt[testing_set_num]], treatmentSchdule, testRNG, notificationClassifier);
+                                        testingPerson(testing_person[testing_set_num][testing_pt[testing_set_num]], 
+                                                treatmentSchdule, testRNG, notificationClassifier,testing_option);     
                                         testing_pt[testing_set_num]++;
                                         numTestToday--;
                                     }
@@ -668,7 +675,7 @@ public class Thread_PopRun implements Runnable {
                                         testToday = testRNG.nextFloat() < dailyRate;                                        
                                     }
                                     if (testToday) {
-                                        testingPerson(person, treatmentSchdule, testRNG, notificationClassifier);
+                                        testingPerson(person, treatmentSchdule, testRNG, notificationClassifier, testing_option);
                                     }
 
                                 }
@@ -909,7 +916,7 @@ public class Thread_PopRun implements Runnable {
 
     public void testingPerson(AbstractIndividualInterface person,
             HashMap<Integer, int[][]> treatmentSchdule, random.RandomGenerator testRNG,
-            PersonClassifier notificationClassifier) {
+            PersonClassifier notificationClassifier, int testing_option) {
 
         Person_Remote_MetaPopulation rmp_person = (Person_Remote_MetaPopulation) person;
 
@@ -976,6 +983,10 @@ public class Thread_PopRun implements Runnable {
                 }
 
             }
+            
+            if((testing_option & 1<<TESTING_OPTION_NO_DELAY_TREATMENT) > 0){
+                delay = 0;
+            }                        
 
             if (delay >= 0) {
 
