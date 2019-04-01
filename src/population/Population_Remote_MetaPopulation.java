@@ -42,8 +42,8 @@ import util.PersonClassifier;
  *  - Randomising the age a candidate is removed from the population
  *
  * 20180716
- *  - Implement alterative format for FIELDS_REMOTE_METAPOP_NUMBER_PARTNER_LAST_12_MONTHS_DECOMP 
- * 
+ *  - Implement alterative format for FIELDS_REMOTE_METAPOP_NUMBER_PARTNER_LAST_12_MONTHS_DECOMP
+ *
  * 20190328
  *  - Add support for circular mobility
  * </pre>
@@ -963,6 +963,8 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
         AbstractIndividualInterface[] toCirMove = new AbstractIndividualInterface[cir_move_map.keySet().size()];
         int[] toCirMoveTarget = new int[cir_move_map.keySet().size()];
         int[] toCirMoveUntilAge = new int[cir_move_map.keySet().size()];
+        Integer[] toCirMoveKeys = new Integer[cir_move_map.keySet().size()];
+        cir_move_map.keySet().toArray(toCirMoveKeys);
 
         for (int pid : return_home_map.keySet()) {
             person = getLocalData().get(pid);
@@ -978,35 +980,38 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
             movePerson(person, ((MoveablePersonInterface) person).getHomeLocation(), -1);
         }
 
-        for (int pid : cir_move_map.keySet()) {
+        for (int pid : toCirMoveKeys) {
             int[] moveTarget = cir_move_map.get(pid);
             person = getLocalData().get(pid);
             int ageIndex = 0;
-            while (ageIndex < moveTarget.length && moveTarget[ageIndex] < person.getAge()) {
-                ageIndex += 2;
-            }
-            moveTarget = Arrays.copyOfRange(moveTarget, ageIndex, moveTarget.length);
-
-            if (moveTarget.length >= 2) {
-                cir_move_map.put(pid, moveTarget);
-                if (person.getAge() == moveTarget[0]) {
-                    toCirMove[numberCirMove] = person;
-                    toCirMoveTarget[numberCirMove] = moveTarget[1];
-
-                    if (moveTarget.length > 2) {
-                        toCirMoveUntilAge[numberCirMove] = moveTarget[2];
-                    } else if (return_home_map.containsKey(pid)) {
-                        toCirMoveUntilAge[numberCirMove] = return_home_map.get(pid);
-                    } else {
-                        toCirMoveUntilAge[numberCirMove] = Integer.MAX_VALUE;
-                    }
-                    numberCirMove++;
-                }
-            } else {
+            if (person == null) { // Age out / removed person 
                 cir_move_map.remove(pid);
+            } else {
+                while (ageIndex < moveTarget.length && moveTarget[ageIndex] < person.getAge()) {
+                    ageIndex += 2;
+                }
+                moveTarget = Arrays.copyOfRange(moveTarget, ageIndex, moveTarget.length);
+
+                if (moveTarget.length >= 2) {
+                    cir_move_map.put(pid, moveTarget);
+                    if (person.getAge() == moveTarget[0]) {
+                        toCirMove[numberCirMove] = person;
+                        toCirMoveTarget[numberCirMove] = moveTarget[1];
+
+                        if (moveTarget.length > 2) {
+                            toCirMoveUntilAge[numberCirMove] = moveTarget[2];
+                        } else if (return_home_map.containsKey(pid)) {
+                            toCirMoveUntilAge[numberCirMove] = return_home_map.get(pid);
+                        } else {
+                            toCirMoveUntilAge[numberCirMove] = Integer.MAX_VALUE;
+                        }
+                        numberCirMove++;
+                    }
+                } else {
+                    cir_move_map.remove(pid);
+                }
             }
         }
-
         for (int i = 0; i < numberCirMove; i++) {
             movePerson(toCirMove[i], toCirMoveTarget[i], toCirMoveUntilAge[i]);
         }

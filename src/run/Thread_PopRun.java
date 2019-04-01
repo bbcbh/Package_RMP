@@ -100,6 +100,10 @@ import util.PropValUtils;
  *  - Debug: Ramping coverage adjustment and fixed schedule count under daily rate
  * 20190326
  *  - Add testing option for no delay treatment
+ * 20190402
+ *  - Add support for prevalence history
+ *  - Add header row for incidence history CSV
+ *  - Switch prevalence classifier to testing classifier instead
  * </pre>
  */
 public class Thread_PopRun implements Runnable {
@@ -152,6 +156,7 @@ public class Thread_PopRun implements Runnable {
 
     public static final String FILE_PREFIX_INCIDENCE = "incident_S";
     public static final String FILE_PREFIX_TEST_AND_NOTIFICATION = "test_and_notification_S";
+    public static final String FILE_PREFIX_PREVALENCE = "prevalence_S";
 
     //private HashMap<Integer, int[]> indiv_history_infection = null; 
     //private HashMap<Integer, int[]> indiv_history_test = null; 
@@ -547,7 +552,7 @@ public class Thread_PopRun implements Runnable {
                 boolean[] testing_in_timestep = new boolean[numberOfTestRateOptions];
 
                 for (int t = 0; t < numSteps; t++) {
-                    
+
                     for (int testing_set_num = 0; testing_set_num < testing_rate_by_classifier.length; testing_set_num++) {
 
                         float[] time_range = testing_set_time_range[testing_set_num];
@@ -565,7 +570,7 @@ public class Thread_PopRun implements Runnable {
                                         : (-time_range[TESTING_TIMERANGE_MAX_COUNT] < time_range[TESTING_TIMERANGE_START] // -ive: End time of screening option unless it is smaller than start time
                                         || pop.getGlobalTime() < -time_range[TESTING_TIMERANGE_MAX_COUNT]));
 
-                        if (testing_in_timestep[testing_set_num]) {                            
+                        if (testing_in_timestep[testing_set_num]) {
                             if (offset_time == 0 || startPeriod) {
                                 if (!testing_use_daily_rate[testing_set_num]) {
                                     if (!testing_same_targetTest[testing_set_num] || testing_schedule_completed_count[testing_set_num] == 0) {
@@ -625,11 +630,11 @@ public class Thread_PopRun implements Runnable {
                     }
 
                     // Testing
-                    for (int testing_set_num = 0; testing_set_num < testing_numPerDay.length; testing_set_num++) {                                                                        
+                    for (int testing_set_num = 0; testing_set_num < testing_numPerDay.length; testing_set_num++) {
                         if (testing_in_timestep[testing_set_num]) {
-                            
+
                             int testing_option = testing_rate_by_classifier[testing_set_num].length > testByClassifier.numClass()
-                            ? (int) testing_rate_by_classifier[testing_set_num][testByClassifier.numClass()] : 0;
+                                    ? (int) testing_rate_by_classifier[testing_set_num][testByClassifier.numClass()] : 0;
 
                             if (!testing_use_daily_rate[testing_set_num] && testing_person[testing_set_num] != null) {
                                 int dayIndex = (pop.getGlobalTime() - (int) testing_set_time_range[testing_set_num][TESTING_TIMERANGE_START]);
@@ -639,8 +644,8 @@ public class Thread_PopRun implements Runnable {
                                 if (dayIndex < testing_numPerDay[testing_set_num].length) {
                                     int numTestToday = testing_numPerDay[testing_set_num][dayIndex];
                                     while (numTestToday != 0) {
-                                        testingPerson(testing_person[testing_set_num][testing_pt[testing_set_num]], 
-                                                treatmentSchdule, testRNG, notificationClassifier,testing_option);     
+                                        testingPerson(testing_person[testing_set_num][testing_pt[testing_set_num]],
+                                                treatmentSchdule, testRNG, notificationClassifier, testing_option);
                                         testing_pt[testing_set_num]++;
                                         numTestToday--;
                                     }
@@ -672,7 +677,7 @@ public class Thread_PopRun implements Runnable {
                                         }
 
                                         dailyRate = (float) (1 - Math.exp(Math.log(1 - testRate) / srcPeriod));
-                                        testToday = testRNG.nextFloat() < dailyRate;                                        
+                                        testToday = testRNG.nextFloat() < dailyRate;
                                     }
                                     if (testToday) {
                                         testingPerson(person, treatmentSchdule, testRNG, notificationClassifier, testing_option);
@@ -770,9 +775,9 @@ public class Thread_PopRun implements Runnable {
         for (int cI = 0; cI < testing_rate.length; cI++) {
             if (cI < numClass) {
                 int baseIndex = (int) testing_rate[cI];
-                float test_rate_base = testing_rate_by_classifier[baseIndex][cI];                                                               
+                float test_rate_base = testing_rate_by_classifier[baseIndex][cI];
                 adjRate[cI] = test_rate_base
-                        + ((testing_rate[cI]- baseIndex) - test_rate_base)
+                        + ((testing_rate[cI] - baseIndex) - test_rate_base)
                         * (pop.getGlobalTime() - startRampTime) / rampDuration;
             } else {
                 adjRate[cI] = testing_rate[cI];
@@ -785,15 +790,20 @@ public class Thread_PopRun implements Runnable {
         // Print number of infected
         int[][] num_total = new int[pop.getInfList().length][];
         int[][] num_infect = new int[pop.getInfList().length][];
-
+        int[][][] num_infStatus = new int[pop.getInfList().length][][];        
+        PersonClassifier prevalClassifer = (PersonClassifier) getInputParam()[PARAM_INDEX_TESTING_CLASSIFIER];
+        
         for (AbstractIndividualInterface person : pop.getPop()) {
             for (int infId = 0; infId < pop.getInfList().length; infId++) {
-                PersonClassifier prevalClassifer = ((PersonClassifier[]) getInputParam()[PARAM_INDEX_INTRO_CLASSIFIERS])[infId];
+                
                 if (num_total[infId] == null) {
                     num_total[infId] = new int[prevalClassifer.numClass()];
                 }
                 if (num_infect[infId] == null) {
                     num_infect[infId] = new int[prevalClassifer.numClass()];
+                }
+                if (num_infStatus[infId] == null) {
+                    num_infStatus[infId] = new int[prevalClassifer.numClass()][pop.getInfList()[infId].getNumState() + 1];
                 }
 
                 int cI = prevalClassifer.classifyPerson(person);
@@ -804,6 +814,7 @@ public class Thread_PopRun implements Runnable {
                     if (person.getInfectionStatus()[infId] != AbstractIndividualInterface.INFECT_S) {
                         num_infect[infId][cI]++;
                     }
+                    num_infStatus[infId][cI][person.getInfectionStatus()[infId] + 1]++;
                 }
             }
         }
@@ -821,9 +832,52 @@ public class Thread_PopRun implements Runnable {
         outputPri.flush();
 
         if (outputFilePath != null) {
+            boolean writeFirstLine;
+
+            File prevalenceFileName = new File(outputFilePath.getParent(), FILE_PREFIX_PREVALENCE + simId + ".csv");
+            writeFirstLine = !prevalenceFileName.exists();
+            try (PrintWriter pri = new PrintWriter(new FileWriter(prevalenceFileName, true))) {
+                if (writeFirstLine) {
+                    pri.print("Time");
+                    for (int infId = 0; infId < num_infStatus.length; infId++) {
+                        for (int classId = 0; classId < num_infStatus[infId].length; classId++) {
+                            for (int statusId = 0; statusId < num_infStatus[infId][classId].length; statusId++) {
+                                pri.print(',');
+                                pri.print("Inf #" + infId + " Class #" + classId + " Status #" + (statusId - 1));
+                            }
+                        }
+                    }
+                    pri.println();
+                }
+
+                pri.print(pop.getGlobalTime());
+                for (int[][] num_infStatusByInfection : num_infStatus) {
+                    for (int[] num_infStatusByInfectionClass : num_infStatusByInfection) {
+                        for (int statusId = 0; statusId < num_infStatusByInfectionClass.length; statusId++) {
+                            pri.print(',');
+                            pri.print(num_infStatusByInfectionClass[statusId]);
+                        }
+                    }
+                }
+                pri.println();
+
+            } catch (IOException ex) {
+                ex.printStackTrace(outputPri);
+            }
 
             File incidentFileName = new File(outputFilePath.getParent(), FILE_PREFIX_INCIDENCE + simId + ".csv");
-            try (PrintWriter pri = new PrintWriter(new FileWriter(incidentFileName, true))) {
+            writeFirstLine = !incidentFileName.exists();
+            try (PrintWriter pri = new PrintWriter(new FileWriter(incidentFileName, true))) {                
+                if (writeFirstLine) {
+                    pri.print("Time");
+                    for (int infId = 0; infId < num_infStatus.length; infId++) {
+                        for (int classId = 0; classId < num_infStatus[infId].length; classId++) {                            
+                                pri.print(',');
+                                pri.print("Inf #" + infId + " Class #" + classId);                            
+                        }
+                    }
+                    pri.println();
+                }                                
                 pri.print(pop.getGlobalTime());
                 for (int i = 0; i < cumulativeIncident.length; i++) {
                     pri.print(',');
@@ -837,7 +891,7 @@ public class Thread_PopRun implements Runnable {
             // cumulativeTestAndNotification[infectionId][classId][1+infStatus]
             File notificationFileName = new File(outputFilePath.getParent(),
                     FILE_PREFIX_TEST_AND_NOTIFICATION + simId + ".csv");
-            boolean writeFirstLine = !notificationFileName.exists();
+            writeFirstLine = !notificationFileName.exists();
 
             try (PrintWriter pri = new PrintWriter(new FileWriter(notificationFileName, true))) {
                 if (writeFirstLine) {
@@ -854,11 +908,11 @@ public class Thread_PopRun implements Runnable {
                 }
 
                 pri.print(pop.getGlobalTime());
-                for (int infId = 0; infId < cumulativeTestAndNotification.length; infId++) {
-                    for (int classId = 0; classId < cumulativeTestAndNotification[infId].length; classId++) {
-                        for (int statusId = 0; statusId < cumulativeTestAndNotification[infId][classId].length; statusId++) {
+                for (int[][] cumulativeTestAndNotificationByInfection : cumulativeTestAndNotification) {
+                    for (int[] cumulativeTestAndNotificationByInfectionClass : cumulativeTestAndNotificationByInfection) {
+                        for (int statusId = 0; statusId < cumulativeTestAndNotificationByInfectionClass.length; statusId++) {
                             pri.print(',');
-                            pri.print(cumulativeTestAndNotification[infId][classId][statusId]);
+                            pri.print(cumulativeTestAndNotificationByInfectionClass[statusId]);
                         }
                     }
                 }
@@ -983,10 +1037,10 @@ public class Thread_PopRun implements Runnable {
                 }
 
             }
-            
-            if((testing_option & 1<<TESTING_OPTION_NO_DELAY_TREATMENT) > 0){
+
+            if ((testing_option & 1 << TESTING_OPTION_NO_DELAY_TREATMENT) > 0) {
                 delay = 0;
-            }                        
+            }
 
             if (delay >= 0) {
 
