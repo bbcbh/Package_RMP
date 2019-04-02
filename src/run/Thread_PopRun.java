@@ -791,22 +791,22 @@ public class Thread_PopRun implements Runnable {
         int[][] num_total = new int[pop.getInfList().length][];
         int[][] num_infect = new int[pop.getInfList().length][];
         int[][][] num_infStatus = new int[pop.getInfList().length][][];        
-        PersonClassifier prevalClassifer = (PersonClassifier) getInputParam()[PARAM_INDEX_TESTING_CLASSIFIER];
+        PersonClassifier popPersonClassifer = (PersonClassifier) getInputParam()[PARAM_INDEX_TESTING_CLASSIFIER];
         
         for (AbstractIndividualInterface person : pop.getPop()) {
             for (int infId = 0; infId < pop.getInfList().length; infId++) {
                 
                 if (num_total[infId] == null) {
-                    num_total[infId] = new int[prevalClassifer.numClass()];
+                    num_total[infId] = new int[popPersonClassifer.numClass()];
                 }
                 if (num_infect[infId] == null) {
-                    num_infect[infId] = new int[prevalClassifer.numClass()];
+                    num_infect[infId] = new int[popPersonClassifer.numClass()];
                 }
                 if (num_infStatus[infId] == null) {
-                    num_infStatus[infId] = new int[prevalClassifer.numClass()][pop.getInfList()[infId].getNumState() + 1];
+                    num_infStatus[infId] = new int[popPersonClassifer.numClass()][pop.getInfList()[infId].getNumState() + 1];
                 }
 
-                int cI = prevalClassifer.classifyPerson(person);
+                int cI = popPersonClassifer.classifyPerson(person);
 
                 if (cI >= 0) {
                     num_total[infId][cI]++;
