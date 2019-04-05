@@ -67,7 +67,7 @@ class Thread_PopGenRemote implements Runnable {
 
         for (int p = 0; p < INPUT_POP_SIZE.length; p++) {
 
-            switch (INPUT_POP_TYPE[p]) {
+            switch (INPUT_POP_TYPE[p]) {                                                        
                 case 1:
                     popDecomp[p]
                             = util.Factory_Population_Decomposition.getDecomposition(util.Factory_Population_Decomposition.POP_COMPOSITION_URBAN_2010, INPUT_POP_SIZE[p], pop.getRNG());
@@ -90,6 +90,10 @@ class Thread_PopGenRemote implements Runnable {
                     popAway[p] = new float[]{0.11f, 0.10f, 0.09f, 0.09f, 0.11f, 0.10f, 0.09f, 0.08f};
                     break;
 
+            }
+            // Single pop only
+            if(INPUT_POP_SIZE.length == 1){
+                popAway[p] = new float[]{0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f};
             }
 
             if (generateConnc) {

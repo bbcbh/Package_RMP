@@ -779,17 +779,20 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
                     cumProb[i] = prob;
                 }
 
-                int pDest = getRNG().nextInt(prob);
-                dest = Arrays.binarySearch(cumProb, pDest);
+                if (prob > 0) {  // More than one destination
 
-                if (dest < 0) {
-                    //dest = (-(insertion point) - 1)
-                    dest = -(dest + 1);
-                }
-                int curCost = cumProb[dest];
+                    int pDest = getRNG().nextInt(prob);
+                    dest = Arrays.binarySearch(cumProb, pDest);
 
-                while (dest > 0 && curCost == cumProb[dest - 1]) {
-                    dest--;
+                    if (dest < 0) {
+                        //dest = (-(insertion point) - 1)
+                        dest = -(dest + 1);
+                    }
+                    int curCost = cumProb[dest];
+
+                    while (dest > 0 && curCost == cumProb[dest - 1]) {
+                        dest--;
+                    }
                 }
             }
         }

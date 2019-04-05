@@ -27,6 +27,7 @@ import random.MersenneTwisterRandomGenerator;
 import random.RandomGenerator;
 import util.ArrayUtilsRandomGenerator;
 import util.Default_Remote_MetaPopulation_AgeGrp_Classifier;
+import util.Factory_AwayDuration_Input;
 import util.FileZipper;
 import util.PersonClassifier;
 import util.PropValUtils;
@@ -104,6 +105,8 @@ import util.PropValUtils;
  *  - Add support for prevalence history
  *  - Add header row for incidence history CSV
  *  - Switch prevalence classifier to testing classifier instead
+ * 20190405 
+ *  - Add support for customer away duration
  * </pre>
  */
 public class Thread_PopRun implements Runnable {
@@ -790,12 +793,12 @@ public class Thread_PopRun implements Runnable {
         // Print number of infected
         int[][] num_total = new int[pop.getInfList().length][];
         int[][] num_infect = new int[pop.getInfList().length][];
-        int[][][] num_infStatus = new int[pop.getInfList().length][][];        
+        int[][][] num_infStatus = new int[pop.getInfList().length][][];
         PersonClassifier popPersonClassifer = (PersonClassifier) getInputParam()[PARAM_INDEX_TESTING_CLASSIFIER];
-        
+
         for (AbstractIndividualInterface person : pop.getPop()) {
             for (int infId = 0; infId < pop.getInfList().length; infId++) {
-                
+
                 if (num_total[infId] == null) {
                     num_total[infId] = new int[popPersonClassifer.numClass()];
                 }
@@ -867,17 +870,17 @@ public class Thread_PopRun implements Runnable {
 
             File incidentFileName = new File(outputFilePath.getParent(), FILE_PREFIX_INCIDENCE + simId + ".csv");
             writeFirstLine = !incidentFileName.exists();
-            try (PrintWriter pri = new PrintWriter(new FileWriter(incidentFileName, true))) {                
+            try (PrintWriter pri = new PrintWriter(new FileWriter(incidentFileName, true))) {
                 if (writeFirstLine) {
                     pri.print("Time");
                     for (int infId = 0; infId < num_infStatus.length; infId++) {
-                        for (int classId = 0; classId < num_infStatus[infId].length; classId++) {                            
-                                pri.print(',');
-                                pri.print("Inf #" + infId + " Class #" + classId);                            
+                        for (int classId = 0; classId < num_infStatus[infId].length; classId++) {
+                            pri.print(',');
+                            pri.print("Inf #" + infId + " Class #" + classId);
                         }
                     }
                     pri.println();
-                }                                
+                }
                 pri.print(pop.getGlobalTime());
                 for (int i = 0; i < cumulativeIncident.length; i++) {
                     pri.print(',');
@@ -1207,11 +1210,20 @@ public class Thread_PopRun implements Runnable {
                 case Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_NEWPERSON_INFECTION_CLASSIFIER:
                     orgVal = new PersonClassifier[0];
                     break;
+
                 default:
                     System.err.println("Default class for Pop #" + fieldIndex + " non defined");
                     break;
             }
-
+        }
+        
+        // Custom class
+        switch (fieldIndex) {
+            case Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_AWAY_FROM_HOME_DURATION_FACTORY:
+                int[] ent = (int[]) PropValUtils.propStrToObject(fieldEntry, int[].class);
+                ((Population_Remote_MetaPopulation) getPop()).getFields()[fieldIndex] = new Factory_AwayDuration_Input(ent[0], ent[1]);
+                orgVal = null;
+                break;                               
         }
 
         if (orgVal != null) {

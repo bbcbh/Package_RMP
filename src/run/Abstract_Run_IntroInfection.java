@@ -23,13 +23,13 @@ import java.util.Arrays;
  * </pre>
  */
 public abstract class Abstract_Run_IntroInfection {
-    
+
     public abstract double[] getRunParamValues();
 
     protected String[] popParamValStr = new String[0];
-    protected String[] threadParamValStr = new String[Thread_PopRun.PARAM_TOTAL];       
+    protected String[] threadParamValStr = new String[Thread_PopRun.PARAM_TOTAL];
     protected Integer[] popSelectionIndex = null;
-    
+
     protected boolean storeInfectionHistory = false;
     protected boolean storeTestingHistory = false;
     protected boolean storeTreatmentHistory = false;
@@ -41,7 +41,6 @@ public abstract class Abstract_Run_IntroInfection {
     public void setStoreTreatmentHistory(boolean storeTreatmentHistory) {
         this.storeTreatmentHistory = storeTreatmentHistory;
     }
-    
 
     public boolean isStoreInfectionHistory() {
         return storeInfectionHistory;
@@ -58,9 +57,6 @@ public abstract class Abstract_Run_IntroInfection {
     public void setStoreTestingHistory(boolean storeTestingHistory) {
         this.storeTestingHistory = storeTestingHistory;
     }
-    
-    
-    
 
     public Integer[] getPopSelection() {
         return popSelectionIndex;
@@ -79,14 +75,14 @@ public abstract class Abstract_Run_IntroInfection {
                     arr.add(Integer.parseInt(line));
                 }
             }
-        } catch (IOException | NumberFormatException ex) {            
-            ex.printStackTrace(System.err);            
-        }                
-        if(arr!= null){            
-            popSelectionIndex = arr.toArray(new Integer[arr.size()]);            
-            Arrays.sort(popSelectionIndex);                                    
+        } catch (IOException | NumberFormatException ex) {
+            ex.printStackTrace(System.err);
         }
-        
+        if (arr != null) {
+            popSelectionIndex = arr.toArray(new Integer[arr.size()]);
+            Arrays.sort(popSelectionIndex);
+        }
+
         return popSelectionIndex;
 
     }
@@ -96,7 +92,7 @@ public abstract class Abstract_Run_IntroInfection {
     }
 
     public void setPopParamValStr(int index, String ent) {
-        if (popParamValStr.length < index) {
+        if (popParamValStr.length <= index) {
             popParamValStr = Arrays.copyOf(popParamValStr, index + 1);
         }
         popParamValStr[index] = ent;
