@@ -44,108 +44,111 @@ public class Test_Population_Remote_MetaPopulation_Pop_Preval_CSV {
 
         System.out.println("Number of output files = " + outputFiles.length);
 
-        Arrays.sort(outputFiles, new Comparator<File>() {
-            @Override
-            public int compare(File t0, File t1) {
-                Matcher m0 = outputFilePattern.matcher(t0.getName());
-                Matcher m1 = outputFilePattern.matcher(t1.getName());
+        if (outputFiles.length > 0) {
 
-                m0.matches();
-                m1.matches();
+            Arrays.sort(outputFiles, new Comparator<File>() {
+                @Override
+                public int compare(File t0, File t1) {
+                    Matcher m0 = outputFilePattern.matcher(t0.getName());
+                    Matcher m1 = outputFilePattern.matcher(t1.getName());
 
-                String s0 = m0.group(1);
-                String s1 = m1.group(1);
+                    m0.matches();
+                    m1.matches();
 
-                return Integer.compare(Integer.parseInt(s0), Integer.parseInt(s1));
+                    String s0 = m0.group(1);
+                    String s1 = m1.group(1);
 
-            }
-        });
+                    return Integer.compare(Integer.parseInt(s0), Integer.parseInt(s1));
 
-        for (File outputTxt : outputFiles) {
-            BufferedReader reader = new BufferedReader(new FileReader(outputTxt));
-            int simNum;
-            String line;
+                }
+            });
 
-            Matcher fm = outputFilePattern.matcher(outputTxt.getName());
-            fm.matches();
-            simNum = Integer.parseInt(fm.group(1));
+            for (File outputTxt : outputFiles) {
+                BufferedReader reader = new BufferedReader(new FileReader(outputTxt));
+                int simNum;
+                String line;
 
-            while ((line = reader.readLine()) != null) {
-                Matcher m = outputlinePattern.matcher(line);
-                if (m.matches()) {
-                    Integer time = new Integer(m.group(1));
-                    int infId = Integer.parseInt(m.group(2));
-                    String[] entryByClass = m.group(3).split(",");
+                Matcher fm = outputFilePattern.matcher(outputTxt.getName());
+                fm.matches();
+                simNum = Integer.parseInt(fm.group(1));
 
-                    if (dataStore == null) {
-                        dataStore = new HashMap[infId + 1];
-                    } else if (infId >= dataStore.length) {
-                        dataStore = Arrays.copyOf(dataStore, infId + 1);
+                while ((line = reader.readLine()) != null) {
+                    Matcher m = outputlinePattern.matcher(line);
+                    if (m.matches()) {
+                        Integer time = new Integer(m.group(1));
+                        int infId = Integer.parseInt(m.group(2));
+                        String[] entryByClass = m.group(3).split(",");
+
+                        if (dataStore == null) {
+                            dataStore = new HashMap[infId + 1];
+                        } else if (infId >= dataStore.length) {
+                            dataStore = Arrays.copyOf(dataStore, infId + 1);
+                        }
+
+                        if (dataStore[infId] == null) {
+                            dataStore[infId] = new HashMap<>();
+                        }
+
+                        double[][] ent = dataStore[infId].get(time);
+                        if (ent == null) {
+                            ent = new double[entryByClass.length][outputFiles.length];
+                        }
+
+                        for (int cI = 0; cI < entryByClass.length; cI++) {
+                            ent[cI][simNum] = Double.parseDouble(entryByClass[cI]);
+                        }
+                        dataStore[infId].put(time, ent);
                     }
 
-                    if (dataStore[infId] == null) {
-                        dataStore[infId] = new HashMap<>();
-                    }
-
-                    double[][] ent = dataStore[infId].get(time);
-                    if (ent == null) {
-                        ent = new double[entryByClass.length][outputFiles.length];
-                    }
-
-                    for (int cI = 0; cI < entryByClass.length; cI++) {
-                        ent[cI][simNum] = Double.parseDouble(entryByClass[cI]);
-                    }
-                    dataStore[infId].put(time, ent);
                 }
 
             }
 
-        }
+            // Results analysis
+            for (int i = 0; i < dataStore.length; i++) {
+                File prevalSummaryFile = new File(resultDir, prevaleSummaryPrefix + Integer.toString(i) + ".csv");
+                System.out.println("Generrating prevalence summary at " + prevalSummaryFile.getAbsolutePath());
 
-        // Results analysis
-        for (int i = 0; i < dataStore.length; i++) {
-            File prevalSummaryFile = new File(resultDir, prevaleSummaryPrefix + Integer.toString(i) + ".csv");
-            System.out.println("Generrating prevalence summary at " + prevalSummaryFile.getAbsolutePath());
+                Integer[] times = dataStore[i].keySet().toArray(new Integer[dataStore[i].keySet().size()]);
+                Arrays.sort(times);
 
-            Integer[] times = dataStore[i].keySet().toArray(new Integer[dataStore[i].keySet().size()]);
-            Arrays.sort(times);
+                PrintWriter wri = new PrintWriter(new FileWriter(prevalSummaryFile));
+                boolean header = true;
+                StringBuilder printEntry;
+                Percentile data = new Percentile();
 
-            PrintWriter wri = new PrintWriter(new FileWriter(prevalSummaryFile));
-            boolean header = true;
-            StringBuilder printEntry;
-            Percentile data = new Percentile();
+                for (Integer t : times) {
+                    double[][] values = dataStore[i].get(t);
+                    printEntry = new StringBuilder();
 
-            for (Integer t : times) {
-                double[][] values = dataStore[i].get(t);
-                printEntry = new StringBuilder();
-
-                if (header) {
-                    printEntry.append("Time");
-                    for (int c = 0; c < values.length; c++) {
-                        printEntry.append(",Class_#").append(c).append("_0");
-                        printEntry.append(",Class_#").append(c).append("_25");
-                        printEntry.append(",Class_#").append(c).append("_50");
-                        printEntry.append(",Class_#").append(c).append("_75");
-                        printEntry.append(",Class_#").append(c).append("_100");
+                    if (header) {
+                        printEntry.append("Time");
+                        for (int c = 0; c < values.length; c++) {
+                            printEntry.append(",Class_#").append(c).append("_0");
+                            printEntry.append(",Class_#").append(c).append("_25");
+                            printEntry.append(",Class_#").append(c).append("_50");
+                            printEntry.append(",Class_#").append(c).append("_75");
+                            printEntry.append(",Class_#").append(c).append("_100");
+                        }
+                        wri.println(printEntry.toString());
+                        header = false;
+                        printEntry = new StringBuilder();
+                    }
+                    printEntry.append(t.toString());
+                    for (double[] value : values) {
+                        double[] ent = Arrays.copyOf(value, value.length);
+                        Arrays.sort(ent);
+                        data.setData(ent);
+                        printEntry.append(",").append(ent[0]);
+                        printEntry.append(",").append(data.evaluate(25));
+                        printEntry.append(",").append(data.evaluate(50));
+                        printEntry.append(",").append(data.evaluate(75));
+                        printEntry.append(",").append(ent[ent.length - 1]);
                     }
                     wri.println(printEntry.toString());
-                    header = false;
-                    printEntry = new StringBuilder();
                 }
-                printEntry.append(t.toString());
-                for (double[] value : values) {
-                    double[] ent = Arrays.copyOf(value, value.length);
-                    Arrays.sort(ent);
-                    data.setData(ent);
-                    printEntry.append(",").append(ent[0]);
-                    printEntry.append(",").append(data.evaluate(25));
-                    printEntry.append(",").append(data.evaluate(50));
-                    printEntry.append(",").append(data.evaluate(75));
-                    printEntry.append(",").append(ent[ent.length - 1]);
-                }
-                wri.println(printEntry.toString());               
+                wri.close();
             }
-            wri.close();
         }
 
     }

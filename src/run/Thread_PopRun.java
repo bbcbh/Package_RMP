@@ -23,6 +23,7 @@ import person.MoveablePersonInterface;
 import person.Person_Remote_MetaPopulation;
 import population.AbstractPopulation;
 import population.Population_Remote_MetaPopulation;
+import static population.Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_POP_SIZE;
 import random.MersenneTwisterRandomGenerator;
 import random.RandomGenerator;
 import util.ArrayUtilsRandomGenerator;
@@ -105,8 +106,10 @@ import util.PropValUtils;
  *  - Add support for prevalence history
  *  - Add header row for incidence history CSV
  *  - Switch prevalence classifier to testing classifier instead
- * 20190405 
- *  - Add support for customer away duration
+ * 20190405
+ *  - Add support for custom away duration
+ * 20190501
+ *  - Add support for change of treatment delay at specific time
  * </pre>
  */
 public class Thread_PopRun implements Runnable {
@@ -262,7 +265,12 @@ public class Thread_PopRun implements Runnable {
         // 9: PARAM_INDEX_TESTING_TREATMENT_DELAY_BY_LOC
         // [min, range]
         // Alterative format
-        // [min, cumul_liklihood_1, cumul_delay_range_1, cumul_liklihood_2, cumul_delay_range_2, .... total_liklihood]        
+        // [loc][min, cumul_liklihood_1, cumul_delay_range_1, cumul_liklihood_2, cumul_delay_range_2, .... total_liklihood]   
+        // optional
+        // ...
+        // [start_time_k, end_time_k] 
+        // [loc + k * # meta pop ] [min, cumul_liklihood_1, cumul_delay_range_1, cumul_liklihood_2, cumul_delay_range_2, .... total_liklihood] 
+        // ...
         new int[][]{
             new int[]{0, 90, 7, 100},
             new int[]{0, 111, 0, 122, 2, 191, 5, 327, 113, 405},
@@ -796,6 +804,10 @@ public class Thread_PopRun implements Runnable {
         int[][][] num_infStatus = new int[pop.getInfList().length][][];
         PersonClassifier popPersonClassifer = (PersonClassifier) getInputParam()[PARAM_INDEX_TESTING_CLASSIFIER];
 
+        Boolean org_Bool = (Boolean) getInputParam()[PARAM_INDEX_TESTING_RATE_BY_HOME_LOC];
+
+        getInputParam()[PARAM_INDEX_TESTING_RATE_BY_HOME_LOC] = false;
+
         for (AbstractIndividualInterface person : pop.getPop()) {
             for (int infId = 0; infId < pop.getInfList().length; infId++) {
 
@@ -926,6 +938,8 @@ public class Thread_PopRun implements Runnable {
             }
         }
 
+        getInputParam()[PARAM_INDEX_TESTING_RATE_BY_HOME_LOC] = org_Bool;
+
     }
 
     public ArrayList<AbstractIndividualInterface> generateTestingSchedule(RandomGenerator testRNG,
@@ -1014,6 +1028,24 @@ public class Thread_PopRun implements Runnable {
 
             int[][] delaySettingAll = (int[][]) getInputParam()[PARAM_INDEX_TESTING_TREATMENT_DELAY_BY_LOC];
             int[] delaySetting = null;
+
+            int[] popSize = (int[]) pop.getFields()[FIELDS_REMOTE_METAPOP_POP_SIZE];
+            if (delaySettingAll.length > popSize.length) {
+                int startId = 0;
+                int checkId = popSize.length;
+
+                while (checkId < delaySettingAll.length) {
+                    int[] keyRow = delaySettingAll[checkId];
+                    if (pop.getGlobalTime() >= keyRow[0]
+                            && (pop.getGlobalTime() < keyRow[1] || keyRow[0] >= keyRow[1])) {
+                        startId = checkId + 1;
+                    }
+                    checkId += popSize.length+1;
+                }
+
+                delaySettingAll = Arrays.copyOfRange(delaySettingAll, startId, startId + popSize.length);
+
+            }
 
             delaySetting = delaySettingAll[currentLoc < delaySettingAll.length ? currentLoc : 0];
 
@@ -1216,14 +1248,14 @@ public class Thread_PopRun implements Runnable {
                     break;
             }
         }
-        
+
         // Custom class
         switch (fieldIndex) {
             case Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_AWAY_FROM_HOME_DURATION_FACTORY:
                 int[] ent = (int[]) PropValUtils.propStrToObject(fieldEntry, int[].class);
                 ((Population_Remote_MetaPopulation) getPop()).getFields()[fieldIndex] = new Factory_AwayDuration_Input(ent[0], ent[1]);
                 orgVal = null;
-                break;                               
+                break;
         }
 
         if (orgVal != null) {
