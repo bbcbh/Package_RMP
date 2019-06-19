@@ -5,6 +5,8 @@ import java.io.FileFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Properties;
 import opt.OptRun_Population_Remote_MetaPopulation_Infection_Intro;
@@ -19,7 +21,7 @@ import util.PropValUtils;
  * Define a set of simulation using properties file
  *
  * @author Ben Hui
- * @version 20180831
+ * @version 20190529
  *
  * <pre>
  * History:
@@ -42,6 +44,9 @@ import util.PropValUtils;
  *   - Add support for pop generate with custom popType and popConnc
  * 20180907:
  *   - Add support for PROP_STORE_TESTING_HISTORY and PROP_STORE_TREATMENT_HISTORY
+ * 20190529
+ *   - Add support for wildcard notiation when running sim directory
+ *
  *
  * </pre>
  */
@@ -302,10 +307,28 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
         if (!propFile.exists()) {
             System.out.println("Checking for result folder(s) at " + resultsDir);
             if (arg.length > 1) {
-                singleSimDir = new File[arg.length - 1];
+                ArrayList<File> dirList = new ArrayList();
                 for (int i = 1; i < arg.length; i++) {
-                    singleSimDir[i - 1] = new File(resultsDir, arg[i]);
+                    if (arg[i].endsWith("*")) {
+
+                        final String startWith = arg[i];
+                        File[] matchedDir = resultsDir.listFiles(new FileFilter() {
+                            @Override
+                            public boolean accept(File file) {
+                                return file.isDirectory() && file.getName().startsWith(startWith.substring(0, startWith.length() - 1))
+                                        && new File(file, Simulation_Remote_MetaPopulation.FILENAME_PROP).exists();
+                            }
+                        });
+
+                        dirList.addAll(Arrays.asList(matchedDir));
+
+                    } else {
+                        dirList.add(new File(resultsDir, arg[i]));
+                    }
                 }
+
+                singleSimDir = dirList.toArray(new File[dirList.size()]);
+
             } else {
                 singleSimDir = resultsDir.listFiles(new FileFilter() {
                     @Override

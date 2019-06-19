@@ -14,6 +14,8 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -331,13 +333,13 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
             try {
                 ObjectInputStream objIn = new ObjectInputStream(new FileInputStream(previouStoreFile));
                 collectionsArrayRead = (HashMap[]) objIn.readObject();
-                /*
+                
                 Files.move(previouStoreFile.toPath(),
                         new File(exportDir, FILENAME_COLLECTION_STORE
                                 + "_" + Long.toString(System.currentTimeMillis())).toPath(),
                         StandardCopyOption.ATOMIC_MOVE
                 );
-                */
+                
 
             } catch (IOException | ClassNotFoundException ex) {
                 ex.printStackTrace(System.err);

@@ -638,8 +638,8 @@ public class Thread_PopRun implements Runnable {
                                 }
                             }
                         }
-                    }
-
+                    }                    
+                    
                     // Testing
                     for (int testing_set_num = 0; testing_set_num < testing_numPerDay.length; testing_set_num++) {
                         if (testing_in_timestep[testing_set_num]) {
