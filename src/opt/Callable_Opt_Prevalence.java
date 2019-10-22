@@ -39,6 +39,7 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
     private final double[] param;
     private boolean outputAsFile = true;
     private final String[] propModelInitStr;
+    private boolean printOutput = false;
 
     public static final int OPT_PARAM_INDEX_TRAN_FEMALE_MALE_CT = 0;
     public static final int OPT_PARAM_INDEX_TRAN_MALE_FEMALE_EXTRA_CT = OPT_PARAM_INDEX_TRAN_FEMALE_MALE_CT + 1;
@@ -47,17 +48,28 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
     public static final int OPT_PARAM_INDEX_AVE_INF_DUR_CT = OPT_PARAM_INDEX_TRAN_MALE_FEMALE_EXTRA_NG + 1;
     public static final int OPT_PARAM_INDEX_AVE_INF_DUR_NG = OPT_PARAM_INDEX_AVE_INF_DUR_CT + 1;
 
-    public static final int OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_16_19 = OPT_PARAM_INDEX_AVE_INF_DUR_NG + 1;
+    // Optional     
+    public static final int OPT_PRRAM_INDEX_SYM_SEEK = OPT_PARAM_INDEX_AVE_INF_DUR_NG + 1;
+
+    public static final int OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_16_19 = OPT_PRRAM_INDEX_SYM_SEEK + 1;
     public static final int OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_20_24 = OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_16_19 + 1;
     public static final int OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_25_29 = OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_20_24 + 1;
     public static final int OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_30_35 = OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_25_29 + 1;
     public static final int OPT_PARAM_TOTAL = OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_30_35 + 1;
 
     private double[] target_preval = new double[]{
+        // From SH        
+        /*
         0.118, 0.104, 0.074, 0.046, // CT, Male
         0.174, 0.082, 0.060, 0.035, // CT, Female
         0.137, 0.065, 0.040, 0.041, // NG, Male
-        0.135, 0.076, 0.028, 0.043 // NG, Female              
+        0.135, 0.076, 0.028, 0.043, // NG, Female              
+        */
+        // From Silver 2014
+        0.205, 0.166, 0.103, 0.070, // CT, Male
+        0.265, 0.202, 0.117, 0.076, // CT, Female
+        0.216, 0.174, 0.116, 0.081, // NG, Male
+        0.201, 0.154, 0.073, 0.070, // NG, Female               
     };
 
     public Callable_Opt_Prevalence(File optOutputDir, File popFile, int simId, int numStep,
@@ -72,6 +84,10 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
 
     public void setOutputAsFile(boolean outputAsFile) {
         this.outputAsFile = outputAsFile;
+    }
+
+    public void setPrintOutput(boolean printOutput) {
+        this.printOutput = printOutput;
     }
 
     public void loadParameters(Thread_PopRun thread, double[] param) {
@@ -90,7 +106,6 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
                     } else {
                         int popIndex = i - OPT_PARAM_TOTAL - Thread_PopRun.PARAM_TOTAL;
                         thread.updatePopFieldFromString(popIndex, propModelInitStr[i]);
-
                     }
 
                     if (outputPrint != null) {
@@ -102,13 +117,12 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
         }
 
         if (param.length > OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_16_19) {
-            float[][][] org_behavior = (float[][][]) 
-                    ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_NUMBER_PARTNER_LAST_12_MONTHS_DECOMP];
+            float[][][] org_behavior = (float[][][]) ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_NUMBER_PARTNER_LAST_12_MONTHS_DECOMP];
 
             for (int i = 0; i < org_behavior.length; i++) {
                 float[][] adjustBehaviour = Arrays.copyOf(org_behavior[i], org_behavior[i].length);
 
-                for (int r = 0; r < adjustBehaviour.length; r++) {                    
+                for (int r = 0; r < adjustBehaviour.length; r++) {
                     adjustBehaviour[r][4] = (float) param[OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_16_19 + r];
                 }
 
@@ -229,6 +243,16 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
             outputPrint.println("Duration Sym (NG) = " + Arrays.toString((double[]) ng_inf.getParameter(key)));
         }
 
+        if (param.length > OPT_PRRAM_INDEX_SYM_SEEK) {
+
+            ((float[]) thread.getInputParam()[Thread_PopRun.PARAM_INDEX_SYMPTOM_TREAT_STAT])[0] = (float) param[OPT_PRRAM_INDEX_SYM_SEEK];
+
+            if (outputPrint != null) {
+                outputPrint.println("Sym treatment stat  = "
+                        + Arrays.toString((float[]) thread.getInputParam()[Thread_PopRun.PARAM_INDEX_SYMPTOM_TREAT_STAT]));
+            }
+        }
+
         if (outputPrint != null) {
             outputPrint.flush();
         }
@@ -264,8 +288,10 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
                 ex.printStackTrace(System.err);
                 outputPrint = new PrintWriter(System.out);
             }
-        } else {
-            //outputPrint = new PrintWriter(System.out);
+        }
+
+        if (printOutput) {
+            outputPrint = new PrintWriter(System.out);
         }
 
         thread.setOutputPri(outputPrint, false);

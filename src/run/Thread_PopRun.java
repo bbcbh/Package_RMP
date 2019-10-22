@@ -134,7 +134,8 @@ public class Thread_PopRun implements Runnable {
     public static final int PARAM_INDEX_TESTING_RATE_BY_HOME_LOC = PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER + 1;
     public static final int PARAM_INDEX_TESTING_TREATMENT_DELAY_BY_LOC = PARAM_INDEX_TESTING_RATE_BY_HOME_LOC + 1;
     public static final int PARAM_INDEX_TESTING_SENSITIVITY = PARAM_INDEX_TESTING_TREATMENT_DELAY_BY_LOC + 1;
-    public static final int PARAM_TOTAL = PARAM_INDEX_TESTING_SENSITIVITY + 1;
+    public static final int PARAM_INDEX_SYMPTOM_TREAT_STAT = PARAM_INDEX_TESTING_SENSITIVITY + 1;
+    public static final int PARAM_TOTAL = PARAM_INDEX_SYMPTOM_TREAT_STAT + 1;
 
     public static final int TESTING_OPTION_USE_PROPORTION_TEST_COVERAGE = 0;
     public static final int TESTING_OPTION_FIX_TEST_SCHEDULE = TESTING_OPTION_USE_PROPORTION_TEST_COVERAGE + 1;
@@ -278,8 +279,10 @@ public class Thread_PopRun implements Runnable {
             new int[]{0, 111, 0, 122, 2, 191, 5, 327, 113, 405},
             new int[]{0, 111, 0, 122, 2, 191, 5, 327, 113, 405},},
         // 10: PARAM_INDEX_TESTING_SENSITIVITY
-        0.98f
-
+        0.98f,
+        // 11: PARAM_INDEX_SYMPTOM_TREAT_STAT
+        // [probabilty of seek treatment from symptom, delay min, delay range}
+        new float[]{0, 7, 0},           
     };
 
     public Thread_PopRun(File outputPath, File importPath, int simId, int numSteps) {
@@ -711,7 +714,11 @@ public class Thread_PopRun implements Runnable {
                     if (treatmentSchdule.containsKey(pop.getGlobalTime())) {
                         treatingToday(treatmentSchdule.remove(pop.getGlobalTime()));
                     }
-
+                    
+                    
+                    
+                    
+                    
                     int[] personId = new int[pop.getPop().length];
                     boolean[] hasSyp = new boolean[pop.getPop().length];
 
@@ -721,15 +728,28 @@ public class Thread_PopRun implements Runnable {
                             hasSyp[p] |= inf.hasSymptoms(pop.getPop()[p]);
                         }
                     }
+                    
 
                     pop.advanceTimeStep(1);
+                    
+                    
+                    
+                    
+                    float[] sym_stat = (float[]) inputParam[PARAM_INDEX_SYMPTOM_TREAT_STAT];
 
+                    
                     for (int p = 0; p < pop.getPop().length; p++) {
                         if (pop.getPop()[p].getId() == personId[p] && !hasSyp[p]) {
                             // Only check if it is not a new person 
-                            for (AbstractInfection inf : pop.getInfList()) {
-                                if (inf.hasSymptoms(pop.getPop()[p])) {
-                                    int sym_treatment_delay = 7;
+                            for (AbstractInfection inf : pop.getInfList()) {                                                                
+                                if (inf.hasSymptoms(pop.getPop()[p]) && pop.getRNG().nextFloat()< sym_stat[0]) {
+                                    
+                                    int sym_treatment_delay = (int) sym_stat[1];
+                                    
+                                    if(((int) sym_stat[2]) > 0){
+                                        sym_treatment_delay +=  pop.getRNG().nextInt((int) sym_stat[2]);
+                                    }
+                                    
 
                                     if (sym_treatment_delay >= 0) {
 
@@ -753,6 +773,7 @@ public class Thread_PopRun implements Runnable {
                         }
 
                     }
+                    
 
                     if (outputPri != null
                             && outputFreq > 0 && (pop.getGlobalTime() - offset) % outputFreq == 0) {
