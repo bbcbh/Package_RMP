@@ -171,27 +171,27 @@ public class Thread_PopRun implements Runnable {
     private HashMap<Integer, int[]>[] indiv_hist = new HashMap[INDIV_HIST_PREFIX.length];
 
     protected Object[] inputParam = new Object[]{
-        // 1: PARAM_INDEX_INFECTIONS
+        // 0: PARAM_INDEX_INFECTIONS
         new AbstractInfection[]{new ChlamydiaInfection(null), new GonorrhoeaInfection(null)},
-        // 2: PARAM_INDEX_INTRO_CLASSIFIERS
+        // 1: PARAM_INDEX_INTRO_CLASSIFIERS
         new PersonClassifier[]{new DEFAULT_PREVAL_CLASSIFIER(), new DEFAULT_PREVAL_CLASSIFIER()},
-        // 3: PARAM_INDEX_INTRO_PREVALENCE
+        // 2: PARAM_INDEX_INTRO_PREVALENCE
         // From STRIVE 
         new float[][]{
             new float[]{0.118f, 0.104f, 0.074f, 0.046f, 0.174f, 0.082f, 0.060f, 0.035f},
             new float[]{0.137f, 0.065f, 0.040f, 0.041f, 0.135f, 0.076f, 0.028f, 0.043f},},
-        // 4: PARAM_INDEX_INTRO_AT
+        // 3: PARAM_INDEX_INTRO_AT
         new int[]{
             360 * 50 + 1,
             360 * 50 + 1,},
-        // 5: PARAM_INDEX_INTRO_PERIODICITY
+        // 4: PARAM_INDEX_INTRO_PERIODICITY
         new int[]{
             -1,
             -1,},
-        // 6: PARAM_INDEX_TESTING_CLASSIFIER
+        // 5: PARAM_INDEX_TESTING_CLASSIFIER
         // type: PersonClassifier
         new DEFAULT_TESTING_CLASSIFIER(),
-        // 7: PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER
+        // 6: PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER
         // Regional adjustment from GOANNA, p.43  
         // Remote from STRIVE (FNQ, LC's slides)
         // type: float[]           
@@ -261,9 +261,9 @@ public class Thread_PopRun implements Runnable {
             0.240f,
             0.230f,
             0.190f,},
-        // 8: PARAM_INDEX_TESTING_RATE_BY_HOME_LOC        
+        // 7: PARAM_INDEX_TESTING_RATE_BY_HOME_LOC        
         true,
-        // 9: PARAM_INDEX_TESTING_TREATMENT_DELAY_BY_LOC
+        // 8: PARAM_INDEX_TESTING_TREATMENT_DELAY_BY_LOC
         // [min, range]
         // Alterative format
         // [loc][min, cumul_liklihood_1, cumul_delay_range_1, cumul_liklihood_2, cumul_delay_range_2, .... total_liklihood]   
@@ -278,9 +278,9 @@ public class Thread_PopRun implements Runnable {
             new int[]{0, 111, 0, 122, 2, 191, 5, 327, 113, 405},
             new int[]{0, 111, 0, 122, 2, 191, 5, 327, 113, 405},
             new int[]{0, 111, 0, 122, 2, 191, 5, 327, 113, 405},},
-        // 10: PARAM_INDEX_TESTING_SENSITIVITY
+        // 9: PARAM_INDEX_TESTING_SENSITIVITY
         0.98f,
-        // 11: PARAM_INDEX_SYMPTOM_TREAT_STAT
+        // 10: PARAM_INDEX_SYMPTOM_TREAT_STAT
         // [probabilty of seek treatment from symptom, delay min, delay range}
         new float[]{0, 7, 0},           
     };

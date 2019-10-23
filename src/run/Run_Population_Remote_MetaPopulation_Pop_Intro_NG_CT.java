@@ -20,6 +20,7 @@ import static opt.Callable_Opt_Prevalence.OPT_PARAM_INDEX_TRAN_FEMALE_MALE_CT;
 import static opt.Callable_Opt_Prevalence.OPT_PARAM_INDEX_TRAN_FEMALE_MALE_NG;
 import static opt.Callable_Opt_Prevalence.OPT_PARAM_INDEX_TRAN_MALE_FEMALE_EXTRA_CT;
 import static opt.Callable_Opt_Prevalence.OPT_PARAM_INDEX_TRAN_MALE_FEMALE_EXTRA_NG;
+import static opt.Callable_Opt_Prevalence.OPT_PRRAM_INDEX_SYM_SEEK;
 import org.apache.commons.math3.distribution.AbstractRealDistribution;
 import org.apache.commons.math3.distribution.BetaDistribution;
 import population.Population_Remote_MetaPopulation;
@@ -60,39 +61,30 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT extends Abstra
     public int NUM_STEPS = 360 * 50;
     public int SAMP_FREQ = 90;
 
-    double[] paramVal_Run = {
-        /*
-        // Best fit        
+    double[] paramVal_Run = {        
         // 0: OPT_PARAM_INDEX_TRAN_FEMALE_MALE_CT;
-        0.3043159232572388,
+        0.285,
         // 1: OPT_PARAM_INDEX_TRAN_MALE_FEMALE_EXTRA_CT
-        0.2124334450502472,
+        0.040,
         // 2: OPT_PARAM_INDEX_TRAN_FEMALE_MALE_NG
-        0.3532267265325191,
+        0.340,
         // 3: OPT_PARAM_INDEX_TRAN_MALE_FEMALE_EXTRA_NG 
-        0.20895068447018414,
+        0.200,
         // 4: OPT_PARAM_INDEX_AVE_INF_DUR_CT 
-        377.83717702302926,
+        434.50,
         // 5: OPT_PARAM_INDEX_AVE_INF_DUR_NG 
-        367.98051191774533,        
-         */
-        //Better trans
-        // 0: OPT_PARAM_INDEX_TRAN_FEMALE_MALE_CT;
-        0.2543159232572388,
-        // 1: OPT_PARAM_INDEX_TRAN_MALE_FEMALE_EXTRA_CT
-        0.039826625618951,
-        // 2: OPT_PARAM_INDEX_TRAN_FEMALE_MALE_NG
-        0.34918126052590176,
-        // 3: OPT_PARAM_INDEX_TRAN_MALE_FEMALE_EXTRA_NG 
-        0.21336941210194102,
-        // 4: OPT_PARAM_INDEX_AVE_INF_DUR_CT 
-        434.04840078376355,
-        // 5: OPT_PARAM_INDEX_AVE_INF_DUR_NG 
-        362.3907737197366,
-        // 6: PARAM_SD_CT - set to zero for fixed value
-        0.02,
-        // 7: PARAM_SD_NG - set to zero for fixed value
-        0.02,};
+        365.73,
+        // 6: OPT_PRRAM_INDEX_SYM_SEEK 
+        0.0098,
+        // 7: OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_16_19
+        1,
+        // 8: OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_20_24
+        1,
+        // 9: OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_25_29
+        1,
+        // 10: OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_30_35
+        1,        
+    };
 
     //protected String[] threadParamValStr = new String[Thread_PopRun.PARAM_TOTAL];
     // For Beta distribution, 
@@ -151,29 +143,35 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT extends Abstra
         return paramVal_Run;
     }
 
-    protected Object[] generateParam() {
+    protected Object[] generateParam() {        
+        int[] tranSD = new int[]{0,0};
+        
         Object[] generatedDistribution = {
-            // Better trans
+            // Better trans                        
             // 0: OPT_PARAM_INDEX_TRAN_FEMALE_MALE_CT; 
-            paramVal_Run[6] == 0 ? paramVal_Run[0]
+            tranSD[0] == 0 ? paramVal_Run[0]
             : new BetaDistribution(paramVal_Run[0]
-            * (paramVal_Run[0] * (1 - paramVal_Run[0]) / (paramVal_Run[6] * paramVal_Run[6]) - 1),
+            * (paramVal_Run[0] * (1 - paramVal_Run[0]) / (tranSD[0] * tranSD[0]) - 1),
             (1 - paramVal_Run[0])
-            * (paramVal_Run[0] * (1 - paramVal_Run[0]) / (paramVal_Run[6] * paramVal_Run[6]) - 1)),
+            * (paramVal_Run[0] * (1 - paramVal_Run[0]) / (tranSD[0] * tranSD[0]) - 1)),
             // 1: OPT_PARAM_INDEX_TRAN_MALE_FEMALE_EXTRA_CT
             paramVal_Run[1],
             // 2: OPT_PARAM_INDEX_TRAN_FEMALE_MALE_NG
-            paramVal_Run[7] == 0 ? paramVal_Run[2]
+            tranSD[1] == 0 ? paramVal_Run[2]
             : new BetaDistribution(paramVal_Run[2]
-            * (paramVal_Run[2] * (1 - paramVal_Run[2]) / (paramVal_Run[7] * paramVal_Run[7]) - 1),
+            * (paramVal_Run[2] * (1 - paramVal_Run[2]) / (tranSD[1] * tranSD[1]) - 1),
             (1 - paramVal_Run[2])
-            * (paramVal_Run[2] * (1 - paramVal_Run[2]) / (paramVal_Run[7] * paramVal_Run[7]) - 1)),
+            * (paramVal_Run[2] * (1 - paramVal_Run[2]) / (tranSD[1] * tranSD[1]) - 1)),
             // 3: OPT_PARAM_INDEX_TRAN_MALE_FEMALE_EXTRA_NG 
             paramVal_Run[3],
             // 4: OPT_PARAM_INDEX_AVE_INF_DUR_CT 
             paramVal_Run[4],
             // 5: OPT_PARAM_INDEX_AVE_INF_DUR_NG 
-            paramVal_Run[5],};
+            paramVal_Run[5],
+            // 6: OPT_PRRAM_INDEX_SYM_SEEK 
+            paramVal_Run[6],
+            // 7-10: Not used here        
+        };
 
         return generatedDistribution;
 
@@ -433,6 +431,16 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT extends Abstra
         }
         if (outputPrint != null) {
             outputPrint.println("Duration Sym (NG) = " + Arrays.toString((double[]) ng_inf.getParameter(key)));
+        }
+        
+        
+        if (param.length > OPT_PRRAM_INDEX_SYM_SEEK) {
+            ((float[]) thread.getInputParam()[Thread_PopRun.PARAM_INDEX_SYMPTOM_TREAT_STAT])[0] = (float) param[OPT_PRRAM_INDEX_SYM_SEEK];
+
+            if (outputPrint != null) {
+                outputPrint.println("Sym treatment stat  = "
+                        + Arrays.toString((float[]) thread.getInputParam()[Thread_PopRun.PARAM_INDEX_SYMPTOM_TREAT_STAT]));
+            }
         }
 
         for (int i = 0; i < threadParamValStr.length; i++) {
