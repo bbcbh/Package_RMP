@@ -301,7 +301,7 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                 // 3: Num sim
                 // 4: Num to keep
                 // 5: GA_Pop size
-                rArg = new String[5];
+                rArg = new String[6];
                 rArg[0] = baseDir.getAbsolutePath();
                 rArg[1] = propVal[PROP_POP_IMPORT_PATH] == null ? "" : (String) propVal[PROP_POP_IMPORT_PATH];
                 rArg[2] = propVal[PROP_USE_PARALLEL] == null ? "" : ((Integer) propVal[PROP_USE_PARALLEL]).toString();

@@ -12,7 +12,8 @@ public class Test_Population_Remote_MetaPopulation_Sim {
             //"Srn_RPO_*",                       
             "C:\\Users\\Bhui\\OneDrive - UNSW\\RMP\\Test",
             //"Srn_RPO_BA_Std","Srn_RPO_BA_Int",
-            "Opt_NGCTBehav",    
+            //"Opt_NGCTBehav",   
+            "OptGA_NGCTBehav", 
         };
 
         Simulation_Remote_MetaPopulation.main(baseDir);               
