@@ -10,6 +10,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Properties;
 import opt.OptRun_Population_Remote_MetaPopulation_Infection_Intro;
+import opt.OptRun_Population_Remote_MetaPopulation_Infection_Intro_GA;
 import run.Run_Population_Remote_MetaPopulation_Pop_Analysis;
 import run.Run_Population_Remote_MetaPopulation_Pop_Generate;
 import run.Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT;
@@ -251,18 +252,18 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                 rArg[3] = propVal[PROP_NUM_SIM_PER_SET] == null ? "" : ((Integer) propVal[PROP_NUM_SIM_PER_SET]).toString();
                 rArg[4] = "0";
 
-                OptRun_Population_Remote_MetaPopulation_Infection_Intro run
+                OptRun_Population_Remote_MetaPopulation_Infection_Intro optRun
                         = new OptRun_Population_Remote_MetaPopulation_Infection_Intro(rArg);
 
                 // Num step - in this case it is PROP_NUM_SNAP * PROP_SNAP_FREQ
                 if (propVal[PROP_NUM_SNAP] != null && propVal[PROP_SNAP_FREQ] != null) {
-                    run.setNumSteps(((Integer) propVal[PROP_NUM_SNAP]) * ((Integer) propVal[PROP_SNAP_FREQ]));
+                    optRun.setNumSteps(((Integer) propVal[PROP_NUM_SNAP]) * ((Integer) propVal[PROP_SNAP_FREQ]));
                 }
 
-                run.setPropModelInitStr(propModelInitStr);
+                optRun.setPropModelInitStr(propModelInitStr);
 
                 try {
-                    run.runOptimisation();
+                    optRun.runOptimisation();
                 } catch (IOException | ClassNotFoundException ex) {
                     ex.printStackTrace(System.err);
                 }
@@ -292,8 +293,42 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                 }
 
                 break;
+
+            case 4:
+                // 0: Base Dir
+                // 1: Import Dir
+                // 2: Num thread
+                // 3: Num sim
+                // 4: Num to keep
+                // 5: GA_Pop size
+                rArg = new String[5];
+                rArg[0] = baseDir.getAbsolutePath();
+                rArg[1] = propVal[PROP_POP_IMPORT_PATH] == null ? "" : (String) propVal[PROP_POP_IMPORT_PATH];
+                rArg[2] = propVal[PROP_USE_PARALLEL] == null ? "" : ((Integer) propVal[PROP_USE_PARALLEL]).toString();
+                rArg[3] = propVal[PROP_NUM_SIM_PER_SET] == null ? "" : ((Integer) propVal[PROP_NUM_SIM_PER_SET]).toString();
+                rArg[4] = "0";
+                rArg[5] = "1000";
+
+                OptRun_Population_Remote_MetaPopulation_Infection_Intro_GA optGA
+                        = new OptRun_Population_Remote_MetaPopulation_Infection_Intro_GA(rArg);
+
+                // Num step - in this case it is PROP_NUM_SNAP * PROP_SNAP_FREQ
+                if (propVal[PROP_NUM_SNAP] != null && propVal[PROP_SNAP_FREQ] != null) {
+                    optGA.setNumSteps(((Integer) propVal[PROP_NUM_SNAP]) * ((Integer) propVal[PROP_SNAP_FREQ]));
+                }
+
+                optGA.setPropModelInitStr(propModelInitStr);
+
+                try {
+                    optGA.runOptimisation();
+                } catch (IOException | ClassNotFoundException ex) {
+                    ex.printStackTrace(System.err);
+                }
+
+                break;
             default:
-                System.err.println("Error: Illegal PROP_RMP_SIM_TYPE. Set 0 for NG/CT and 1 for Syphilis simulation, 2 for NG/CT optimisation, 3 for Pop Generate");
+                System.err.println(
+                        "Error: Illegal PROP_RMP_SIM_TYPE. Set 0 for NG/CT and 1 for Syphilis simulation, 2 for NG/CT optimisation, 3 for Pop Generate, 4 for NG/CT optimisation using GA");
 
         }
     }
