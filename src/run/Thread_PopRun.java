@@ -282,8 +282,7 @@ public class Thread_PopRun implements Runnable {
         0.98f,
         // 10: PARAM_INDEX_SYMPTOM_TREAT_STAT
         // [probabilty of seek treatment from symptom, delay min, delay range}
-        new float[]{0, 7, 0},           
-    };
+        new float[]{0, 7, 0},};
 
     public Thread_PopRun(File outputPath, File importPath, int simId, int numSteps) {
         this.outputFilePath = outputPath;
@@ -673,14 +672,13 @@ public class Thread_PopRun implements Runnable {
                                     testing_rate = adjustedRampTestRate(testing_rate, testByClassifier.numClass(),
                                             testing_rate_by_classifier, testing_set_time_range[testing_set_num]);
                                 }
-                                
+
                                 /*
                                 float sp = testing_set_time_range[testing_set_num][TESTING_TIMERANGE_PERIOD];
                                 float dr = (float) (1 - Math.exp(Math.log(1 - Math.abs(testing_rate[0])) / sp));
                                 System.out.println(pop.getGlobalTime() + ", Daily," + testing_use_daily_rate[testing_set_num]
                                         + ",Option, " + testing_option + " Rate," + dr);
-                                */
-
+                                 */
                                 for (AbstractIndividualInterface person : pop.getPop()) {
                                     boolean testToday = false;
                                     int cI = testByClassifier.classifyPerson(person);
@@ -714,11 +712,7 @@ public class Thread_PopRun implements Runnable {
                     if (treatmentSchdule.containsKey(pop.getGlobalTime())) {
                         treatingToday(treatmentSchdule.remove(pop.getGlobalTime()));
                     }
-                    
-                    
-                    
-                    
-                    
+
                     int[] personId = new int[pop.getPop().length];
                     boolean[] hasSyp = new boolean[pop.getPop().length];
 
@@ -728,28 +722,22 @@ public class Thread_PopRun implements Runnable {
                             hasSyp[p] |= inf.hasSymptoms(pop.getPop()[p]);
                         }
                     }
-                    
 
                     pop.advanceTimeStep(1);
-                    
-                    
-                    
-                    
+
                     float[] sym_stat = (float[]) inputParam[PARAM_INDEX_SYMPTOM_TREAT_STAT];
 
-                    
                     for (int p = 0; p < pop.getPop().length; p++) {
                         if (pop.getPop()[p].getId() == personId[p] && !hasSyp[p]) {
                             // Only check if it is not a new person 
-                            for (AbstractInfection inf : pop.getInfList()) {                                                                
-                                if (inf.hasSymptoms(pop.getPop()[p]) && pop.getRNG().nextFloat()< sym_stat[0]) {
-                                    
+                            for (AbstractInfection inf : pop.getInfList()) {
+                                if (inf.hasSymptoms(pop.getPop()[p]) && pop.getRNG().nextFloat() < sym_stat[0]) {
+
                                     int sym_treatment_delay = (int) sym_stat[1];
-                                    
-                                    if(((int) sym_stat[2]) > 0){
-                                        sym_treatment_delay +=  pop.getRNG().nextInt((int) sym_stat[2]);
+
+                                    if (((int) sym_stat[2]) > 0) {
+                                        sym_treatment_delay += pop.getRNG().nextInt((int) sym_stat[2]);
                                     }
-                                    
 
                                     if (sym_treatment_delay >= 0) {
 
@@ -773,7 +761,6 @@ public class Thread_PopRun implements Runnable {
                         }
 
                     }
-                    
 
                     if (outputPri != null
                             && outputFreq > 0 && (pop.getGlobalTime() - offset) % outputFreq == 0) {
@@ -793,17 +780,17 @@ public class Thread_PopRun implements Runnable {
                     FileZipper.zipFile(tempFile, outputFilePath);
                     tempFile.delete();
 
-                }
-
-                for (int i = 0; i < indiv_hist.length; i++) {
-                    if (indiv_hist[i] != null) {
-                        exportIndivdualHist(indiv_hist[i], INDIV_HIST_PREFIX[i]);
+                    for (int i = 0; i < indiv_hist.length; i++) {
+                        if (indiv_hist[i] != null) {
+                            exportIndivdualHist(indiv_hist[i], INDIV_HIST_PREFIX[i]);
+                        }
                     }
-                }
 
-                if (outputPri != null) {
-                    outputPri.println("File exported to " + outputFilePath.getAbsolutePath());
-                    outputPri.println("Time required = " + ((System.currentTimeMillis() - tic) / 1000f));
+                    if (outputPri != null) {
+                        outputPri.println("File exported to " + outputFilePath.getAbsolutePath());
+                        outputPri.println("Time required = " + ((System.currentTimeMillis() - tic) / 1000f));
+                    }
+
                 }
 
             }
