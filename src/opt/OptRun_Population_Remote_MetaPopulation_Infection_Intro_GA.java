@@ -55,7 +55,8 @@ public class OptRun_Population_Remote_MetaPopulation_Infection_Intro_GA extends 
         //</editor-fold>
 
         optimisationFunc = new Opt_ResidualFunc(popFiles, exportDir,
-                getNumSteps(), Math.min(NUM_THREADS, NUM_SIM_TOTAL), TARGET_PREVAL,
+                getNumSteps(), Math.min(NUM_THREADS, NUM_SIM_TOTAL), 
+                TARGET_PREVAL, TARGET_WEIGHT,
                 OPT_RES_DIR_COLLECTION, OPT_RES_SUM_SQS, getPropModelInitStr());
 
         AbstractParameterOptimiser opt = new GeneticAlgorithmOptimiser(optimisationFunc);

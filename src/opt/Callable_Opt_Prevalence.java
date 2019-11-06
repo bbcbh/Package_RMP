@@ -27,6 +27,8 @@ import util.PropValUtils;
  *   20180717
  *      - Rework parameter setting for optimisation of traveler behaviour and infection parameter only
  *      - Measure prevalence at remote only
+ *   20191106
+ *      - Add support for weighing of target prevalence
  *
  * </pre>
  */
@@ -71,6 +73,13 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
         0.216, 0.174, 0.116, 0.081, // NG, Male
         0.201, 0.154, 0.073, 0.070, // NG, Female               
     };
+    
+    private double[] target_weight = new double[]{
+        1, 1, 1, 1, // CT, Male
+        1, 1, 1, 1, // CT, Female
+        1, 1, 1, 1, // NG, Male
+        1, 1, 1, 1, // NG, Female       
+    };
 
     public Callable_Opt_Prevalence(File optOutputDir, File popFile, int simId, int numStep,
             double[] param, String[] propModelInitStr) {
@@ -84,6 +93,10 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
 
     public void setOutputAsFile(boolean outputAsFile) {
         this.outputAsFile = outputAsFile;
+    }
+
+    public void setTarget_weight(double[] target_weight) {
+        this.target_weight = target_weight;
     }
 
     public void setPrintOutput(boolean printOutput) {
@@ -348,8 +361,8 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
         }
 
         for (int i = 0; i < target_preval.length; i++) {
-            res_single[i]
-                    = ((double) numInfect[i]) / numInGroup[i % numInGroup.length] - target_preval[i];
+            res_single[i] = target_weight[i] * 
+                    ((double) numInfect[i]) / numInGroup[i % numInGroup.length] - target_preval[i];
         }
 
         if (outputPrint != null) {

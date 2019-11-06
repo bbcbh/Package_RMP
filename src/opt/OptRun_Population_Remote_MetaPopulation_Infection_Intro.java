@@ -50,15 +50,21 @@ public class OptRun_Population_Remote_MetaPopulation_Infection_Intro {
         0.174, 0.082, 0.060, 0.035, // CT, Female
         0.137, 0.065, 0.040, 0.041, // NG, Male
         0.135, 0.076, 0.028, 0.043, // NG, Female              
-        */
+         */
         // From Silver
         0.205, 0.166, 0.103, 0.070, // CT, Male
         0.265, 0.202, 0.117, 0.076, // CT, Female
         0.216, 0.174, 0.116, 0.081, // NG, Male
         0.201, 0.154, 0.073, 0.070, // NG, Female                                              
-            
     };
-    
+
+    protected double[] TARGET_WEIGHT = new double[]{
+        1, 1, 1, 1, // CT, Male
+        1, 1, 1, 1, // CT, Female
+        1, 1, 1, 1, // NG, Male
+        1, 1, 1, 1, // NG, Female       
+    };
+
     protected int NUM_STEPS = 360 * 50;
 
     public OptRun_Population_Remote_MetaPopulation_Infection_Intro(String[] arg)
@@ -148,6 +154,14 @@ public class OptRun_Population_Remote_MetaPopulation_Infection_Intro {
         System.out.println(popFiles.length + " file(s) will be used in optimisation.");
     }
 
+    public void setTARGET_PREVAL(double[] TARGET_PREVAL) {
+        this.TARGET_PREVAL = TARGET_PREVAL;
+    }
+
+    public void setTARGET_WEIGHT(double[] TARGET_WEIGHT) {
+        this.TARGET_WEIGHT = TARGET_WEIGHT;
+    }
+
     public void runOptimisation() throws IOException, ClassNotFoundException {
         ParameterConstraintTransform[] constraints;
         AbstractResidualFunc optimisationFunc;
@@ -174,7 +188,7 @@ public class OptRun_Population_Remote_MetaPopulation_Infection_Intro {
         //</editor-fold>
 
         optimisationFunc = new Opt_ResidualFunc(popFiles, exportDir,
-                NUM_STEPS, NUM_THREADS, TARGET_PREVAL,
+                NUM_STEPS, NUM_THREADS, TARGET_PREVAL, TARGET_WEIGHT,
                 OPT_RES_DIR_COLLECTION, OPT_RES_SUM_SQS, getPropModelInitStr()
         );
 
@@ -316,7 +330,5 @@ public class OptRun_Population_Remote_MetaPopulation_Infection_Intro {
     public void setNumSteps(int NUM_STEPS) {
         this.NUM_STEPS = NUM_STEPS;
     }
-    
-    
 
 }

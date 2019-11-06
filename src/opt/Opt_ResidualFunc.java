@@ -27,10 +27,12 @@ public class Opt_ResidualFunc extends AbstractResidualFunc {
     private final File[] OPT_RES_DIR_COLLECTION;
     private final double[] OPT_RES_SUM_SQS;
     private final double[] TARGET_PREVAL;
-    private final String[] propModelInitStr;
+    private final double[] TARGET_WEIGHT;
+    private final String[] propModelInitStr;                
 
     public Opt_ResidualFunc(File[] popFiles, File exportDir,
             int numSteps, int NUM_THREADS,  double[] targetPreval,
+            double[] targetWeight,
             File[] OPT_RES_DIR_COLLECTION, double[] OPT_RES_SUM_SQS, 
             String[] propModelInitStr) {
         this.popFiles = popFiles;        
@@ -40,6 +42,7 @@ public class Opt_ResidualFunc extends AbstractResidualFunc {
         this.OPT_RES_DIR_COLLECTION = OPT_RES_DIR_COLLECTION;
         this.OPT_RES_SUM_SQS = OPT_RES_SUM_SQS;
         this.TARGET_PREVAL = targetPreval;
+        this.TARGET_WEIGHT = targetWeight;
         this.propModelInitStr = propModelInitStr;
          
     }
@@ -91,6 +94,7 @@ public class Opt_ResidualFunc extends AbstractResidualFunc {
             opRun.setPrintOutput(popFiles.length == 1);
             opRun.setOutputAsFile(popFiles.length > 1);
             opRun.setTarget_preval(TARGET_PREVAL);
+            opRun.setTarget_weight(TARGET_WEIGHT);
 
             Future<double[]> popOut = executor.submit(opRun);
             res_collection[i] = popOut;

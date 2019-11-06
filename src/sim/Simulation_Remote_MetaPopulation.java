@@ -54,16 +54,22 @@ import util.PropValUtils;
 public class Simulation_Remote_MetaPopulation implements SimulationInterface {
 
     public static final String[] PROP_NAME_RMP = {
-        "PROP_RMP_SIM_TYPE", "PROP_STORE_INFECTION_HISTORY", "PROP_STORE_TESTING_HISTORY", "PROP_STORE_TREATMENT_HISTORY"};
+        "PROP_RMP_SIM_TYPE", "PROP_STORE_INFECTION_HISTORY", "PROP_STORE_TESTING_HISTORY", "PROP_STORE_TREATMENT_HISTORY",
+        "PROP_RMP_OPT_TARGET", "PROP_RMP_OPT_WEIGHT",};
     public static final Class[] PROP_CLASS_RMP = {
         Integer.class, // 0 = NG_CT, 1 = Syphilis
         Boolean.class,
         Boolean.class,
-        Boolean.class,};
+        Boolean.class,
+        double[].class,
+        double[].class,};
+
     public static final int PROP_RMP_SIM_TYPE = PROP_NAME.length;
     public static final int PROP_STORE_INFECTION_HISTORY = PROP_RMP_SIM_TYPE + 1;
     public static final int PROP_STORE_TESTING_HISTORY = PROP_STORE_INFECTION_HISTORY + 1;
     public static final int PROP_STORE_TREATMENT_HISTORY = PROP_STORE_TESTING_HISTORY + 1;
+    public static final int PROP_RMP_OPT_TARGET = PROP_STORE_TREATMENT_HISTORY + 1;
+    public static final int PROP_RMP_OPT_WEIGHT = PROP_RMP_OPT_TARGET + 1;
 
     public static final String POP_PROP_INIT_PREFIX = "POP_PROP_INIT_PREFIX_";
     protected String[] propModelInitStr = null;
@@ -262,6 +268,13 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
 
                 optRun.setPropModelInitStr(propModelInitStr);
 
+                if (propVal[PROP_RMP_OPT_TARGET] != null) {
+                    optRun.setTARGET_PREVAL((double[]) propVal[PROP_RMP_OPT_TARGET]);
+                }
+                if (propVal[PROP_RMP_OPT_WEIGHT] != null) {
+                    optRun.setTARGET_WEIGHT((double[]) propVal[PROP_RMP_OPT_WEIGHT]);
+                }
+
                 try {
                     optRun.runOptimisation();
                 } catch (IOException | ClassNotFoundException ex) {
@@ -318,6 +331,12 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                 }
 
                 optGA.setPropModelInitStr(propModelInitStr);
+                if (propVal[PROP_RMP_OPT_TARGET] != null) {
+                    optGA.setTARGET_PREVAL((double[]) propVal[PROP_RMP_OPT_TARGET]);
+                }
+                if (propVal[PROP_RMP_OPT_WEIGHT] != null) {
+                    optGA.setTARGET_WEIGHT((double[]) propVal[PROP_RMP_OPT_WEIGHT]);
+                }
 
                 try {
                     optGA.runOptimisation();
