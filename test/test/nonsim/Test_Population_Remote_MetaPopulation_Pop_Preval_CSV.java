@@ -384,7 +384,7 @@ public class Test_Population_Remote_MetaPopulation_Pop_Preval_CSV {
 
     public static void main(String[] arg) throws FileNotFoundException, IOException {
 
-        String baseDir = "C:\\Users\\Bhui\\OneDrive - UNSW\\RMP\\NG_CT";
+        String baseDir = "C:\\Users\\Bhui\\OneDrive - UNSW\\RMP\\TTANGO\\TTANGO_Srn";
 
         File[] folders = new File(baseDir).listFiles(new FileFilter() {
             @Override

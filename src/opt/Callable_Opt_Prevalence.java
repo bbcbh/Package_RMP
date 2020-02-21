@@ -8,14 +8,12 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Arrays;
-import java.util.concurrent.Callable;
 import person.AbstractIndividualInterface;
 import population.Population_Remote_MetaPopulation;
 import random.RandomGenerator;
 import run.Thread_PopRun;
 import util.Default_Remote_MetaPopulation_AgeGrp_Classifier;
 import util.PersonClassifier;
-import util.PropValUtils;
 
 /**
  *
@@ -32,16 +30,7 @@ import util.PropValUtils;
  *
  * </pre>
  */
-public class Callable_Opt_Prevalence implements Callable<double[]> {
-
-    private final File popFile;
-    private final File optOutputDir;
-    private final int simId;
-    private final int numStep;
-    private final double[] param;
-    private boolean outputAsFile = true;
-    private final String[] propModelInitStr;
-    private boolean printOutput = false;
+public class Callable_Opt_Prevalence extends Abstract_Callable_Opt_Prevalence {
 
     public static final int OPT_PARAM_INDEX_TRAN_FEMALE_MALE_CT = 0;
     public static final int OPT_PARAM_INDEX_TRAN_MALE_FEMALE_EXTRA_CT = OPT_PARAM_INDEX_TRAN_FEMALE_MALE_CT + 1;
@@ -58,28 +47,8 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
     public static final int OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_25_29 = OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_20_24 + 1;
     public static final int OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_30_35 = OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_25_29 + 1;
     public static final int OPT_PARAM_TOTAL = OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_30_35 + 1;
+    // Addtional fields
 
-    private double[] target_preval = new double[]{
-        // From SH        
-        /*
-        0.118, 0.104, 0.074, 0.046, // CT, Male
-        0.174, 0.082, 0.060, 0.035, // CT, Female
-        0.137, 0.065, 0.040, 0.041, // NG, Male
-        0.135, 0.076, 0.028, 0.043, // NG, Female              
-        */
-        // From Silver 2014
-        0.205, 0.166, 0.103, 0.070, // CT, Male
-        0.265, 0.202, 0.117, 0.076, // CT, Female
-        0.216, 0.174, 0.116, 0.081, // NG, Male
-        0.201, 0.154, 0.073, 0.070, // NG, Female               
-    };
-    
-    private double[] target_weight = new double[]{
-        1, 1, 1, 1, // CT, Male
-        1, 1, 1, 1, // CT, Female
-        1, 1, 1, 1, // NG, Male
-        1, 1, 1, 1, // NG, Female       
-    };
 
     public Callable_Opt_Prevalence(File optOutputDir, File popFile, int simId, int numStep,
             double[] param, String[] propModelInitStr) {
@@ -89,44 +58,38 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
         this.numStep = numStep;
         this.param = param;
         this.propModelInitStr = propModelInitStr;
+
+        this.target_preval = new double[]{ 
+            // From SH
+            /*
+            0.118, 0.104, 0.074, 0.046, // CT, Male
+            0.174, 0.082, 0.060, 0.035, // CT, Female
+            0.137, 0.065, 0.040, 0.041, // NG, Male
+            0.135, 0.076, 0.028, 0.043, // NG, Female
+             */
+            // From Silver 2014
+            0.205, 0.166, 0.103, 0.070, // CT, Male
+            0.265, 0.202, 0.117, 0.076, // CT, Female
+            0.216, 0.174, 0.116, 0.081, // NG, Male
+            0.201, 0.154, 0.073, 0.070};
+        
+        this.target_weight = new double[]{
+            1, 1, 1, 1, // CT, Male
+            1, 1, 1, 1, // CT, Female
+            1, 1, 1, 1, // NG, Male
+            1, 1, 1, 1};
+        
+        this.pop_type_incl_for_residue = new int[3]; // Remote only
+
     }
 
-    public void setOutputAsFile(boolean outputAsFile) {
-        this.outputAsFile = outputAsFile;
-    }
-
-    public void setTarget_weight(double[] target_weight) {
-        this.target_weight = target_weight;
-    }
-
-    public void setPrintOutput(boolean printOutput) {
-        this.printOutput = printOutput;
-    }
-
+    @Override
     public void loadParameters(Thread_PopRun thread, double[] param) {
 
         PrintWriter outputPrint = thread.getOutputPri();
 
         if (propModelInitStr != null) {
-
-            for (int i = 0; i < propModelInitStr.length; i++) {
-                if (propModelInitStr[i] != null && !propModelInitStr[i].isEmpty()) {
-                    if (i < OPT_PARAM_TOTAL) {
-                        param[i] = Float.parseFloat(propModelInitStr[i]);
-                    } else if (i - OPT_PARAM_TOTAL < Thread_PopRun.PARAM_TOTAL) {
-                        thread.getInputParam()[i - OPT_PARAM_TOTAL]
-                                = PropValUtils.propStrToObject(propModelInitStr[i], thread.getInputParam()[i - OPT_PARAM_TOTAL].getClass());
-                    } else {
-                        int popIndex = i - OPT_PARAM_TOTAL - Thread_PopRun.PARAM_TOTAL;
-                        thread.updatePopFieldFromString(popIndex, propModelInitStr[i]);
-                    }
-
-                    if (outputPrint != null) {
-                        outputPrint.println("Model init. setting #" + i + " = " + propModelInitStr[i]);
-                    }
-
-                }
-            }
+            initModelPropStr(param, thread);
         }
 
         if (param.length > OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_16_19) {
@@ -270,108 +233,6 @@ public class Callable_Opt_Prevalence implements Callable<double[]> {
             outputPrint.flush();
         }
 
-    }
-
-    public void setTarget_preval(double[] target_preval) {
-        this.target_preval = target_preval;
-    }
-
-    /**
-     * Call function
-     *
-     * @return The difference between model generated and target prevalence
-     * @throws Exception
-     */
-    @Override
-    public double[] call() throws Exception {
-        double[] res_single = new double[target_preval.length];
-        File outputPopFile = null;
-
-        if (optOutputDir != null) {
-            outputPopFile = new File(optOutputDir, "Opt_" + popFile.getName());
-        }
-
-        Thread_PopRun thread = new Thread_PopRun(outputPopFile, popFile, simId, numStep);
-        PrintWriter outputPrint = null;
-
-        if (outputAsFile && optOutputDir != null) {
-            try {
-                outputPrint = new PrintWriter(new FileWriter(new File(optOutputDir, "output_" + simId + ".txt")));
-            } catch (IOException ex) {
-                ex.printStackTrace(System.err);
-                outputPrint = new PrintWriter(System.out);
-            }
-        }
-
-        if (printOutput) {
-            outputPrint = new PrintWriter(System.out);
-        }
-
-        thread.setOutputPri(outputPrint, false);
-
-        // Set up parameter
-        thread.importPop();
-        loadParameters(thread, param);
-
-        thread.run();
-
-        PersonClassifier prevalClassifer = new PersonClassifier() {
-            PersonClassifier ageClassifier = new Default_Remote_MetaPopulation_AgeGrp_Classifier();
-
-            @Override
-            public int classifyPerson(AbstractIndividualInterface p) {
-                int aI = ageClassifier.classifyPerson(p);
-                if (aI >= 0) {
-                    return p.isMale() ? aI : (aI + ageClassifier.numClass());
-                } else {
-                    return -1;
-                }
-            }
-
-            @Override
-            public int numClass() {
-                return ageClassifier.numClass() * 2;
-            }
-
-        };
-
-        int[] numInGroup, numInfect;
-
-        numInGroup = new int[prevalClassifer.numClass()];
-        numInfect = new int[prevalClassifer.numClass() * 2];
-
-        AbstractIndividualInterface[] allPerson = thread.getPop().getPop();
-
-        for (AbstractIndividualInterface person : allPerson) {
-
-            // Remote only 
-            int loc = ((Population_Remote_MetaPopulation) thread.getPop()).getCurrentLocation(person);
-
-            int popType = ((int[]) ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_POP_TYPE])[loc];
-            if (popType == 3) {
-                int cI = prevalClassifer.classifyPerson(person);
-                numInGroup[cI]++;
-                if (person.getInfectionStatus()[0] != AbstractIndividualInterface.INFECT_S) {
-                    numInfect[cI]++;
-                }
-                if (person.getInfectionStatus()[1] != AbstractIndividualInterface.INFECT_S) {
-                    numInfect[prevalClassifer.numClass() + cI]++;
-                }
-            }
-        }
-
-        for (int i = 0; i < target_preval.length; i++) {
-            res_single[i] = target_weight[i] * 
-                    ((double) numInfect[i]) / numInGroup[i % numInGroup.length] - target_preval[i];
-        }
-
-        if (outputPrint != null) {
-            outputPrint.println("Residue (i.e. model preval - target preval) = " + Arrays.toString(res_single));
-            outputPrint.close();
-        }
-
-        return res_single;
-
-    }
+    }   
 
 }

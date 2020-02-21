@@ -40,6 +40,8 @@ import util.PersonClassifier;
  * 20180913:
  *  - Add support for test gap time
  *  - Formatting change for the CSV output to refect simulation number
+ * 20200221
+ *  - Add support for num_partners_in_12_months_all
  * </pre>
  */
 public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
@@ -53,6 +55,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
     public static final int OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REMOTE_ONLY = OUTPUT_INDEX_NOTIFICATION_SUMMARY + 1;
     public static final int OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REGIONAL_ONLY = OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REMOTE_ONLY + 1;
     public static final int OUTPUT_INDEX_GAP_TIME_TESTING = OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REGIONAL_ONLY + 1;
+    public static final int OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS_ALL = OUTPUT_INDEX_GAP_TIME_TESTING + 1;
 
     public static final String[] OUTPUT_FILENAMES = new String[]{
         "demographic.csv",
@@ -63,7 +66,8 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
         "notification_summary.csv",
         "prevalence_by_gender_age_remote_only.csv",
         "prevalence_by_gender_age_regional_only.csv",
-        "gap_time_testing.csv",};
+        "gap_time_testing.csv",
+        "num_partners_in_12_months_all.csv",};
     public static final String[] OUTPUT_FILE_HEADERS = new String[]{
         "Sim, Pop, M 16-19, M 20-24, M 25-29, M 30-34, F 16-19, F 20-24, F 25-29, F 30-34,",
         "Sim, Pop, M 16-19, M 20-24, M 25-29, M 30-34, F 16-19, F 20-24, F 25-29, F 30-34,",
@@ -79,7 +83,8 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
         "Sim, M 16-19, M 20-24, M 25-29, M 30-34, F 16-19, F 20-24, F 25-29, F 30-34, "
         + "M 16-19, M 20-24, M 25-29, M 30-34, F 16-19, F 20-24, F 25-29, F 30-34,"
         + "M 16-19, M 20-24, M 25-29, M 30-34, F 16-19, F 20-24, F 25-29, F 30-34,",
-        "Sim, Id, Ave gap time"
+        "Sim, Id, Ave gap time",
+        "Sim,"
     };
 
     final static Pattern PATTERN_SIM_NUM = Pattern.compile("\\d+");
@@ -107,8 +112,16 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
         PrintWriter[] wri = new PrintWriter[OUTPUT_FILENAMES.length];
 
         for (int i = 0; i < wri.length; i++) {
-            wri[i] = new PrintWriter(new File(baseDir, OUTPUT_FILENAMES[i]));
-            wri[i].println(OUTPUT_FILE_HEADERS[i]);
+            File outputFile = new File(baseDir, OUTPUT_FILENAMES[i]);
+            if (outputFile.exists()) {
+                System.out.println("Output file " + outputFile.getAbsolutePath() + " already exist! Result not overwritten.");
+                wri[i] = null;
+
+            } else {
+                wri[i] = new PrintWriter(outputFile);
+                wri[i].println(OUTPUT_FILE_HEADERS[i]);
+            }
+
         }
 
         System.out.println("Number of population zip = " + popZipFiles.length);
@@ -137,6 +150,11 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
         // [simNum][gender_age_index]{total, CT, NG}        
         int[][][] numInfecteRegionalOnly = new int[popZipFiles.length][][];
 
+        //OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS_ALL
+        // [simNum][0, 1, 2, ...]
+        int[][] numPartInLast12Months_all = new int[popZipFiles.length][];
+        int numPartInLast12Months_all_max = 10;
+
         PersonClassifier Classifier_ageGrp = new util.Default_Remote_MetaPopulation_AgeGrp_Classifier();
         PersonClassifier Classifier_behavor = new util.Default_Remote_MetaPopulation_Behavor_Classifier();
 
@@ -161,6 +179,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
             numAwayByLoc[popId] = new int[numMetaPop][Classifier_ageGrp.numClass() * 2];
             numByHomeLoc[popId] = new int[numMetaPop][Classifier_ageGrp.numClass() * 2];
             numPartInLast12Months[popId] = new int[Classifier_ageGrp.numClass()][Classifier_behavor.numClass()];
+            numPartInLast12Months_all[popId] = new int[numPartInLast12Months_all_max];
             numInfectedTotal[popId] = new int[Classifier_ageGrp.numClass() * 2][pop.getInfList().length + 1];
             numInfecteRemoteOnly[popId] = new int[Classifier_ageGrp.numClass() * 2][pop.getInfList().length + 1];
             numInfecteRegionalOnly[popId] = new int[Classifier_ageGrp.numClass() * 2][pop.getInfList().length + 1];
@@ -182,7 +201,17 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
                 if (homeLoc != currentLoc) {
                     numAwayByLoc[popId][homeLoc][genderOffset + ageIndex]++;
                 }
+
                 numPartInLast12Months[popId][ageIndex][behavIndex]++;
+
+                int numPartLastYears = rmp_person.getNumPartnerInPastYear();
+                int[] ent = numPartInLast12Months_all[popId];
+                if (ent.length <= numPartLastYears) {
+                    numPartInLast12Months_all[popId] = Arrays.copyOf(ent, numPartLastYears + 1);
+                    numPartInLast12Months_all_max = Math.max(numPartInLast12Months_all_max, numPartInLast12Months_all[popId].length);
+                }
+
+                numPartInLast12Months_all[popId][numPartLastYears]++;
 
                 numInfectedTotal[popId][genderOffset + ageIndex][0]++;
 
@@ -217,29 +246,44 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
         for (int s = 0; s < numByHomeLoc.length; s++) {
             for (int p = 0; p < numByHomeLoc[s].length; p++) {
 
-                wri[OUTPUT_INDEX_DEMOGRAPHIC].print(simNumber[s]);
-                wri[OUTPUT_INDEX_DEMOGRAPHIC].print(',');
-                wri[OUTPUT_INDEX_DEMOGRAPHIC].print(p);
+                if (wri[OUTPUT_INDEX_DEMOGRAPHIC] != null) {
 
-                wri[OUTPUT_INDEX_AWAY_FROM_HOME_BY_LOC].print(simNumber[s]);
-                wri[OUTPUT_INDEX_AWAY_FROM_HOME_BY_LOC].print(',');
-                wri[OUTPUT_INDEX_AWAY_FROM_HOME_BY_LOC].print(p);
+                    wri[OUTPUT_INDEX_DEMOGRAPHIC].print(simNumber[s]);
+                    wri[OUTPUT_INDEX_DEMOGRAPHIC].print(',');
+                    wri[OUTPUT_INDEX_DEMOGRAPHIC].print(p);
+                }
+
+                if (wri[OUTPUT_INDEX_AWAY_FROM_HOME_BY_LOC] != null) {
+
+                    wri[OUTPUT_INDEX_AWAY_FROM_HOME_BY_LOC].print(simNumber[s]);
+                    wri[OUTPUT_INDEX_AWAY_FROM_HOME_BY_LOC].print(',');
+                    wri[OUTPUT_INDEX_AWAY_FROM_HOME_BY_LOC].print(p);
+                }
 
                 for (int ga = 0; ga < numByHomeLoc[s][p].length; ga++) {
-                    wri[OUTPUT_INDEX_DEMOGRAPHIC].print(',');
-                    wri[OUTPUT_INDEX_AWAY_FROM_HOME_BY_LOC].print(',');
+                    if (wri[OUTPUT_INDEX_DEMOGRAPHIC] != null) {
+                        wri[OUTPUT_INDEX_DEMOGRAPHIC].print(',');
+                        wri[OUTPUT_INDEX_DEMOGRAPHIC].print(numByHomeLoc[s][p][ga]);
+                    }
 
-                    wri[OUTPUT_INDEX_DEMOGRAPHIC].print(numByHomeLoc[s][p][ga]);
+                    if (wri[OUTPUT_INDEX_AWAY_FROM_HOME_BY_LOC] != null) {
+                        wri[OUTPUT_INDEX_AWAY_FROM_HOME_BY_LOC].print(',');
 
-                    if (numByHomeLoc[s][p][ga] > 0) {
-                        wri[OUTPUT_INDEX_AWAY_FROM_HOME_BY_LOC].print(((float) numAwayByLoc[s][p][ga]) / numByHomeLoc[s][p][ga]);
-                    } else {
-                        wri[OUTPUT_INDEX_AWAY_FROM_HOME_BY_LOC].print(0);
+                        if (numByHomeLoc[s][p][ga] > 0) {
+                            wri[OUTPUT_INDEX_AWAY_FROM_HOME_BY_LOC].print(((float) numAwayByLoc[s][p][ga]) / numByHomeLoc[s][p][ga]);
+                        } else {
+                            wri[OUTPUT_INDEX_AWAY_FROM_HOME_BY_LOC].print(0);
+                        }
                     }
                 }
 
-                wri[OUTPUT_INDEX_DEMOGRAPHIC].println();
-                wri[OUTPUT_INDEX_AWAY_FROM_HOME_BY_LOC].println();
+                if (wri[OUTPUT_INDEX_DEMOGRAPHIC] != null) {
+                    wri[OUTPUT_INDEX_DEMOGRAPHIC].println();
+                }
+
+                if (wri[OUTPUT_INDEX_AWAY_FROM_HOME_BY_LOC] != null) {
+                    wri[OUTPUT_INDEX_AWAY_FROM_HOME_BY_LOC].println();
+                }
 
             }
 
@@ -248,72 +292,81 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
         // OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS
         // [simNum][age_index][0, 1, 2-4, 5]
         //int[][][] numPartInLast12Months = new int[popZipFiles.length][][];
-        for (int s = 0; s < numPartInLast12Months.length; s++) {
-            for (int a = 0; a < numPartInLast12Months[s].length; a++) {
-                wri[OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS].print(simNumber[s]);
-                wri[OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS].print(',');
-                wri[OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS].print(a);
-                int total = 0;
-                for (int b = 0; b < numPartInLast12Months[s][a].length; b++) {
-                    total += numPartInLast12Months[s][a][b];
-                }
-                for (int b = 0; b < numPartInLast12Months[s][a].length; b++) {
+        if (wri[OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS] != null) {
+            for (int s = 0; s < numPartInLast12Months.length; s++) {
+                for (int a = 0; a < numPartInLast12Months[s].length; a++) {
+                    wri[OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS].print(simNumber[s]);
                     wri[OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS].print(',');
-                    wri[OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS].print(((float) numPartInLast12Months[s][a][b]) / total);
+                    wri[OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS].print(a);
+                    int total = 0;
+                    for (int b = 0; b < numPartInLast12Months[s][a].length; b++) {
+                        total += numPartInLast12Months[s][a][b];
+                    }
+                    for (int b = 0; b < numPartInLast12Months[s][a].length; b++) {
+                        wri[OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS].print(',');
+                        wri[OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS].print(((float) numPartInLast12Months[s][a][b]) / total);
+                    }
+                    wri[OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS].println();
                 }
-                wri[OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS].println();
             }
         }
 
         // OUTPUT_INDEX_PREVALENCE_BY_GENDER_AGE
         // [simNum][gender_age_index]{total, CT, NG}    
-        for (int s = 0; s < numInfectedTotal.length; s++) {
-            wri[OUTPUT_INDEX_PREVALENCE_BY_GENDER_AGE].print(simNumber[s]);
-            for (int a = 0; a < numInfectedTotal[s].length; a++) {
-                wri[OUTPUT_INDEX_PREVALENCE_BY_GENDER_AGE].print(',');
-                wri[OUTPUT_INDEX_PREVALENCE_BY_GENDER_AGE].print(numInfectedTotal[s][a][0]);
-            }
-            for (int infId = 1; infId < numInfectedTotal[s][0].length; infId++) {
+        if (wri[OUTPUT_INDEX_PREVALENCE_BY_GENDER_AGE] != null) {
+            for (int s = 0; s < numInfectedTotal.length; s++) {
+                wri[OUTPUT_INDEX_PREVALENCE_BY_GENDER_AGE].print(simNumber[s]);
                 for (int a = 0; a < numInfectedTotal[s].length; a++) {
                     wri[OUTPUT_INDEX_PREVALENCE_BY_GENDER_AGE].print(',');
-                    wri[OUTPUT_INDEX_PREVALENCE_BY_GENDER_AGE].print(((float) numInfectedTotal[s][a][infId]) / numInfectedTotal[s][a][0]);
+                    wri[OUTPUT_INDEX_PREVALENCE_BY_GENDER_AGE].print(numInfectedTotal[s][a][0]);
                 }
+                for (int infId = 1; infId < numInfectedTotal[s][0].length; infId++) {
+                    for (int a = 0; a < numInfectedTotal[s].length; a++) {
+                        wri[OUTPUT_INDEX_PREVALENCE_BY_GENDER_AGE].print(',');
+                        wri[OUTPUT_INDEX_PREVALENCE_BY_GENDER_AGE].print(((float) numInfectedTotal[s][a][infId]) / numInfectedTotal[s][a][0]);
+                    }
+                }
+                wri[OUTPUT_INDEX_PREVALENCE_BY_GENDER_AGE].println();
             }
-            wri[OUTPUT_INDEX_PREVALENCE_BY_GENDER_AGE].println();
         }
 
         // OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REMOTE_ONLY
         // [simNum][gender_age_index]{total, CT, NG}    
-        for (int s = 0; s < numInfecteRemoteOnly.length; s++) {
-            wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REMOTE_ONLY].print(simNumber[s]);
-            for (int a = 0; a < numInfecteRemoteOnly[s].length; a++) {
-                wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REMOTE_ONLY].print(',');
-                wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REMOTE_ONLY].print(numInfecteRemoteOnly[s][a][0]);
-            }
-            for (int infId = 1; infId < numInfecteRemoteOnly[s][0].length; infId++) {
+        if (wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REMOTE_ONLY] != null) {
+
+            for (int s = 0; s < numInfecteRemoteOnly.length; s++) {
+                wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REMOTE_ONLY].print(simNumber[s]);
                 for (int a = 0; a < numInfecteRemoteOnly[s].length; a++) {
                     wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REMOTE_ONLY].print(',');
-                    wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REMOTE_ONLY].print(((float) numInfecteRemoteOnly[s][a][infId]) / numInfecteRemoteOnly[s][a][0]);
+                    wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REMOTE_ONLY].print(numInfecteRemoteOnly[s][a][0]);
                 }
+                for (int infId = 1; infId < numInfecteRemoteOnly[s][0].length; infId++) {
+                    for (int a = 0; a < numInfecteRemoteOnly[s].length; a++) {
+                        wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REMOTE_ONLY].print(',');
+                        wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REMOTE_ONLY].print(((float) numInfecteRemoteOnly[s][a][infId]) / numInfecteRemoteOnly[s][a][0]);
+                    }
+                }
+                wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REMOTE_ONLY].println();
             }
-            wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REMOTE_ONLY].println();
         }
 
         // OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REGIONAL_ONLY
         // [simNum][gender_age_index]{total, CT, NG}    
-        for (int s = 0; s < numInfecteRegionalOnly.length; s++) {
-            wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REGIONAL_ONLY].print(simNumber[s]);
-            for (int a = 0; a < numInfecteRegionalOnly[s].length; a++) {
-                wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REGIONAL_ONLY].print(',');
-                wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REGIONAL_ONLY].print(numInfecteRegionalOnly[s][a][0]);
-            }
-            for (int infId = 1; infId < numInfecteRegionalOnly[s][0].length; infId++) {
+        if (wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REGIONAL_ONLY] != null) {
+            for (int s = 0; s < numInfecteRegionalOnly.length; s++) {
+                wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REGIONAL_ONLY].print(simNumber[s]);
                 for (int a = 0; a < numInfecteRegionalOnly[s].length; a++) {
                     wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REGIONAL_ONLY].print(',');
-                    wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REGIONAL_ONLY].print(((float) numInfecteRegionalOnly[s][a][infId]) / numInfecteRegionalOnly[s][a][0]);
+                    wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REGIONAL_ONLY].print(numInfecteRegionalOnly[s][a][0]);
                 }
+                for (int infId = 1; infId < numInfecteRegionalOnly[s][0].length; infId++) {
+                    for (int a = 0; a < numInfecteRegionalOnly[s].length; a++) {
+                        wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REGIONAL_ONLY].print(',');
+                        wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REGIONAL_ONLY].print(((float) numInfecteRegionalOnly[s][a][infId]) / numInfecteRegionalOnly[s][a][0]);
+                    }
+                }
+                wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REGIONAL_ONLY].println();
             }
-            wri[OUTPUT_INDEX_PREVALENCE_BY_GENGER_AGE_REGIONAL_ONLY].println();
         }
 
         //OUTPUT_INDEX_INCIDENT_SUMMARY
@@ -339,48 +392,70 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
         generateSummaryCSV(singleNotificationCSV, wri, OUTPUT_INDEX_NOTIFICATION_SUMMARY);
 
         // OUTPUT_INDEX_GAP_TIME_TESTING
-        int fileIndex = OUTPUT_INDEX_GAP_TIME_TESTING;
+        if (wri[OUTPUT_INDEX_GAP_TIME_TESTING] != null) {
+            int fileIndex = OUTPUT_INDEX_GAP_TIME_TESTING;
+            File[] singleTestingHistory = baseDir.listFiles(new FileFilter() {
+                @Override
+                public boolean accept(File file) {
+                    String fName = file.getName();
+                    return fName.startsWith("indiv_history_test_");
+                }
+            });
+            System.out.println("Number of testing history file = " + singleTestingHistory.length);
 
-        File[] singleTestingHistory = baseDir.listFiles(new FileFilter() {
-            @Override
-            public boolean accept(File file) {
-                String fName = file.getName();
-                return fName.startsWith("indiv_history_test_");
-            }
-        });
-        System.out.println("Number of testing history file = " + singleTestingHistory.length);
+            String line;
+            for (int s = 0; s < singleTestingHistory.length; s++) {
+                int simNum = s;
+                Matcher m = PATTERN_SIM_NUM.matcher(singleTestingHistory[s].getName());
+                if (m.find()) {
+                    simNum = Integer.parseInt(m.group());
+                }
+                BufferedReader reader = new BufferedReader(new FileReader(singleTestingHistory[s]));
 
-        String line;
-        for (int s = 0; s < singleTestingHistory.length; s++) {
-            int simNum = s;
-            Matcher m = PATTERN_SIM_NUM.matcher(singleTestingHistory[s].getName());
-            if (m.find()) {
-                simNum = Integer.parseInt(m.group());
-            }
-            BufferedReader reader = new BufferedReader(new FileReader(singleTestingHistory[s]));
+                while ((line = reader.readLine()) != null) {
+                    String[] ent = line.split(",");
+                    // Only include indivudal with more than 1 test in lifetime
 
-            while ((line = reader.readLine()) != null) {
-                String[] ent = line.split(",");
-                // Only include indivudal with more than 1 test in lifetime
-
-                if (ent.length > 3) {
-                    int numGap = 0;
-                    float gapTimeSum = 0;
-                    int preAge = Integer.parseInt(ent[2]);
-                    for (int k = 3; k < ent.length; k++) {
-                        int curAge = Integer.parseInt(ent[k]);
-                        gapTimeSum += curAge - preAge;
-                        preAge = curAge;
-                        numGap++;
+                    if (ent.length > 3) {
+                        int numGap = 0;
+                        float gapTimeSum = 0;
+                        int preAge = Integer.parseInt(ent[2]);
+                        for (int k = 3; k < ent.length; k++) {
+                            int curAge = Integer.parseInt(ent[k]);
+                            gapTimeSum += curAge - preAge;
+                            preAge = curAge;
+                            numGap++;
+                        }
+                        wri[fileIndex].print(simNum);
+                        wri[fileIndex].print(',');
+                        wri[fileIndex].print(ent[0]); // ID
+                        wri[fileIndex].print(',');
+                        wri[fileIndex].print(gapTimeSum / numGap);
+                        wri[fileIndex].println();
                     }
-                    wri[fileIndex].print(simNum);
-                    wri[fileIndex].print(',');
-                    wri[fileIndex].print(ent[0]); // ID
-                    wri[fileIndex].print(',');
-                    wri[fileIndex].print(gapTimeSum / numGap);
-                    wri[fileIndex].println();
                 }
             }
+        }
+
+        //OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS_ALL
+        // [simNum][0, 1, 2, ...]
+        if (wri[OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS_ALL] != null) {
+            for (int i = 0; i < numPartInLast12Months_all_max; i++) {
+                wri[OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS_ALL].print(',');
+                wri[OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS_ALL].print(i);
+            }
+            wri[OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS_ALL].println();
+
+            for (int s = 0; s < numPartInLast12Months_all.length; s++) {
+                wri[OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS_ALL].print(simNumber[s]);
+
+                for (int i = 0; i < numPartInLast12Months_all[s].length; i++) {
+                    wri[OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS_ALL].print(',');
+                    wri[OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS_ALL].print(numPartInLast12Months_all[s][i]);
+                }
+                wri[OUTPUT_INDEX_NUM_PARTNERS_IN_12_MONTHS_ALL].println();
+            }
+
         }
 
         for (PrintWriter pWri : wri) {
@@ -393,39 +468,42 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
 
     public static void generateSummaryCSV(File[] singleSimulationCSV,
             PrintWriter[] wri, int fileIndex) throws IOException, NumberFormatException {
-        for (int s = 0; s < singleSimulationCSV.length; s++) {
-            int simNum = s;
-            Matcher m = PATTERN_SIM_NUM.matcher(singleSimulationCSV[s].getName());
-            if (m.find()) {
-                simNum = Integer.parseInt(m.group());
-            }
+        if (wri[fileIndex] != null) {
 
-            wri[fileIndex].print(simNum);
-            BufferedReader reader = new BufferedReader(new FileReader(singleSimulationCSV[s]));
-            String lastline = reader.readLine();
-            String currentline = reader.readLine();
-            String nextLine;
-            while ((nextLine = reader.readLine()) != null) {
-                lastline = currentline;
-                currentline = nextLine;
-            }
-
-            if (lastline != null && currentline != null) {
-                String[] lastLineArr = lastline.split(",");
-                String[] currentLineArr = currentline.split(",");
-
-                for (int c = 1; c < currentLineArr.length; c++) {
-                    wri[fileIndex].print(',');
-                    float numIncidencePerYear
-                            = (Integer.parseInt(currentLineArr[c]) - Integer.parseInt(lastLineArr[c]))
-                            / ((Integer.parseInt(currentLineArr[0]) - Integer.parseInt(lastLineArr[0])) / 365f);
-                    wri[fileIndex].print(numIncidencePerYear);
-
+            for (int s = 0; s < singleSimulationCSV.length; s++) {
+                int simNum = s;
+                Matcher m = PATTERN_SIM_NUM.matcher(singleSimulationCSV[s].getName());
+                if (m.find()) {
+                    simNum = Integer.parseInt(m.group());
                 }
 
-            }
-            wri[fileIndex].println();
+                wri[fileIndex].print(simNum);
+                BufferedReader reader = new BufferedReader(new FileReader(singleSimulationCSV[s]));
+                String lastline = reader.readLine();
+                String currentline = reader.readLine();
+                String nextLine;
+                while ((nextLine = reader.readLine()) != null) {
+                    lastline = currentline;
+                    currentline = nextLine;
+                }
 
+                if (lastline != null && currentline != null) {
+                    String[] lastLineArr = lastline.split(",");
+                    String[] currentLineArr = currentline.split(",");
+
+                    for (int c = 1; c < currentLineArr.length; c++) {
+                        wri[fileIndex].print(',');
+                        float numIncidencePerYear
+                                = (Integer.parseInt(currentLineArr[c]) - Integer.parseInt(lastLineArr[c]))
+                                / ((Integer.parseInt(currentLineArr[0]) - Integer.parseInt(lastLineArr[0])) / 365f);
+                        wri[fileIndex].print(numIncidencePerYear);
+
+                    }
+
+                }
+                wri[fileIndex].println();
+
+            }
         }
     }
 
