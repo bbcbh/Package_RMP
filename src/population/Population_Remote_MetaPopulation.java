@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package population;
 
 import availability.AbstractAvailability;
@@ -66,6 +61,8 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
     public static final int FIELDS_REMOTE_METAPOP_NEWPERSON_INFECTION_CLASSIFIER = FIELDS_REMOTE_METAPOP_RELATIONSHIP_DURATION_FACTORY + 1;
     public static final int FIELDS_REMOTE_METAPOP_NEWPERSON_INFECTION_PREVAL = FIELDS_REMOTE_METAPOP_NEWPERSON_INFECTION_CLASSIFIER + 1;
     public static final int FIELDS_REMOTE_METAPOP_CIR_MOBILITY_MAP = FIELDS_REMOTE_METAPOP_NEWPERSON_INFECTION_PREVAL + 1;
+    
+    public static final int LENGTH_FIELDS_REMOTE_META_POP = FIELDS_REMOTE_METAPOP_CIR_MOBILITY_MAP + 1;
 
     public static final int RELMAP_GLOBAL_SEXUAL = 0;
 
