@@ -61,7 +61,7 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
     public static final int FIELDS_REMOTE_METAPOP_NEWPERSON_INFECTION_CLASSIFIER = FIELDS_REMOTE_METAPOP_RELATIONSHIP_DURATION_FACTORY + 1;
     public static final int FIELDS_REMOTE_METAPOP_NEWPERSON_INFECTION_PREVAL = FIELDS_REMOTE_METAPOP_NEWPERSON_INFECTION_CLASSIFIER + 1;
     public static final int FIELDS_REMOTE_METAPOP_CIR_MOBILITY_MAP = FIELDS_REMOTE_METAPOP_NEWPERSON_INFECTION_PREVAL + 1;
-    
+
     public static final int LENGTH_FIELDS_REMOTE_META_POP = FIELDS_REMOTE_METAPOP_CIR_MOBILITY_MAP + 1;
 
     public static final int RELMAP_GLOBAL_SEXUAL = 0;
@@ -456,121 +456,123 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
 
         updateCollectionCurrentLocAgeBehavior();
 
-        // Check how many need to seek partner, or terminate partnership
-        PersonClassifier behav_classifier = (PersonClassifier) getFields()[FIELDS_REMOTE_METAPOP_BEHAVOR_GRP_CLASSIFIER];
+        if (getAvailability() != null) {
+            // Check how many need to seek partner, or terminate partnership
+            PersonClassifier behav_classifier = (PersonClassifier) getFields()[FIELDS_REMOTE_METAPOP_BEHAVOR_GRP_CLASSIFIER];
+            for (int loc = 0; loc < current_loc_age_behaviour_collection.length; loc++) {
+                float[][] locBehavour = pop_decom_numPartIn12Month[loc < pop_decom_numPartIn12Month.length ? loc : 0];
+                for (int a = 0; a < locBehavour.length; a++) {
+                    float totalInLocAgeBehaviour = 0;
 
-        for (int loc = 0; loc < current_loc_age_behaviour_collection.length; loc++) {
-            float[][] locBehavour = pop_decom_numPartIn12Month[loc < pop_decom_numPartIn12Month.length ? loc : 0];
-            for (int a = 0; a < locBehavour.length; a++) {
-                float totalInLocAgeBehaviour = 0;
+                    for (int b = 0; b < behav_classifier.numClass(); b++) {
+                        totalInLocAgeBehaviour += current_loc_age_behaviour_collection[loc][a][b].size();
+                    }
+                    int[] behavInData = new int[behav_classifier.numClass()];
+                    int[] behavInPop = new int[behav_classifier.numClass()];
 
-                for (int b = 0; b < behav_classifier.numClass(); b++) {
-                    totalInLocAgeBehaviour += current_loc_age_behaviour_collection[loc][a][b].size();
-                }
-                int[] behavInData = new int[behav_classifier.numClass()];
-                int[] behavInPop = new int[behav_classifier.numClass()];
-
-                int roundOffSum = 0;
-                for (int b = 0; b < behav_classifier.numClass(); b++) {
-                    behavInData[b] = Math.round(locBehavour[a][b] * totalInLocAgeBehaviour);
-                    roundOffSum += behavInData[b];
-                    behavInPop[b] = current_loc_age_behaviour_collection[loc][a][b].size();
-                }
-
-                roundOffSum = (int) (roundOffSum - totalInLocAgeBehaviour);
-
-                while (roundOffSum != 0) {
-                    int index = getRNG().nextInt(behavInData.length);
-                    if (roundOffSum < 0) {
-                        behavInData[index]++;
-                        roundOffSum++;
-                    } else {
-                        if (behavInData[index] > 0) {
-                            behavInData[index]--;
-                            roundOffSum--;
-                        }
+                    int roundOffSum = 0;
+                    for (int b = 0; b < behav_classifier.numClass(); b++) {
+                        behavInData[b] = Math.round(locBehavour[a][b] * totalInLocAgeBehaviour);
+                        roundOffSum += behavInData[b];
+                        behavInPop[b] = current_loc_age_behaviour_collection[loc][a][b].size();
                     }
 
-                }
-                for (int b = 0; b < behav_classifier.numClass(); b++) {
+                    roundOffSum = (int) (roundOffSum - totalInLocAgeBehaviour);
 
-                    AbstractIndividualInterface[] collectionArr = new AbstractIndividualInterface[current_loc_age_behaviour_collection[loc][a][b].size()];
-                    collectionArr = current_loc_age_behaviour_collection[loc][a][b].toArray(collectionArr);
-
-                    int diffBehav = behavInData[b] - behavInPop[b];
-
-                    int numSeekOrBreakPartnership = Math.max(-diffBehav, 0);
-
-                    if (numSeekOrBreakPartnership > 0) {
-
-                        int extraBelow = 0;
-                        int extraAbove = 0;
-
-                        for (int bb = 0; bb < b; bb++) {
-                            extraBelow += Math.max(behavInData[bb] - behavInPop[bb], 0);
-                        }
-                        for (int ba = (b + 1); ba < behav_classifier.numClass(); ba++) {
-                            extraAbove += Math.max(behavInData[ba] - behavInPop[ba], 0);
+                    while (roundOffSum != 0) {
+                        int index = getRNG().nextInt(behavInData.length);
+                        if (roundOffSum < 0) {
+                            behavInData[index]++;
+                            roundOffSum++;
+                        } else {
+                            if (behavInData[index] > 0) {
+                                behavInData[index]--;
+                                roundOffSum--;
+                            }
                         }
 
-                        for (int s = 0; s < collectionArr.length && numSeekOrBreakPartnership > 0; s++) {
-                            AbstractIndividualInterface seekOrBreak = collectionArr[s];
-                            boolean seeking = false;
-                            boolean breaking = false;
-                            if (getRNG().nextInt(collectionArr.length - s) < numSeekOrBreakPartnership) {
-                                boolean breakingPartnership = getRNG().nextInt(extraBelow + extraAbove) < extraBelow;
+                    }
+                    for (int b = 0; b < behav_classifier.numClass(); b++) {
 
-                                if (!breakingPartnership) {
-                                    extraAbove--;
-                                    numSeekOrBreakPartnership--;
-                                    // Form new partnership
-                                    int genderPt = seekOrBreak.isMale() ? 0 : 1;
+                        AbstractIndividualInterface[] collectionArr = new AbstractIndividualInterface[current_loc_age_behaviour_collection[loc][a][b].size()];
+                        collectionArr = current_loc_age_behaviour_collection[loc][a][b].toArray(collectionArr);
 
-                                    if (((Person_Remote_MetaPopulation) seekOrBreak).getFields()[Person_Remote_MetaPopulation.PERSON_FIRST_SEEK_PARTNER_AGE]
-                                            < seekOrBreak.getAge()) {
-                                        availableAllLocation[loc][genderPt][availablePt[loc][genderPt]] = seekOrBreak;
-                                        availablePt[loc][genderPt]++;
-                                    }
-                                    seeking = true;
+                        int diffBehav = behavInData[b] - behavInPop[b];
 
-                                } else {
-                                    // Dissolve partnership
-                                    if (getRelMap()[RELMAP_GLOBAL_SEXUAL].containsVertex(seekOrBreak.getId())) {
-                                        extraBelow--;
+                        int numSeekOrBreakPartnership = Math.max(-diffBehav, 0);
+
+                        if (numSeekOrBreakPartnership > 0) {
+
+                            int extraBelow = 0;
+                            int extraAbove = 0;
+
+                            for (int bb = 0; bb < b; bb++) {
+                                extraBelow += Math.max(behavInData[bb] - behavInPop[bb], 0);
+                            }
+                            for (int ba = (b + 1); ba < behav_classifier.numClass(); ba++) {
+                                extraAbove += Math.max(behavInData[ba] - behavInPop[ba], 0);
+                            }
+
+                            for (int s = 0; s < collectionArr.length && numSeekOrBreakPartnership > 0; s++) {
+                                AbstractIndividualInterface seekOrBreak = collectionArr[s];
+                                boolean seeking = false;
+                                boolean breaking = false;
+                                if (getRNG().nextInt(collectionArr.length - s) < numSeekOrBreakPartnership) {
+                                    boolean breakingPartnership = getRNG().nextInt(extraBelow + extraAbove) < extraBelow;
+
+                                    if (!breakingPartnership) {
+                                        extraAbove--;
                                         numSeekOrBreakPartnership--;
+                                        // Form new partnership
+                                        int genderPt = seekOrBreak.isMale() ? 0 : 1;
 
-                                        int numEdges = getRelMap()[RELMAP_GLOBAL_SEXUAL].degreeOf(seekOrBreak.getId());
-                                        SingleRelationship[] rel = getRelMap()[0].edgesOf(seekOrBreak.getId()).toArray(new SingleRelationship[numEdges]);
-                                        if (rel.length > 1) {
-                                            Arrays.sort(rel, new Comparator<SingleRelationship>() {
-                                                @Override
-                                                public int compare(SingleRelationship t, SingleRelationship t1) {
-                                                    return Double.compare(t.getDurations(), t1.getDurations());
-                                                }
-                                            });
+                                        if (((Person_Remote_MetaPopulation) seekOrBreak).getFields()[Person_Remote_MetaPopulation.PERSON_FIRST_SEEK_PARTNER_AGE]
+                                                < seekOrBreak.getAge()) {
+                                            availableAllLocation[loc][genderPt][availablePt[loc][genderPt]] = seekOrBreak;
+                                            availablePt[loc][genderPt]++;
                                         }
-                                        // Select the shortest one for removal         
-                                        SingleRelationship toBeRemoved = rel[0];
-                                        removeRelationship(getRelMap()[RELMAP_GLOBAL_SEXUAL],
-                                                (SingleRelationshipTimeStamp) toBeRemoved,
-                                                toBeRemoved.getLinks(getLocalData()));
+                                        seeking = true;
 
-                                        breaking = true;
+                                    } else {
+                                        // Dissolve partnership
+                                        if (getRelMap()[RELMAP_GLOBAL_SEXUAL].containsVertex(seekOrBreak.getId())) {
+                                            extraBelow--;
+                                            numSeekOrBreakPartnership--;
+
+                                            int numEdges = getRelMap()[RELMAP_GLOBAL_SEXUAL].degreeOf(seekOrBreak.getId());
+                                            SingleRelationship[] rel = getRelMap()[0].edgesOf(seekOrBreak.getId()).toArray(new SingleRelationship[numEdges]);
+                                            if (rel.length > 1) {
+                                                Arrays.sort(rel, new Comparator<SingleRelationship>() {
+                                                    @Override
+                                                    public int compare(SingleRelationship t, SingleRelationship t1) {
+                                                        return Double.compare(t.getDurations(), t1.getDurations());
+                                                    }
+                                                });
+                                            }
+                                            // Select the shortest one for removal         
+                                            SingleRelationship toBeRemoved = rel[0];
+                                            removeRelationship(getRelMap()[RELMAP_GLOBAL_SEXUAL],
+                                                    (SingleRelationshipTimeStamp) toBeRemoved,
+                                                    toBeRemoved.getLinks(getLocalData()));
+
+                                            breaking = true;
+                                        }
                                     }
                                 }
-                            }
 
-                            if (!seeking && locBehavour[a].length > behav_classifier.numClass()) {
-                                // Extra chance to seek a partner as traveller
-                                float probSeekExtra = locBehavour[a][behav_classifier.numClass()];
-                                seeking = ((Person_Remote_MetaPopulation) seekOrBreak).getFields()[Person_Remote_MetaPopulation.PERSON_FIRST_SEEK_PARTNER_AGE] < seekOrBreak.getAge();
-                                seeking &= ((Person_Remote_MetaPopulation) seekOrBreak).getHomeLocation() != loc;
-                                if (seeking) {
-                                    if (getRNG().nextFloat() < probSeekExtra) {
-                                        travellerSeeking[travellerSeekingPt] = seekOrBreak;
-                                        travellerSeekingPt++;
+                                if (!seeking && locBehavour[a].length > behav_classifier.numClass()) {
+                                    // Extra chance to seek a partner as traveller
+                                    float probSeekExtra = locBehavour[a][behav_classifier.numClass()];
+                                    seeking = ((Person_Remote_MetaPopulation) seekOrBreak).getFields()[Person_Remote_MetaPopulation.PERSON_FIRST_SEEK_PARTNER_AGE] < seekOrBreak.getAge();
+                                    seeking &= ((Person_Remote_MetaPopulation) seekOrBreak).getHomeLocation() != loc;
+                                    if (seeking) {
+                                        if (getRNG().nextFloat() < probSeekExtra) {
+                                            travellerSeeking[travellerSeekingPt] = seekOrBreak;
+                                            travellerSeekingPt++;
+                                        }
                                     }
                                 }
+
                             }
 
                         }
@@ -578,72 +580,70 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
                     }
 
                 }
-
             }
-        }
 
-        // Traveller seeking
-        // Set off a one-off sexual contact       
-        if (travellerSeekingPt > 0) {
-            float[] condomUsageAll = (float[]) getFields()[FIELDS_REMOTE_METAPOP_CONDOM_USAGE_BY_LOCATION];
+            // Traveller seeking
+            // Set off a one-off sexual contact       
+            if (travellerSeekingPt > 0) {
+                float[] condomUsageAll = (float[]) getFields()[FIELDS_REMOTE_METAPOP_CONDOM_USAGE_BY_LOCATION];
 
-            for (int i = 0; i < travellerSeekingPt; i++) {
-                Person_Remote_MetaPopulation traveller = (Person_Remote_MetaPopulation) travellerSeeking[i];
-                int currentLoc = getCurrentLocation(traveller);
-                int partnerGender = traveller.isMale() ? 1 : 0;
+                for (int i = 0; i < travellerSeekingPt; i++) {
+                    Person_Remote_MetaPopulation traveller = (Person_Remote_MetaPopulation) travellerSeeking[i];
+                    int currentLoc = getCurrentLocation(traveller);
+                    int partnerGender = traveller.isMale() ? 1 : 0;
 
-                if (availablePt[currentLoc][partnerGender] > 0) {
-                    int randAvailPt = getRNG().nextInt(availablePt[currentLoc][partnerGender]);
-                    float condomUsage = condomUsageAll[currentLoc < condomUsageAll.length ? currentLoc : 0];
+                    if (availablePt[currentLoc][partnerGender] > 0) {
+                        int randAvailPt = getRNG().nextInt(availablePt[currentLoc][partnerGender]);
+                        float condomUsage = condomUsageAll[currentLoc < condomUsageAll.length ? currentLoc : 0];
 
-                    if (getRNG().nextFloat() < condomUsage) {
-                        AbstractIndividualInterface[] oneOffPartners = new AbstractIndividualInterface[2];
-                        oneOffPartners[traveller.isMale() ? 0 : 1] = traveller;
-                        oneOffPartners[partnerGender] = availableAllLocation[currentLoc][partnerGender][randAvailPt];
-                        SingleRelationship.performAct(oneOffPartners, getGlobalTime(), getInfList(), new boolean[]{true, true});
+                        if (getRNG().nextFloat() < condomUsage) {
+                            AbstractIndividualInterface[] oneOffPartners = new AbstractIndividualInterface[2];
+                            oneOffPartners[traveller.isMale() ? 0 : 1] = traveller;
+                            oneOffPartners[partnerGender] = availableAllLocation[currentLoc][partnerGender][randAvailPt];
+                            SingleRelationship.performAct(oneOffPartners, getGlobalTime(), getInfList(), new boolean[]{true, true});
 
-                        for (AbstractIndividualInterface p : oneOffPartners) {
-                            Person_Remote_MetaPopulation person = (Person_Remote_MetaPopulation) p;
-                            if (person.getParameter(Person_Remote_MetaPopulation.PERSON_FIRST_SEX_AGE) < 0) {
-                                person.setParameter(Person_Remote_MetaPopulation.PERSON_FIRST_SEX_AGE, (long) person.getAge());
+                            for (AbstractIndividualInterface p : oneOffPartners) {
+                                Person_Remote_MetaPopulation person = (Person_Remote_MetaPopulation) p;
+                                if (person.getParameter(Person_Remote_MetaPopulation.PERSON_FIRST_SEX_AGE) < 0) {
+                                    person.setParameter(Person_Remote_MetaPopulation.PERSON_FIRST_SEX_AGE, (long) person.getAge());
+                                }
                             }
                         }
                     }
+
                 }
 
             }
 
-        }
+            // Update (sexual) relationship
+            updateSexualRelationships(deltaT);
 
-        // Update (sexual) relationship
-        updateSexualRelationships(deltaT);
+            // Form pairing for each location
+            Factory_Relationship_Duration_Max relMax = (Factory_Relationship_Duration_Max) getFields()[FIELDS_REMOTE_METAPOP_RELATIONSHIP_DURATION_FACTORY];
 
-        // Form pairing for each location
-        Factory_Relationship_Duration_Max relMax = (Factory_Relationship_Duration_Max) getFields()[FIELDS_REMOTE_METAPOP_RELATIONSHIP_DURATION_FACTORY];
+            for (int loc = 0; loc < current_loc_age_behaviour_collection.length; loc++) {
+                AbstractIndividualInterface[][] availableAtLoc = availableAllLocation[loc];
 
-        for (int loc = 0; loc < current_loc_age_behaviour_collection.length; loc++) {
-            AbstractIndividualInterface[][] availableAtLoc = availableAllLocation[loc];
+                for (int g = 0; g < availableAtLoc.length; g++) {
+                    availableAtLoc[g] = Arrays.copyOf(availableAtLoc[g], availablePt[loc][g]);
+                }
 
-            for (int g = 0; g < availableAtLoc.length; g++) {
-                availableAtLoc[g] = Arrays.copyOf(availableAtLoc[g], availablePt[loc][g]);
-            }
+                getAvailability()[loc].setAvailablePopulation(availableAtLoc);
 
-            getAvailability()[loc].setAvailablePopulation(availableAtLoc);
+                int numPairFormed = getAvailability()[loc].generatePairing();
 
-            int numPairFormed = getAvailability()[loc].generatePairing();
+                AbstractIndividualInterface[][] pairs = getAvailability()[loc].getPairing();
 
-            AbstractIndividualInterface[][] pairs = getAvailability()[loc].getPairing();
-
-            for (int pairId = 0; pairId < numPairFormed; pairId++) {
-                SingleRelationship rel;
-                int duration = relMax.gen_maxDurationOfSexualRelationship(pairs[pairId], getRNG());
-                rel = formRelationship(pairs[pairId], getRelMap()[RELMAP_GLOBAL_SEXUAL], duration, RELMAP_GLOBAL_SEXUAL);
-                if (rel != null) {
-                    performSexAct(rel, pairs[pairId]);
+                for (int pairId = 0; pairId < numPairFormed; pairId++) {
+                    SingleRelationship rel;
+                    int duration = relMax.gen_maxDurationOfSexualRelationship(pairs[pairId], getRNG());
+                    rel = formRelationship(pairs[pairId], getRelMap()[RELMAP_GLOBAL_SEXUAL], duration, RELMAP_GLOBAL_SEXUAL);
+                    if (rel != null) {
+                        performSexAct(rel, pairs[pairId]);
+                    }
                 }
             }
         }
-
         // Movement           
         predefinedMove();
 
