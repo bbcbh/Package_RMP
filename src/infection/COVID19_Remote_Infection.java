@@ -6,6 +6,7 @@ import org.apache.commons.math3.analysis.differentiation.UnivariateDifferentiabl
 import org.apache.commons.math3.analysis.solvers.BaseAbstractUnivariateSolver;
 import org.apache.commons.math3.analysis.solvers.NewtonRaphsonSolver;
 import org.apache.commons.math3.distribution.AbstractRealDistribution;
+import org.apache.commons.math3.distribution.GammaDistribution;
 import org.apache.commons.math3.distribution.UniformRealDistribution;
 import org.apache.commons.math3.distribution.WeibullDistribution;
 import org.apache.commons.math3.exception.DimensionMismatchException;
@@ -36,7 +37,7 @@ public class COVID19_Remote_Infection extends AbstractInfectionWithPatientMappin
     // From Kucharski 2020, Kretzschmar (draft), James email
     private final double[] DEFAULT_LATANT_DURATION = {3, 6};
     private final double[] DEFAULT_INCUBATION_DURATION = {6.4, 2.3};
-    private final double[] DEFAULT_INFECTIOUS_DURATION = {2.9, 10};
+    private final double[] DEFAULT_INFECTIOUS_DURATION = {10, 4};
     private final double[] DEFAULT_POST_INFECTIOUS_DURATION = {0, 10};
 
     private final double[][] DEF_DIST_VAR = {
@@ -67,8 +68,8 @@ public class COVID19_Remote_Infection extends AbstractInfectionWithPatientMappin
             distributions[DIST_INCUBATION_DUR_INDEX] = new WeibullDistribution(RNG, 3, 7.2); // Default
         }
         if (DEF_DIST_VAR[DIST_INFECTIOUS_DUR_INDEX][1] != 0) {
-            double[] var = DEF_DIST_VAR[DIST_INFECTIOUS_DUR_INDEX];
-            distributions[DIST_INFECTIOUS_DUR_INDEX] = new UniformRealDistribution(RNG, var[0], var[1]);
+            double[] var = generatedGammaParam(DEF_DIST_VAR[DIST_INFECTIOUS_DUR_INDEX]);                        
+            distributions[DIST_INFECTIOUS_DUR_INDEX] = new GammaDistribution(RNG, var[0], 1/var[1]);
         }
         if (DEF_DIST_VAR[DIST_POST_INFECTIOUS_DUR_INDEX][1] != 0) {
             double[] var = DEF_DIST_VAR[DIST_POST_INFECTIOUS_DUR_INDEX];
@@ -113,14 +114,14 @@ public class COVID19_Remote_Infection extends AbstractInfectionWithPatientMappin
         param[PARAM_INFECTIOUS_START_AGE] = param[PARAM_AGE_OF_EXPOSURE] + Math.round(sample);
 
         // Infectious 
-        sample = getRandomDistValue(DIST_INFECTIOUS_DUR_INDEX);
+        sample = getRandomDistValue(DIST_INFECTIOUS_DUR_INDEX);                              
         param[PARAM_INFECTIOUS_END_AGE] = param[PARAM_INFECTIOUS_START_AGE] + Math.round(sample);
 
         // Post infectious
         sample = getRandomDistValue(DIST_POST_INFECTIOUS_DUR_INDEX);
         param[PARAM_INFECTED_UNTIL_AGE] = param[PARAM_INFECTIOUS_END_AGE] + Math.round(sample);
 
-        // Incubration
+        // Incubration                
         sample = getRandomDistValue(DIST_INCUBATION_DUR_INDEX);
         param[PARAM_SYMPTOM_START_AGE] = param[PARAM_AGE_OF_EXPOSURE] + Math.round(sample);
 

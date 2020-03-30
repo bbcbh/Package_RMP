@@ -442,7 +442,7 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
 
             double ageoffset = 0;
 
-            if (removeCandidate.getAge() > (35 * AbstractIndividualInterface.ONE_YEAR_INT + ageoffset)) {
+            if (removeCandidate.getAge() > (modelMaxAge() + ageoffset)) {
                 AbstractIndividualInterface addedPerson;
                 int nextId = (int) getFields()[FIELDS_NEXT_ID];
                 addedPerson = replacePerson(removeCandidate, nextId);
@@ -745,6 +745,10 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
             }
         }
 
+    }
+
+    protected int modelMaxAge() {
+        return 35 * AbstractIndividualInterface.ONE_YEAR_INT;
     }
 
     protected int determineDestination(AbstractIndividualInterface person) {

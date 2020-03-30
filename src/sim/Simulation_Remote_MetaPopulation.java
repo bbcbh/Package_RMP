@@ -1,5 +1,6 @@
 package sim;
 
+import run.Run_Population_Remote_MetaPopulation_COVID19;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
@@ -345,9 +346,21 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                 }
 
                 break;
+            case 5: 
+                try {
+
+                Run_Population_Remote_MetaPopulation_COVID19 run
+                        = new Run_Population_Remote_MetaPopulation_COVID19(baseDir, propVal, propModelInitStr);
+                run.generateOneResultSet();
+
+            } catch (IOException | InterruptedException ex) {
+                ex.printStackTrace(System.err);
+            }
+            break;
             default:
-                System.err.println(
-                        "Error: Illegal PROP_RMP_SIM_TYPE. Set 0 for NG/CT and 1 for Syphilis simulation, 2 for NG/CT optimisation, 3 for Pop Generate, 4 for NG/CT optimisation using GA");
+                System.err.println("Error: Illegal arg[0]. Set 0 for NG/CT Run, "
+                        + "1 for Syphilis, 2 for Simulation, 3 for Optimisation, "
+                        + "4 for Optimisaiton GA, 5 for COVID19");
 
         }
     }
@@ -361,7 +374,7 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
         if (!propFile.exists()) {
             System.out.println("Checking for result folder(s) at " + resultsDir);
             if (arg.length > 1) {
-                ArrayList<File> dirList = new ArrayList();
+                ArrayList<File> dirList = new ArrayList<>();
                 for (int i = 1; i < arg.length; i++) {
                     if (arg[i].endsWith("*")) {
 
@@ -407,7 +420,7 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
             sim.setBaseDir(singleSetDir);
             sim.loadProperties(prop);
             sim.generateOneResultSet();
-            Run_Population_Remote_MetaPopulation_Pop_Analysis.popAnalysis(singleSetDir.getAbsolutePath());
+            //Run_Population_Remote_MetaPopulation_Pop_Analysis.popAnalysis(singleSetDir.getAbsolutePath());
         }
 
     }
