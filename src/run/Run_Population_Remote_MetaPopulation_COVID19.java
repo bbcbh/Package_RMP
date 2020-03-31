@@ -78,20 +78,32 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
             // Set up population
             Population_Remote_MetaPopulation_COVID19 pop = new Population_Remote_MetaPopulation_COVID19(rng.nextLong());
 
-            for (int f = 0; f < propModelInitStr.length; f++) {
+            // Population parameter
+            for (int f = 0; f < Math.min(propModelInitStr.length, pop.getFields().length); f++) {
                 if (propModelInitStr[f] != null) {
                     pop.getFields()[f]
                             = util.PropValUtils.propStrToObject(propModelInitStr[f], pop.getFieldClass(f));
                 }
-
             };
 
             COVID19_Remote_Infection covid19 = new COVID19_Remote_Infection(pop.getInfectionRNG());
-            
+
+            // Infection parameter
+            for (int f = pop.getFields().length; f < Math.min(propModelInitStr.length, 
+                    pop.getFields().length + covid19.DIST_TOTAL); f++) {
+                if (propModelInitStr[f] != null) {
+                    String key;
+                    key = COVID19_Remote_Infection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", 
+                            Integer.toString(f - pop.getFields().length));
+                    covid19.setParameter(key, util.PropValUtils.propStrToObject(propModelInitStr[f], double[].class));
+
+                }
+
+            }
+
             Thread_PopRun_COVID19 thread = new Thread_PopRun_COVID19(r, baseDir, numSnap, snapFreq);
             thread.setPop(pop);
             thread.setInfList(new AbstractInfection[]{covid19});
-            
 
             if (numProcess <= 1) {
                 thread.run();

@@ -376,21 +376,23 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
             if (arg.length > 1) {
                 ArrayList<File> dirList = new ArrayList<>();
                 for (int i = 1; i < arg.length; i++) {
-                    if (arg[i].endsWith("*")) {
+                    if (!arg[i].startsWith("-")) {
+                        if (arg[i].endsWith("*")) {
 
-                        final String startWith = arg[i];
-                        File[] matchedDir = resultsDir.listFiles(new FileFilter() {
-                            @Override
-                            public boolean accept(File file) {
-                                return file.isDirectory() && file.getName().startsWith(startWith.substring(0, startWith.length() - 1))
-                                        && new File(file, Simulation_Remote_MetaPopulation.FILENAME_PROP).exists();
-                            }
-                        });
+                            final String startWith = arg[i];
+                            File[] matchedDir = resultsDir.listFiles(new FileFilter() {
+                                @Override
+                                public boolean accept(File file) {
+                                    return file.isDirectory() && file.getName().startsWith(startWith.substring(0, startWith.length() - 1))
+                                            && new File(file, Simulation_Remote_MetaPopulation.FILENAME_PROP).exists();
+                                }
+                            });
 
-                        dirList.addAll(Arrays.asList(matchedDir));
+                            dirList.addAll(Arrays.asList(matchedDir));
 
-                    } else {
-                        dirList.add(new File(resultsDir, arg[i]));
+                        } else {
+                            dirList.add(new File(resultsDir, arg[i]));
+                        }
                     }
                 }
 
@@ -420,7 +422,9 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
             sim.setBaseDir(singleSetDir);
             sim.loadProperties(prop);
             sim.generateOneResultSet();
-            //Run_Population_Remote_MetaPopulation_Pop_Analysis.popAnalysis(singleSetDir.getAbsolutePath());
+            if (!arg[arg.length - 1].equals("-skipAnalysis")) {
+                Run_Population_Remote_MetaPopulation_Pop_Analysis.popAnalysis(singleSetDir.getAbsolutePath());
+            }
         }
 
     }
