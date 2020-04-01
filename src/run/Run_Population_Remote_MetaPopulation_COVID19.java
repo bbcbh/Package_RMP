@@ -8,29 +8,15 @@ package run;
 import infection.AbstractInfection;
 import infection.COVID19_Remote_Infection;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
-import person.AbstractIndividualInterface;
-import person.Person_Remote_MetaPopulation;
-import population.Population_Remote_MetaPopulation;
-import static population.Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_AGE_GRP_CLASSIFIER;
 import population.Population_Remote_MetaPopulation_COVID19;
-import static population.Population_Remote_MetaPopulation_COVID19.RELMAP_HOUSEHOLD;
-import relationship.RelationshipMap;
 import sim.SimulationInterface;
 import static sim.SimulationInterface.PROP_NUM_SIM_PER_SET;
 import static sim.SimulationInterface.PROP_NUM_SNAP;
 import static sim.SimulationInterface.PROP_SNAP_FREQ;
-import util.PersonClassifier;
 
 /**
  *
@@ -89,21 +75,31 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
             COVID19_Remote_Infection covid19 = new COVID19_Remote_Infection(pop.getInfectionRNG());
 
             // Infection parameter
-            for (int f = pop.getFields().length; f < Math.min(propModelInitStr.length, 
+            for (int f = pop.getFields().length; f < Math.min(propModelInitStr.length,
                     pop.getFields().length + covid19.DIST_TOTAL); f++) {
                 if (propModelInitStr[f] != null) {
                     String key;
-                    key = COVID19_Remote_Infection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", 
+                    key = COVID19_Remote_Infection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999",
                             Integer.toString(f - pop.getFields().length));
                     covid19.setParameter(key, util.PropValUtils.propStrToObject(propModelInitStr[f], double[].class));
 
                 }
-
             }
 
             Thread_PopRun_COVID19 thread = new Thread_PopRun_COVID19(r, baseDir, numSnap, snapFreq);
             thread.setPop(pop);
             thread.setInfList(new AbstractInfection[]{covid19});
+
+            // Thread parameter
+            int threadOffset = pop.getFields().length + covid19.DIST_TOTAL;
+            for (int f = threadOffset; f < Math.min(propModelInitStr.length, threadOffset + thread.getThreadParam().length); f++) {
+                if (propModelInitStr[f] != null) {
+                    int threadIndex = f - threadOffset;
+                    thread.getThreadParam()[threadIndex] = util.PropValUtils.propStrToObject(propModelInitStr[f],
+                            thread.getThreadParam()[threadIndex].getClass());
+                }
+
+            }
 
             if (numProcess <= 1) {
                 thread.run();

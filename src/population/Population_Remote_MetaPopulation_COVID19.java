@@ -2,8 +2,6 @@ package population;
 
 import infection.AbstractInfection;
 import infection.COVID19_Remote_Infection;
-import java.io.File;
-import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -49,6 +47,10 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         // probability: {cumul_prob_1, response_1, cumul_prob_2, ...}
         new double[][]{},
         // FIELDS_REMOTE_METAPOP_COVID19_TEST_RESPONSE
+        // Format: [triggerIndex]{ {valid_for_days}, {probability_for_k=0}, {probability_for_k=1} ...}
+        // k: 0 = adjustment to non-household contact, 1 = adjustment to household contact, 2 = adjustment to movement
+        // valid_for: how long the response valid for
+        // probability: {cumul_prob_1, response_1, cumul_prob_2, ...}
         new double[][]{},};
 
     public static final int RELMAP_HOUSEHOLD = 0;
@@ -63,11 +65,16 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
     private final transient HashMap<Integer, Double> nonHouseholdContactRate = new HashMap<>();
 
-    private final transient HashMap<Integer, double[]> symptomResponse = new HashMap<>();
     public static final int RESPONSE_ADJ_NON_HOUSEHOLD_CONTACT = 0;
     public static final int RESPONSE_ADJ_HOUSEHOLD_CONTACT = RESPONSE_ADJ_NON_HOUSEHOLD_CONTACT + 1;
     public static final int RESPONSE_MOVEMENT = RESPONSE_ADJ_HOUSEHOLD_CONTACT + 1;
-    public static final int RESPONSE_TOTAL = RESPONSE_MOVEMENT + 1;
+
+    private final transient HashMap<Integer, double[]> symptomResponse = new HashMap<>();
+    public static final int SYM_RESPONSE_TOTAL = RESPONSE_MOVEMENT + 1;
+
+    private final transient HashMap<Integer, double[]> testResponse = new HashMap<>();
+    public static final int TEST_RESPONSE_VALID_UNTIL_AGE = RESPONSE_MOVEMENT + 1;
+    public static final int TEST_RESPONSE_TOTAL = TEST_RESPONSE_VALID_UNTIL_AGE + 1;
 
     public Population_Remote_MetaPopulation_COVID19(long seed) {
         super(seed);
@@ -81,6 +88,10 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         super.setAvailability(null);
     }
 
+    public HashMap<Integer, double[]> getTestResponse() {
+        return testResponse;
+    }
+    
     @Override
     protected int modelMaxAge() {
         return 64 * AbstractIndividualInterface.ONE_YEAR_INT;
@@ -207,6 +218,20 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
                         moving = getInfectionRNG().nextDouble() < sym_resp[RESPONSE_MOVEMENT];
                     }
                 }
+                if (moving) {
+                    double[] test_resp = testResponse.get(person.getId());
+                    if (test_resp != null) {
+                        if (person.getAge() < test_resp[TEST_RESPONSE_VALID_UNTIL_AGE]) {
+                            moving = test_resp[RESPONSE_MOVEMENT] > 0;
+                            if (moving && test_resp[RESPONSE_MOVEMENT] < 1) {
+                                moving = getInfectionRNG().nextDouble() < test_resp[RESPONSE_MOVEMENT];
+                            }
+                        } else {
+                            testResponse.remove(person.getId());
+                        }
+                    }
+                }
+
             }
         }
 
@@ -277,16 +302,36 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
             if (covid19.hasSymptoms(infectious) && symptomResponse.containsKey(infectious.getId())) {
                 double[] sym_resp = symptomResponse.get(infectious.getId());
 
-                hasNonHouseholdContact = sym_resp[RESPONSE_ADJ_NON_HOUSEHOLD_CONTACT] > 0;
+                hasNonHouseholdContact &= sym_resp[RESPONSE_ADJ_NON_HOUSEHOLD_CONTACT] > 0;
 
                 if (hasNonHouseholdContact && sym_resp[RESPONSE_ADJ_NON_HOUSEHOLD_CONTACT] < 1) {
-                    hasNonHouseholdContact = getInfectionRNG().nextDouble() < sym_resp[RESPONSE_ADJ_NON_HOUSEHOLD_CONTACT];
+                    hasNonHouseholdContact &= getInfectionRNG().nextDouble() < sym_resp[RESPONSE_ADJ_NON_HOUSEHOLD_CONTACT];
                 }
 
-                hasHouseholdContact = sym_resp[RESPONSE_ADJ_HOUSEHOLD_CONTACT] > 0;
+                hasHouseholdContact &= sym_resp[RESPONSE_ADJ_HOUSEHOLD_CONTACT] > 0;
 
                 if (hasHouseholdContact && sym_resp[RESPONSE_ADJ_HOUSEHOLD_CONTACT] < 1) {
-                    hasHouseholdContact = getInfectionRNG().nextDouble() < sym_resp[RESPONSE_ADJ_HOUSEHOLD_CONTACT];
+                    hasHouseholdContact &= getInfectionRNG().nextDouble() < sym_resp[RESPONSE_ADJ_HOUSEHOLD_CONTACT];
+                }
+            }
+
+            if (testResponse.containsKey(infectious.getId())) {
+                double[] test_resp = testResponse.get(infectious.getId());
+                if (infectious.getAge() < test_resp[TEST_RESPONSE_VALID_UNTIL_AGE]) {
+
+                    hasNonHouseholdContact &= test_resp[RESPONSE_ADJ_NON_HOUSEHOLD_CONTACT] > 0;
+
+                    if (hasNonHouseholdContact && test_resp[RESPONSE_ADJ_NON_HOUSEHOLD_CONTACT] < 1) {
+                        hasNonHouseholdContact &= getInfectionRNG().nextDouble() < test_resp[RESPONSE_ADJ_NON_HOUSEHOLD_CONTACT];
+                    }
+
+                    hasHouseholdContact &= test_resp[RESPONSE_ADJ_HOUSEHOLD_CONTACT] > 0;
+
+                    if (hasHouseholdContact && test_resp[RESPONSE_ADJ_HOUSEHOLD_CONTACT] < 1) {
+                        hasHouseholdContact &= getInfectionRNG().nextDouble() < test_resp[RESPONSE_ADJ_HOUSEHOLD_CONTACT];
+                    }
+                } else {
+                    testResponse.remove(infectious.getId());
                 }
 
             }
@@ -354,7 +399,7 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
     }
 
     protected double[] initiialiseSymInfectionResponse() {
-        double[] sym_resp = new double[RESPONSE_TOTAL];
+        double[] sym_resp = new double[SYM_RESPONSE_TOTAL];
         double[][] sym_infect_response = (double[][]) getFields()[FIELDS_REMOTE_METAPOP_COVID19_SYMPTOMATIC_RESPONSE];
         Arrays.fill(sym_resp, 1);
 
@@ -573,111 +618,6 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
     public void setInfectionList(AbstractInfection[] infList) {
         setInfList(infList);
-    }
-
-    // Debug
-    public static void main(String[] arg) throws IOException {
-
-        Population_Remote_MetaPopulation_COVID19 pop = new Population_Remote_MetaPopulation_COVID19(2251913970037127827l);
-
-        pop.getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_POP_SIZE] = new int[]{5000, 100, 100, 100, 100};
-        pop.getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_POP_TYPE] = new int[]{2, 3, 3, 3, 3};
-        pop.getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_POP_CONNC]
-                = new int[][]{
-                    new int[]{0, 1, 1, 1, 1},
-                    new int[]{1, 0, -1, -1, -1},
-                    new int[]{1, -1, 0, -1, -1},
-                    new int[]{1, -1, -1, 0, -1},
-                    new int[]{1, -1, -1, -1, 0}};
-
-        pop.getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_AGE_GENDER_COMPOSITION]
-                = new int[][]{
-                    util.Factory_Population_Decomposition.getDecomposition(util.Factory_Population_Decomposition.POP_COMPOSITION_REGIONAL_2010, 5000, pop.getRNG()),
-                    util.Factory_Population_Decomposition.getDecomposition(util.Factory_Population_Decomposition.POP_COMPOSITION_REMOTE_2010, 100, pop.getRNG()),
-                    util.Factory_Population_Decomposition.getDecomposition(util.Factory_Population_Decomposition.POP_COMPOSITION_REMOTE_2010, 100, pop.getRNG()),
-                    util.Factory_Population_Decomposition.getDecomposition(util.Factory_Population_Decomposition.POP_COMPOSITION_REMOTE_2010, 100, pop.getRNG()),
-                    util.Factory_Population_Decomposition.getDecomposition(util.Factory_Population_Decomposition.POP_COMPOSITION_REMOTE_2010, 100, pop.getRNG())};
-
-        // From Biddle 2009
-        pop.getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_AWAY_FROM_HOME_BY_LOCATION]
-                = //  Male: 15-19, 20-24, 25-29, 30-34,  Female: 15-19, 20-24, 25-29, 30-34
-                new float[][]{
-                    new float[]{0.08f, 0.10f, 0.09f, 0.08f, 0.08f, 0.07f, 0.06f, 0.05f},
-                    new float[]{0.11f, 0.10f, 0.09f, 0.09f, 0.11f, 0.10f, 0.09f, 0.08f},
-                    new float[]{0.11f, 0.10f, 0.09f, 0.09f, 0.11f, 0.10f, 0.09f, 0.08f},
-                    new float[]{0.11f, 0.10f, 0.09f, 0.09f, 0.11f, 0.10f, 0.09f, 0.08f},
-                    new float[]{0.11f, 0.10f, 0.09f, 0.09f, 0.11f, 0.10f, 0.09f, 0.08f},};
-
-        pop.getFields()[Population_Remote_MetaPopulation_COVID19.FIELDS_REMOTE_METAPOP_COVID19_HOSUEHOLD_SIZE_DIST]
-                = new double[][]{
-                    new double[]{0.67, 4.7, 1, 3.4},
-                    new double[]{0.67, 4.7, 1, 3.4},
-                    new double[]{0.67, 4.7, 1, 3.4},
-                    new double[]{0.67, 4.7, 1, 3.4},
-                    new double[]{0.67, 4.7, 1, 3.4},};
-
-        // From ABS 41590DO004_2014 General Social Survey, Summary Results, Australia, 2014
-        pop.getFields()[Population_Remote_MetaPopulation_COVID19.FIELDS_REMOTE_METAPOP_COVID19_NON_HOUSEHOLD_CONTACT_DIST]
-                = new double[][]{
-                    new double[]{0.037, 0, 0, 0.089, 1 / 90, 1 / 30, 0.248, 1 / 30, 1 / 7, 0.793, 1 / 7, 1, 1, 1, 1},
-                    new double[]{0.041, 0, 0, 0.083, 1 / 90, 1 / 30, 0.245, 1 / 30, 1 / 7, 0.751, 1 / 7, 1, 1, 1, 1},
-                    new double[]{0.041, 0, 0, 0.083, 1 / 90, 1 / 30, 0.245, 1 / 30, 1 / 7, 0.751, 1 / 7, 1, 1, 1, 1},
-                    new double[]{0.041, 0, 0, 0.083, 1 / 90, 1 / 30, 0.245, 1 / 30, 1 / 7, 0.751, 1 / 7, 1, 1, 1, 1},
-                    new double[]{0.041, 0, 0, 0.083, 1 / 90, 1 / 30, 0.245, 1 / 30, 1 / 7, 0.751, 1 / 7, 1, 1, 1, 1},};
-
-        pop.initialise();
-        pop.allolocateHosuehold();
-
-        RelationshipMap householdMap = pop.getRelMap()[RELMAP_HOUSEHOLD];
-        int[] popSize = (int[]) pop.getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_POP_SIZE];
-        PrintWriter pri = new PrintWriter(System.out);
-
-        // Household stat                 
-        pop.printHousholdStat(pri);
-
-        String key;
-        double[] r0 = new double[]{1.5, 3.5};
-        COVID19_Remote_Infection covid19 = new COVID19_Remote_Infection(pop.getInfectionRNG());
-        key = COVID19_Remote_Infection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999", "" + COVID19_Remote_Infection.DIST_RO_RAW_INDEX);
-        covid19.setParameter(key, r0);
-        pri.println("\"R0\" = " + Arrays.toString(r0));
-
-        pop.setInfList(new AbstractInfection[]{covid19});
-        pop.setAvailability(null);
-
-        AbstractIndividualInterface patientZero = pop.getPop()[pop.getRNG().nextInt(pop.getPop().length)];
-
-        // Make sure patientZero has household size > 1
-        while (householdMap.degreeOf(patientZero.getId()) < 2 || ((Person_Remote_MetaPopulation) patientZero).getHomeLocation() != 0) {
-            patientZero = pop.getPop()[pop.getRNG().nextInt(pop.getPop().length)];
-        }
-
-        covid19.infecting(patientZero);
-
-        pri.println();
-        pri.println("Patient zero: ");
-        pop.printPatientStat(patientZero, pri);
-
-        System.out.println();
-        System.out.println("Infection stat:");
-
-        String fileName = String.format("output_%d_%d.csv", (int) (r0[0] * 10), (int) (r0[1] * 10));
-
-        PrintWriter csvOutput = new PrintWriter(new File("C:\\Users\\bhui\\OneDrive - UNSW\\RMP\\Covid19", fileName));
-
-        pop.printCSVOutputHeader(csvOutput);
-
-        for (int t = 0; t < 100; t++) {
-            if (t % 1 == 0) {
-                pop.printCSVOutputEntry(csvOutput);
-            }
-            pop.advanceTimeStep(1);
-        }
-
-        pri.close();
-
-        csvOutput.close();
-
     }
 
     public void printCSVOutputEntry(PrintWriter csvOutput) {
