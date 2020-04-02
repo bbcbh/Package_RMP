@@ -91,7 +91,7 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
     public HashMap<Integer, double[]> getTestResponse() {
         return testResponse;
     }
-    
+
     @Override
     protected int modelMaxAge() {
         return 64 * AbstractIndividualInterface.ONE_YEAR_INT;
@@ -218,20 +218,19 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
                         moving = getInfectionRNG().nextDouble() < sym_resp[RESPONSE_MOVEMENT];
                     }
                 }
-                if (moving) {
-                    double[] test_resp = testResponse.get(person.getId());
-                    if (test_resp != null) {
-                        if (person.getAge() < test_resp[TEST_RESPONSE_VALID_UNTIL_AGE]) {
-                            moving = test_resp[RESPONSE_MOVEMENT] > 0;
-                            if (moving && test_resp[RESPONSE_MOVEMENT] < 1) {
-                                moving = getInfectionRNG().nextDouble() < test_resp[RESPONSE_MOVEMENT];
-                            }
-                        } else {
-                            testResponse.remove(person.getId());
+            }
+            if (moving) {
+                double[] test_resp = testResponse.get(person.getId());
+                if (test_resp != null) {
+                    if (person.getAge() < test_resp[TEST_RESPONSE_VALID_UNTIL_AGE]) {
+                        moving = test_resp[RESPONSE_MOVEMENT] > 0;
+                        if (moving && test_resp[RESPONSE_MOVEMENT] < 1) {
+                            moving = getInfectionRNG().nextDouble() < test_resp[RESPONSE_MOVEMENT];
                         }
+                    } else {
+                        testResponse.remove(person.getId());
                     }
                 }
-
             }
         }
 
@@ -501,6 +500,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         }
 
         Person_Remote_MetaPopulation newPerson = super.replacePerson(removedPerson, nextId);
+
+        newPerson.setAge(0);
 
         if (!connected.isEmpty()) {
             householdMap.addVertex(newPerson.getId());

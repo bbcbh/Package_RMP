@@ -42,6 +42,10 @@ class Thread_PopRun_COVID19 implements Runnable {
     public static final int THREAD_PARAM_TRIGGERED_TEST_RESPONSE = THREAD_PARAM_TRIGGERED_TEST_RATE + 1;
     public static final int THREAD_PARAM_TRIGGERED_SYM_RESPONSE = THREAD_PARAM_TRIGGERED_TEST_RESPONSE + 1;
 
+    public static final int TEST_STAT_ALL = 0;
+    public static final int TEST_STAT_POS = 1;
+    public static final int TEST_STAT_LENGTH = 2;
+
     Object[] threadParam = new Object[]{
         // THREAD_PARAM_TEST_TRIGGER
         // Format: {response_trigger...} , where:
@@ -207,10 +211,6 @@ class Thread_PopRun_COVID19 implements Runnable {
         // Testing and response 
         int testTriggerIndex = 0;
 
-        final int TEST_STAT_ALL = 0;
-        final int TEST_STAT_POS = 1;
-        final int TEST_STAT_LENGTH = 2;
-
         int[][] testing_stat_cumul = new int[TEST_STAT_LENGTH][popSize.length]; // By location
         int[] testing_stat_cumul_all = new int[TEST_STAT_LENGTH];
 
@@ -235,8 +235,8 @@ class Thread_PopRun_COVID19 implements Runnable {
         testingCSV.println();
 
         for (int sn = 0; sn < numSnap; sn++) {
-            for (int sf = 0; sf < snapFreq; sf++) {            
-                int[] test_stat_today = new int[2];                
+            for (int sf = 0; sf < snapFreq; sf++) {
+                int[] test_stat_today = new int[2];
                 // Testing                                 
                 if (testTriggerIndex < triggeredTestRate.length) {
                     float[] testRate = triggeredTestRate[testTriggerIndex];
@@ -268,7 +268,7 @@ class Thread_PopRun_COVID19 implements Runnable {
                                             test_resp[Population_Remote_MetaPopulation_COVID19.TEST_RESPONSE_VALID_UNTIL_AGE]
                                                     = rmp.getAge() + default_test_resp[0][0];
                                             for (int k = 1; k < default_test_resp.length; k++) {
-                                                test_resp[k-1] = 1; // No response
+                                                test_resp[k - 1] = 1; // No response
                                                 boolean correctResp = false;
                                                 for (int rp = 0; rp < default_test_resp[k].length && !correctResp; rp += 2) {
                                                     correctResp = default_test_resp[k][rp] >= 1;
@@ -276,7 +276,7 @@ class Thread_PopRun_COVID19 implements Runnable {
                                                         correctResp = pop.getRNG().nextDouble() < default_test_resp[k][rp];
                                                     }
                                                     if (correctResp) {
-                                                        test_resp[k-1] = default_test_resp[k][rp + 1];
+                                                        test_resp[k - 1] = default_test_resp[k][rp + 1];
                                                     }
                                                 }
                                             }
@@ -290,32 +290,34 @@ class Thread_PopRun_COVID19 implements Runnable {
                 }
                 // Determine trigger 
                 if (testTriggerIndex < triggers.length) {
-                    int possibleTriggerIndex = testTriggerIndex;
-                    for (int i = possibleTriggerIndex; i < triggers.length; i++) {
-                        if (triggers[i] <= 0) {
-                            if (pop.getGlobalTime() >= -triggers[i]) {
-                                possibleTriggerIndex = i;
-                            }
-                        } else if (triggers[i] >= 1) {
-                            if (testing_stat_cumul_all[TEST_STAT_POS] > triggers[i]) {
-                                possibleTriggerIndex = i;
-                            }
-                        } else {
-                            if (((float) test_stat_today[TEST_STAT_POS]) / test_stat_today[TEST_STAT_ALL] > triggers[i]) {
-                                possibleTriggerIndex = i;
-                            }
-                        }
-                    }
-
-                    testTriggerIndex = possibleTriggerIndex;
-
-                    if (testTriggerIndex < triggeredSymResponse.length) {
-                        pop.getFields()[Population_Remote_MetaPopulation_COVID19.FIELDS_REMOTE_METAPOP_COVID19_SYMPTOMATIC_RESPONSE]
-                                = triggeredSymResponse[testTriggerIndex];
-                    }
+                    testTriggerIndex = detectResponseTrigger(testTriggerIndex,
+                            triggers,
+                            testing_stat_cumul_all,
+                            test_stat_today,
+                            triggeredSymResponse,
+                            testingCSV);
 
                 }
                 
+                // Debug
+                /*
+                double[] stat = covid.getCurrentlyInfected().get(patientZero.getId());
+                int ageExp = -1;
+                if(stat != null){
+                    ageExp = (int) stat[COVID19_Remote_Infection.PARAM_AGE_OF_EXPOSURE];
+                }
+                
+                System.out.println(String.format("%d: PZ Inf_Stat =(%b, %b, %b). Age of exp = %d", 
+                        pop.getGlobalTime(),
+                        covid.isInfected(patientZero),
+                        covid.isInfectious(patientZero),
+                        covid.hasSymptoms(patientZero),
+                        ageExp));
+                */
+                
+                
+                
+
                 pop.advanceTimeStep(1);
 
             }
@@ -336,6 +338,44 @@ class Thread_PopRun_COVID19 implements Runnable {
         outputCSV.close();
         testingCSV.close();
         pri.close();
+    }
+
+    protected int detectResponseTrigger(int testTriggerIndex, 
+            float[] triggers, 
+            int[] testing_stat_cumul_all,
+            int[] test_stat_today, 
+            double[][][] triggeredSymResponse,
+            PrintWriter testingCSV ) {
+        int possibleTriggerIndex = testTriggerIndex;
+        for (int i = possibleTriggerIndex + 1; i < triggers.length; i++) {
+            if (triggers[i] <= 0) {
+                if (pop.getGlobalTime() >= -triggers[i]) {
+                    possibleTriggerIndex = i;
+                }
+            } else if (triggers[i] >= 1) {
+                if (testing_stat_cumul_all[TEST_STAT_POS] > triggers[i]) {
+                    possibleTriggerIndex = i;
+                }
+            } else {
+                if (((float) test_stat_today[TEST_STAT_POS]) / test_stat_today[TEST_STAT_ALL] > triggers[i]) {
+                    possibleTriggerIndex = i;
+                }
+            }
+        }
+        if (testTriggerIndex != possibleTriggerIndex) {
+            // New trigger
+            testingCSV.print(pop.getGlobalTime());
+            testingCSV.print(',');
+            testingCSV.println(String.format("Level %d response triggered.", possibleTriggerIndex));
+
+            testTriggerIndex = possibleTriggerIndex;
+
+            if (testTriggerIndex < triggeredSymResponse.length) {
+                pop.getFields()[Population_Remote_MetaPopulation_COVID19.FIELDS_REMOTE_METAPOP_COVID19_SYMPTOMATIC_RESPONSE]
+                        = triggeredSymResponse[testTriggerIndex];
+            }
+        }
+        return testTriggerIndex;
     }
 
 }

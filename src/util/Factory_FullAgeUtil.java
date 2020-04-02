@@ -72,11 +72,11 @@ public class Factory_FullAgeUtil {
                         res[a] = (a - 15) * (0.070f - 0.115f) / (15) + 0.115f;
                         res[a + MAX_AGE] = (a - 15) * (0.090f - 0.115f) / (15) + 0.115f;
                     } else if (a <= 55) {
-                        res[a] = (a - 30) * (0.010f - 0.070f) / (25) + 0.070f;
-                        res[a + MAX_AGE] = (a - 30) * (0.010f - 0.090f) / (25) + 0.090f;
+                        res[a] = (a - 30) * (0.100f - 0.070f) / (25) + 0.070f;
+                        res[a + MAX_AGE] = (a - 30) * (0.100f - 0.090f) / (25) + 0.090f;
                     } else {
-                        res[a] = 0.010f;
-                        res[a + MAX_AGE] = 0.010f;
+                        res[a] = 0.100f;
+                        res[a + MAX_AGE] = 0.100f;
                     }
                     break;
                 default:
