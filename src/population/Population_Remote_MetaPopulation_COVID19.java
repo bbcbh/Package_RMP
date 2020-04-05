@@ -115,6 +115,15 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         }
     }
 
+    public AbstractIndividualInterface[] inSameHousehold(AbstractIndividualInterface p) {
+        int[] res = inSameHouseholdAs(p);
+        AbstractIndividualInterface[] member = new AbstractIndividualInterface[res.length];
+        for (int i = 0; i < res.length; i++) {
+            member[i] = getLocalData().get(res[i]);
+        }
+        return member;
+    }
+
     public void allolocateHosuehold() {
 
         int[] popSize = (int[]) getFields()[FIELDS_REMOTE_METAPOP_POP_SIZE];
@@ -295,45 +304,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
                 ent = incidence_collection.get(key);
             }
 
-            boolean hasNonHouseholdContact = true;
-            boolean hasHouseholdContact = true;
-
-            if (covid19.hasSymptoms(infectious) && symptomResponse.containsKey(infectious.getId())) {
-                double[] sym_resp = symptomResponse.get(infectious.getId());
-
-                hasNonHouseholdContact &= sym_resp[RESPONSE_ADJ_NON_HOUSEHOLD_CONTACT] > 0;
-
-                if (hasNonHouseholdContact && sym_resp[RESPONSE_ADJ_NON_HOUSEHOLD_CONTACT] < 1) {
-                    hasNonHouseholdContact &= getInfectionRNG().nextDouble() < sym_resp[RESPONSE_ADJ_NON_HOUSEHOLD_CONTACT];
-                }
-
-                hasHouseholdContact &= sym_resp[RESPONSE_ADJ_HOUSEHOLD_CONTACT] > 0;
-
-                if (hasHouseholdContact && sym_resp[RESPONSE_ADJ_HOUSEHOLD_CONTACT] < 1) {
-                    hasHouseholdContact &= getInfectionRNG().nextDouble() < sym_resp[RESPONSE_ADJ_HOUSEHOLD_CONTACT];
-                }
-            }
-
-            if (testResponse.containsKey(infectious.getId())) {
-                double[] test_resp = testResponse.get(infectious.getId());
-                if (infectious.getAge() < test_resp[TEST_RESPONSE_VALID_UNTIL_AGE]) {
-
-                    hasNonHouseholdContact &= test_resp[RESPONSE_ADJ_NON_HOUSEHOLD_CONTACT] > 0;
-
-                    if (hasNonHouseholdContact && test_resp[RESPONSE_ADJ_NON_HOUSEHOLD_CONTACT] < 1) {
-                        hasNonHouseholdContact &= getInfectionRNG().nextDouble() < test_resp[RESPONSE_ADJ_NON_HOUSEHOLD_CONTACT];
-                    }
-
-                    hasHouseholdContact &= test_resp[RESPONSE_ADJ_HOUSEHOLD_CONTACT] > 0;
-
-                    if (hasHouseholdContact && test_resp[RESPONSE_ADJ_HOUSEHOLD_CONTACT] < 1) {
-                        hasHouseholdContact &= getInfectionRNG().nextDouble() < test_resp[RESPONSE_ADJ_HOUSEHOLD_CONTACT];
-                    }
-                } else {
-                    testResponse.remove(infectious.getId());
-                }
-
-            }
+            boolean hasHouseholdContact = allowContact(covid19, infectious, RESPONSE_ADJ_HOUSEHOLD_CONTACT);
+            boolean hasNonHouseholdContact = allowContact(covid19, infectious, RESPONSE_ADJ_NON_HOUSEHOLD_CONTACT);
 
             int[] sameHousehold = inSameHouseholdAs(infectious);
             int infectiousLoc = getCurrentLocation(infectious);
@@ -343,7 +315,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
                 for (int pid : sameHousehold) {
                     if (pid != infectious.getId()) {
                         AbstractIndividualInterface target = getLocalData().get(pid);
-                        if (infectiousLoc == getCurrentLocation(target)) {
+                        if (infectiousLoc == getCurrentLocation(target)
+                                && allowContact(covid19, target, RESPONSE_ADJ_HOUSEHOLD_CONTACT)) {
                             if (covid19.couldTransmissInfection(infectious, target)) {
                                 ent[INCIDENCE_COLLECTION_NUM_TRANMISSION_HOUSHOLD_ATTEMPT]++;
                                 if (infectionAttempt(covid19, infectious, target)) {
@@ -359,7 +332,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
             if (hasNonHouseholdContact) {
                 ArrayList<AbstractIndividualInterface> possibleNonHouseholdCandidate = new ArrayList<>();
                 for (AbstractIndividualInterface candidate : currentlyAt.get(infectiousLoc)) {
-                    if (Arrays.binarySearch(sameHousehold, candidate.getId()) < 0) {
+                    if (Arrays.binarySearch(sameHousehold, candidate.getId()) < 0
+                            && allowContact(covid19, candidate, RESPONSE_ADJ_NON_HOUSEHOLD_CONTACT)) {
                         possibleNonHouseholdCandidate.add(candidate);
                     }
                 }
@@ -395,6 +369,37 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
             }
         }
 
+    }
+
+    protected boolean allowContact(COVID19_Remote_Infection covid19,
+            AbstractIndividualInterface infectious, int contactType) {
+        boolean hasContact = true;
+        if (covid19.hasSymptoms(infectious) && symptomResponse.containsKey(infectious.getId())) {
+            double[] sym_resp = symptomResponse.get(infectious.getId());
+
+            hasContact &= sym_resp[contactType] > 0;
+
+            if (hasContact && sym_resp[contactType] < 1) {
+                hasContact &= getInfectionRNG().nextDouble() < sym_resp[contactType];
+            }
+
+        }
+        if (testResponse.containsKey(infectious.getId())) {
+            double[] test_resp = testResponse.get(infectious.getId());
+            if (infectious.getAge() < test_resp[TEST_RESPONSE_VALID_UNTIL_AGE]) {
+
+                hasContact &= test_resp[contactType] > 0;
+
+                if (hasContact && test_resp[contactType] < 1) {
+                    hasContact &= getInfectionRNG().nextDouble() < test_resp[contactType];
+                }
+
+            } else {
+                testResponse.remove(infectious.getId());
+            }
+
+        }
+        return hasContact;
     }
 
     protected double[] initiialiseSymInfectionResponse() {
@@ -646,13 +651,7 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
                 num_with_sym[loc]++;
             }
         }
-        /*
-        System.out.println("t = " + t);
-        System.out.println("# at location: " + Arrays.toString(num_in_loc));
-        System.out.println("# infectious : " + Arrays.toString(num_infectious));
-        System.out.println("# symptomatic: " + Arrays.toString(num_with_sym));
-        System.out.println("# infected   : " + Arrays.toString(num_infected));
-         */
+        
         HashMap<List<Integer>, int[]> incidenceCollection = getIncidence_collection();
 
         double[][] r0_collection = new double[3][incidenceCollection.size()];
@@ -672,21 +671,6 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
             r0_collection_stat[i] = new DescriptiveStatistics(r0_collection[i]);
         }
 
-        /*
-        System.out.println(String.format("# infection events: %d", incidenceCollection.size()));
-        System.out.println(String.format("# successful tranmission per infection (household): %.2f (%.2f, %.2f)",
-                r0_collection_stat[0].getMean(),
-                r0_collection_stat[0].getPercentile(25),
-                r0_collection_stat[0].getPercentile(75)));
-        System.out.println(String.format("# successful tranmission per infection (non-household): %.2f (%.2f, %.2f)",
-                r0_collection_stat[1].getMean(),
-                r0_collection_stat[1].getPercentile(25),
-                r0_collection_stat[1].getPercentile(75)));
-        System.out.println(String.format("# successful tranmission per infection (all): %.2f (%.2f, %.2f)",
-                r0_collection_stat[2].getMean(),
-                r0_collection_stat[2].getPercentile(25),
-                r0_collection_stat[2].getPercentile(75)));
-         */
         csvOutput.print(t);
         for (int[] numArr : numStat) {
             for (int i = 0; i < num_in_loc.length; i++) {
@@ -764,6 +748,12 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
                 (int) (param[COVID19_Remote_Infection.PARAM_INFECTED_UNTIL_AGE]
                 - param[COVID19_Remote_Infection.PARAM_AGE_OF_EXPOSURE])));
 
+        if (Double.isFinite(param[COVID19_Remote_Infection.PARAM_IMMUMED_UNTIL_AGE])) {
+            pri.println(String.format("Become susceptible again after %d days since post-infection.",
+                    (int) (param[COVID19_Remote_Infection.PARAM_IMMUMED_UNTIL_AGE]
+                    - param[COVID19_Remote_Infection.PARAM_INFECTED_UNTIL_AGE])));
+        }
+
         pri.println(String.format("# within household = %d", householdMap.degreeOf(patientZero.getId())));
     }
 
@@ -773,8 +763,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         int[] popSize = (int[]) getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_POP_SIZE];
 
         pri.println("==================");
-        pri.println("Pop size : " + Arrays.toString(popSize));
-        pri.println("Household : ");
+        pri.println("Pop size: " + Arrays.toString(popSize));
+        pri.println("Household: ");
         ArrayList<ArrayList<Integer>> householdSizeRec = new ArrayList<>(popSize.length);
         for (int i = 0; i < popSize.length; i++) {
             householdSizeRec.add(new ArrayList<>());

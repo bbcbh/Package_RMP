@@ -21,8 +21,9 @@ import random.RandomGenerator;
  */
 public class COVID19_Remote_Infection extends AbstractInfectionWithPatientMapping {
 
-    public static final String[] INFECTION_STATE = new String[]{"Infected"};
+    public static final String[] INFECTION_STATE = new String[]{"Infected", "Immume"};
     public static final int STATUS_INFECTED = 0;
+    public static final int STATUS_IMMUNED = STATUS_INFECTED + 1;
 
     public static final int PARAM_R0_INFECTED = 0;
     public static final int PARAM_AGE_OF_EXPOSURE = PARAM_R0_INFECTED + 1;
@@ -31,26 +32,29 @@ public class COVID19_Remote_Infection extends AbstractInfectionWithPatientMappin
     public static final int PARAM_INFECTIOUS_END_AGE = PARAM_INFECTIOUS_START_AGE + 1;
     public static final int PARAM_SYMPTOM_START_AGE = PARAM_INFECTIOUS_END_AGE + 1;
     public static final int PARAM_SYMPTOM_END_AGE = PARAM_SYMPTOM_START_AGE + 1;
-    public static final int PARAM_LENGTH = PARAM_SYMPTOM_END_AGE + 1;
+    public static final int PARAM_IMMUMED_UNTIL_AGE = PARAM_SYMPTOM_END_AGE + 1;
+    public static final int PARAM_LENGTH = PARAM_IMMUMED_UNTIL_AGE + 1;
 
     private final double[] DEFAULT_RO_RAW = {1.5, 3.5};
-    // From Kucharski 2020, Kretzschmar (draft), James email
+    // From Kucharski 2020, Kretzschmar 2020, James email
     private final double[] DEFAULT_LATANT_DURATION = {3, 6};
     private final double[] DEFAULT_INCUBATION_DURATION = {6.4, 2.3};
     private final double[] DEFAULT_INFECTIOUS_DURATION = {10, 4};
     private final double[] DEFAULT_POST_INFECTIOUS_DURATION = {0, 10};
+    private final double[] DEFAULT_IMMUNE_DURATION = {Double.POSITIVE_INFINITY,0};
 
     private final double[][] DEF_DIST_VAR = {
         DEFAULT_RO_RAW, DEFAULT_LATANT_DURATION,
         DEFAULT_INCUBATION_DURATION, DEFAULT_INFECTIOUS_DURATION,
-        DEFAULT_POST_INFECTIOUS_DURATION};
+        DEFAULT_POST_INFECTIOUS_DURATION, DEFAULT_IMMUNE_DURATION};
 
     public static final int DIST_RO_RAW_INDEX = 0;
     public static final int DIST_LATENT_DUR_INDEX = DIST_RO_RAW_INDEX + 1;
     public static final int DIST_INCUBATION_DUR_INDEX = DIST_LATENT_DUR_INDEX + 1;
     public static final int DIST_INFECTIOUS_DUR_INDEX = DIST_INCUBATION_DUR_INDEX + 1;
     public static final int DIST_POST_INFECTIOUS_DUR_INDEX = DIST_INFECTIOUS_DUR_INDEX + 1;
-    public static final int DIST_TOTAL = DIST_POST_INFECTIOUS_DUR_INDEX + 1;
+    public static final int DIST_IMMUNE_DUR_INDEX = DIST_POST_INFECTIOUS_DUR_INDEX + 1;
+    public static final int DIST_TOTAL = DIST_IMMUNE_DUR_INDEX + 1;
 
     public COVID19_Remote_Infection(RandomGenerator RNG) {
         super(RNG);
@@ -68,16 +72,20 @@ public class COVID19_Remote_Infection extends AbstractInfectionWithPatientMappin
             distributions[DIST_INCUBATION_DUR_INDEX] = new WeibullDistribution(RNG, 3, 7.2); // Default
         }
         if (DEF_DIST_VAR[DIST_INFECTIOUS_DUR_INDEX][1] != 0) {
-            double[] var = generatedGammaParam(DEF_DIST_VAR[DIST_INFECTIOUS_DUR_INDEX]);                        
+            double[] var = super.generatedGammaParam(DEF_DIST_VAR[DIST_INFECTIOUS_DUR_INDEX]);                        
             distributions[DIST_INFECTIOUS_DUR_INDEX] = new GammaDistribution(RNG, var[0], 1/var[1]);
         }
         if (DEF_DIST_VAR[DIST_POST_INFECTIOUS_DUR_INDEX][1] != 0) {
             double[] var = DEF_DIST_VAR[DIST_POST_INFECTIOUS_DUR_INDEX];
             distributions[DIST_POST_INFECTIOUS_DUR_INDEX] = new UniformRealDistribution(RNG, var[0], var[1]);
         }
+        if (DEF_DIST_VAR[DIST_IMMUNE_DUR_INDEX][1] != 0) {
+            double[] var = DEF_DIST_VAR[DIST_IMMUNE_DUR_INDEX];
+            distributions[DIST_POST_INFECTIOUS_DUR_INDEX] = new UniformRealDistribution(RNG, var[0], var[1]);
+        }                        
 
-        storeDistributions(distributions, DEF_DIST_VAR);
-        this.setInfectionState(INFECTION_STATE);
+        super.storeDistributions(distributions, DEF_DIST_VAR);
+        super.setInfectionState(INFECTION_STATE);
 
     }
 
@@ -86,10 +94,15 @@ public class COVID19_Remote_Infection extends AbstractInfectionWithPatientMappin
         double[] param = getCurrentlyInfected().get(p.getId());
         if (param != null) {
             p.setTimeUntilNextStage(getInfectionIndex(), 1); // Check daily for now
-            if (p.getAge() >= param[PARAM_INFECTED_UNTIL_AGE]) {
+            if(p.getAge() >= param[PARAM_INFECTED_UNTIL_AGE]){
+                p.getInfectionStatus()[getInfectionIndex()] = STATUS_IMMUNED;                
+            }                        
+            if (p.getAge() >= param[PARAM_IMMUMED_UNTIL_AGE]) {
                 p.getInfectionStatus()[getInfectionIndex()] = AbstractIndividualInterface.INFECT_S;
                 getCurrentlyInfected().remove(p.getId());
             }
+            
+            
         }
         return 1;
     }
@@ -128,6 +141,10 @@ public class COVID19_Remote_Infection extends AbstractInfectionWithPatientMappin
         // Here assume symptom persist until infectious 
         param[PARAM_SYMPTOM_END_AGE] = Math.min(param[PARAM_INFECTED_UNTIL_AGE],
                 Math.max(param[PARAM_SYMPTOM_START_AGE], param[PARAM_INFECTIOUS_END_AGE]));
+        
+        // Immunity
+        sample = getRandomDistValue(DIST_IMMUNE_DUR_INDEX);
+        param[PARAM_IMMUMED_UNTIL_AGE] = param[PARAM_INFECTIOUS_END_AGE] + Math.round(sample);
 
         getCurrentlyInfected().put(target.getId(), param);
 
@@ -148,12 +165,14 @@ public class COVID19_Remote_Infection extends AbstractInfectionWithPatientMappin
 
     @Override
     public boolean couldTransmissInfection(AbstractIndividualInterface src, AbstractIndividualInterface target) {
-        return isInfectious(src) && !isInfected(target);
+        return isInfectious(src) && 
+                target.getInfectionStatus()[getInfectionIndex()] == AbstractIndividualInterface.INFECT_S;
     }
 
     @Override
     public boolean isInfected(AbstractIndividualInterface p) {
-        return p.getInfectionStatus()[getInfectionIndex()] != AbstractIndividualInterface.INFECT_S;
+        return p.getInfectionStatus()[getInfectionIndex()] != AbstractIndividualInterface.INFECT_S 
+                && p.getInfectionStatus()[getInfectionIndex()] != STATUS_IMMUNED;
 
     }
 

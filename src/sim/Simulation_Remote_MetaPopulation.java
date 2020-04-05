@@ -422,7 +422,7 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
             sim.setBaseDir(singleSetDir);
             sim.loadProperties(prop);
             sim.generateOneResultSet();
-            if (!arg[arg.length - 1].equals("-skipAnalysis")) {
+            if (!arg[arg.length - 1].contains("-skipAnalysis")) {
                 Run_Population_Remote_MetaPopulation_Pop_Analysis.popAnalysis(singleSetDir.getAbsolutePath());
             }
         }
