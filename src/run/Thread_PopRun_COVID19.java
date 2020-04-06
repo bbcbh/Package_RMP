@@ -45,6 +45,9 @@ class Thread_PopRun_COVID19 implements Runnable {
     public static final int THREAD_PARAM_TRIGGERED_TEST_RESPONSE = THREAD_PARAM_TRIGGERED_TEST_RATE + 1;
     public static final int THREAD_PARAM_TRIGGERED_SYM_RESPONSE = THREAD_PARAM_TRIGGERED_TEST_RESPONSE + 1;
     public static final int THREAD_PARAM_TRIGGERED_HOUSEHOLD_TESTING = THREAD_PARAM_TRIGGERED_SYM_RESPONSE + 1;
+    public static final int THREAD_PARAM_HOSUEHOLD_SIZE_DIST = THREAD_PARAM_TRIGGERED_HOUSEHOLD_TESTING + 1;
+    public static final int THREAD_PARAM_HOSUEHOLD_SPREAD_DIST = THREAD_PARAM_HOSUEHOLD_SIZE_DIST + 1;
+    public static final int THREAD_PARAM_NON_HOUSEHOLD_CONTACT_DIST = THREAD_PARAM_HOSUEHOLD_SPREAD_DIST + 1;
 
     public static final int TEST_STAT_ALL = 0;
     public static final int TEST_STAT_POS = 1;
@@ -74,7 +77,16 @@ class Thread_PopRun_COVID19 implements Runnable {
         // THREAD_PARAM_TRIGGERED_HOUSEHOLD_TESTING
         // Format: [triggerIndex][loc]{probability}
         // probability: {cumul_prob_1, response_1, cumul_prob_2, ...}
-        new double[][][]{},};
+        new double[][][]{},
+        // THREAD_PARAM_HOSUEHOLD_SIZE_DIST        
+        // Format: [loc]{cumul_proproption_of_pop_1,mean_household_size_1 , cumul_percent_of_pop_2 ...}
+        new float[][]{},
+        // THREAD_PARAM_HOSUEHOLD_SPREAD_DIST
+        // Format: [loc]{probabily at household_id_1,  probabily at household_id_2 ...}
+        new float[][]{},
+        // THREAD_PARAM_NON_HOUSEHOLD_CONTACT_DIST
+        // Format:[loc][cumul_proproption_of_contact_1, per_day_contact_rate_1 ...]
+        new float[][]{},};
 
     public static final String FILE_REGEX_OUTPUT = "output_%d.txt";
     public static final String FILE_REGEX_TEST_STAT = "testStat_%d.csv";
@@ -137,8 +149,6 @@ class Thread_PopRun_COVID19 implements Runnable {
 
         int[][] decomp = (int[][]) pop.getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_AGE_GENDER_COMPOSITION];
         float[][] awayFromHome = (float[][]) pop.getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_AWAY_FROM_HOME_BY_LOCATION];
-        double[][] householdSizeDist = (double[][]) pop.getFields()[Population_Remote_MetaPopulation_COVID19.FIELDS_REMOTE_METAPOP_COVID19_HOSUEHOLD_SIZE_DIST];
-        double[][] nonHouseholdContactDist = (double[][]) pop.getFields()[Population_Remote_MetaPopulation_COVID19.FIELDS_REMOTE_METAPOP_COVID19_NON_HOUSEHOLD_CONTACT_DIST];
 
         if (decomp == null || decomp.length == 0) {
             decomp = new int[popSize.length][];
@@ -160,26 +170,10 @@ class Thread_PopRun_COVID19 implements Runnable {
             pop.getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_AWAY_FROM_HOME_BY_LOCATION] = awayFromHome;
         }
 
-        if (householdSizeDist == null || householdSizeDist.length == 0) {
-            householdSizeDist = new double[popSize.length][];
-            for (int p = 0; p < popSize.length; p++) {
-                // Bailie and Wayte (2006)
-                householdSizeDist[p] = new double[]{0.67, 4.7, 1, 3.4};
-            }
-            pop.getFields()[Population_Remote_MetaPopulation_COVID19.FIELDS_REMOTE_METAPOP_COVID19_HOSUEHOLD_SIZE_DIST] = householdSizeDist;
-        }
-
-        if (nonHouseholdContactDist == null || nonHouseholdContactDist.length == 0) {
-            nonHouseholdContactDist = new double[popSize.length][];
-            for (int p = 0; p < popSize.length; p++) {
-                // From ABS 41590DO004_2014 General Social Survey, Summary Results, Australia, 2014
-                nonHouseholdContactDist[p] = popType[p] == 2 ? new double[]{0.037, 0, 0, 0.089, 1 / 90, 1 / 30, 0.248, 1 / 30, 1 / 7, 0.793, 1 / 7, 1, 1, 1, 1} : new double[]{0.041, 0, 0, 0.083, 1 / 90, 1 / 30, 0.245, 1 / 30, 1 / 7, 0.751, 1 / 7, 1, 1, 1, 1};
-            }
-            pop.getFields()[Population_Remote_MetaPopulation_COVID19.FIELDS_REMOTE_METAPOP_COVID19_NON_HOUSEHOLD_CONTACT_DIST] = nonHouseholdContactDist;
-        }
-
         pop.initialise();
-        pop.allolocateHosuehold();
+        pop.allolocateHosuehold((float[][]) getThreadParam()[THREAD_PARAM_HOSUEHOLD_SIZE_DIST],
+                (float[][]) getThreadParam()[THREAD_PARAM_HOSUEHOLD_SPREAD_DIST],
+                (float[][]) getThreadParam()[THREAD_PARAM_NON_HOUSEHOLD_CONTACT_DIST]);
 
         // Household stat
         pop.printHousholdStat(pri);

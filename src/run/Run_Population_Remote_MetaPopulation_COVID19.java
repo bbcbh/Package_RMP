@@ -22,7 +22,6 @@ import sim.SimulationInterface;
 import static sim.SimulationInterface.PROP_NUM_SIM_PER_SET;
 import static sim.SimulationInterface.PROP_NUM_SNAP;
 import static sim.SimulationInterface.PROP_SNAP_FREQ;
-import util.FileZipper;
 
 /**
  *
@@ -165,9 +164,8 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
 
                 File[] collection = baseDir.listFiles(new FileFilter() {
                     @Override
-                    public boolean accept(File pathname) {
-                        
-                        return pathname.getName().matches(regex.replaceAll("%d", "\\\\d"));
+                    public boolean accept(File pathname) {                        
+                        return pathname.getName().matches(regex.replaceAll("%d", "\\\\d+"));
                     }
                 });
 
