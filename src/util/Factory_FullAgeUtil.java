@@ -8,13 +8,13 @@ import person.AbstractIndividualInterface;
  */
 public class Factory_FullAgeUtil {
 
-    public final static int MAX_AGE = 65;
+    public final static int MAX_AGE = 80;
 
     public static PersonClassifier genFullAgeClassifier() {
         return new PersonClassifier() {
             @Override
             public int classifyPerson(AbstractIndividualInterface p) {
-                return Math.min((int) p.getAge() / AbstractIndividualInterface.ONE_YEAR_INT, MAX_AGE);
+                return Math.min((int) p.getAge() / AbstractIndividualInterface.ONE_YEAR_INT, MAX_AGE-1);
             }
 
             @Override

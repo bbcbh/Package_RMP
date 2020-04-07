@@ -1,16 +1,16 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package run;
 
 import infection.AbstractInfection;
 import infection.COVID19_Remote_Infection;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.ListIterator;
 import person.AbstractIndividualInterface;
 import person.Person_Remote_MetaPopulation;
 import population.AbstractFieldsArrayPopulation;
@@ -91,6 +91,8 @@ class Thread_PopRun_COVID19 implements Runnable {
     public static final String FILE_REGEX_OUTPUT = "output_%d.txt";
     public static final String FILE_REGEX_TEST_STAT = "testStat_%d.csv";
     public static final String FILE_REGEX_SNAP_STAT = "snapStat_%d.csv";
+    public static final String FILE_REGEX_POP_SNAP = "popSnap_%d_%d.csv";
+    public static final String FILE_REGEX_DIAG_PREVAL = "diag_prev_%d.csv";
 
     public Thread_PopRun_COVID19(int threadId, File baseDir, int numSnap, int snapFreq) throws FileNotFoundException {
         this(threadId, baseDir, numSnap, snapFreq, false);
@@ -103,7 +105,6 @@ class Thread_PopRun_COVID19 implements Runnable {
         this.numSnap = numSnap;
         this.snapFreq = snapFreq;
         this.printDebug = printDebug;
-
         this.full_AgeGrp_PersonClassifier = Factory_FullAgeUtil.genFullAgeClassifier();
 
     }
@@ -171,11 +172,19 @@ class Thread_PopRun_COVID19 implements Runnable {
         }
 
         pop.initialise();
-        pop.allolocateHosuehold((float[][]) getThreadParam()[THREAD_PARAM_HOSUEHOLD_SIZE_DIST],
+        pop.allolocateCoreHosuehold((float[][]) getThreadParam()[THREAD_PARAM_HOSUEHOLD_SIZE_DIST],
                 (float[][]) getThreadParam()[THREAD_PARAM_HOSUEHOLD_SPREAD_DIST],
                 (float[][]) getThreadParam()[THREAD_PARAM_NON_HOUSEHOLD_CONTACT_DIST]);
 
-        // Household stat
+        // Household stat (core)
+        pri.println("==================");
+        pri.println("Household Stat (Core)");
+        pop.printHousholdStat(pri);
+
+        // Household stat (total)
+        pop.allocateNonCoreHousehold();
+        pri.println("==================");
+        pri.println("Household Stat (All)");
         pop.printHousholdStat(pri);
 
         // Intitialise infection and patient zero
@@ -200,7 +209,7 @@ class Thread_PopRun_COVID19 implements Runnable {
 
         boolean priClose = true;
 
-        PrintWriter outputCSV, testingCSV;
+        PrintWriter outputCSV, testingCSV, popStatCSV;
         try {
             outputCSV = new PrintWriter(new File(baseDir, String.format(FILE_REGEX_SNAP_STAT, this.threadId)));
         } catch (FileNotFoundException ex) {
@@ -301,7 +310,7 @@ class Thread_PopRun_COVID19 implements Runnable {
                                                     }
 
                                                     if (householdTest) {
-                                                        AbstractIndividualInterface[] sameHousehold = pop.inSameHousehold(p);
+                                                        AbstractIndividualInterface[] sameHousehold = pop.inSameHousehold(p, null);
 
                                                         for (AbstractIndividualInterface sameHouseholdPerson : sameHousehold) {
                                                             Person_Remote_MetaPopulation rmpSameHousehold = (Person_Remote_MetaPopulation) sameHouseholdPerson;
@@ -398,6 +407,20 @@ class Thread_PopRun_COVID19 implements Runnable {
 
         outputCSV.close();
         testingCSV.close();
+
+        try {
+            // Printing end pop_stat file
+            popStatCSV = new PrintWriter(new File(baseDir, String.format(FILE_REGEX_POP_SNAP,
+                    this.threadId, getPop().getGlobalTime())));
+            pop.printPopulationSnapCSV(popStatCSV);
+            popStatCSV.close();
+            
+            CSV_Analaysis(baseDir, threadId, popSize.length);
+            
+        } catch (IOException ex) {
+            ex.printStackTrace(System.err);
+        }
+
         pri.close();
     }
 
@@ -458,5 +481,91 @@ class Thread_PopRun_COVID19 implements Runnable {
         }
         return testTriggerIndex;
     }
+
+    public static void CSV_Analaysis(File baseDir, int threadId, int numLoc) throws FileNotFoundException, IOException {
+        File snapStatCSV = new File(baseDir, String.format(FILE_REGEX_SNAP_STAT, threadId));
+        File testStatCSV = new File(baseDir, String.format(FILE_REGEX_TEST_STAT, threadId));
+        File diagPrevCSV = new File(baseDir, String.format(FILE_REGEX_DIAG_PREVAL, threadId));
+
+        ArrayList<ArrayList<float[]>> timePointsByLoc = new ArrayList<>(); // byLoc<float[]{time, number_of_positive_case, prevalence_at_time}
+
+        for (int i = 0; i < numLoc; i++) {
+            timePointsByLoc.add(new ArrayList<>());
+        }
+
+        String line, ent[];
+        BufferedReader reader;
+
+        reader = new BufferedReader(new FileReader(testStatCSV));
+        reader.readLine(); // Header row
+
+        int[] numPositiveDiagCumul = new int[numLoc];
+
+        while ((line = reader.readLine()) != null) {
+            ent = line.split(",");
+            for (int loc = 0; loc < numLoc; loc++) {
+                int numPos = Integer.parseInt(ent[loc + numLoc + 1]);
+                if (numPos > numPositiveDiagCumul[loc]) {
+                    float[] arrEnt = new float[]{
+                        Integer.parseInt(ent[0]), numPos, -1};
+                    timePointsByLoc.get(loc).add(arrEnt);
+                    numPositiveDiagCumul[loc] = numPos;
+                }
+            }
+        }
+
+        ListIterator[] iterator = new ListIterator[numLoc];
+        float[][] matchEntries = new float[numLoc][];
+        for (int loc = 0; loc < numLoc; loc++) {
+            iterator[loc] = timePointsByLoc.get(loc).listIterator();
+            matchEntries[loc] = (float[]) iterator[loc].next();
+        }
+
+        reader = new BufferedReader(new FileReader(snapStatCSV));        
+        reader.readLine(); // Header row
+
+        while ((line = reader.readLine()) != null) {
+            ent = line.split(",");
+            int time = Integer.parseInt(ent[0]);
+            for (int loc = 0; loc < numLoc; loc++) {
+                if ((int) matchEntries[loc][0] == time) {
+                    matchEntries[loc][2] = Float.parseFloat(ent[1 + numLoc + loc])
+                            / Float.parseFloat(ent[1 + loc]);
+
+                    if (iterator[loc].hasNext()) {
+                        matchEntries[loc] = (float[]) iterator[loc].next();
+                    }
+                }
+
+            }
+        }
+
+        PrintWriter wri = new PrintWriter(diagPrevCSV);
+        for (int loc = 0; loc < numLoc; loc++) {
+            wri.println("Loc " + loc);
+            StringBuilder timeLine = new StringBuilder("Time");
+            StringBuilder diagLine = new StringBuilder("# pos diag");
+            StringBuilder prevLine = new StringBuilder("Preval");
+
+            for (float[] matchEnt : timePointsByLoc.get(loc)) {
+                timeLine.append(',');
+                timeLine.append((int) matchEnt[0]);
+                diagLine.append(',');
+                diagLine.append((int) matchEnt[1]);
+                prevLine.append(',');
+                prevLine.append(matchEnt[2]);
+            }
+
+            wri.println(timeLine.toString());
+            wri.println(diagLine.toString());
+            wri.println(prevLine.toString());
+
+        }
+        
+        wri.close();
+
+    }
+    
+   
 
 }
