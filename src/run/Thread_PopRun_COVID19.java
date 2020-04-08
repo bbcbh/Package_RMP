@@ -48,10 +48,15 @@ class Thread_PopRun_COVID19 implements Runnable {
     public static final int THREAD_PARAM_HOSUEHOLD_SIZE_DIST = THREAD_PARAM_TRIGGERED_HOUSEHOLD_TESTING + 1;
     public static final int THREAD_PARAM_HOSUEHOLD_SPREAD_DIST = THREAD_PARAM_HOSUEHOLD_SIZE_DIST + 1;
     public static final int THREAD_PARAM_NON_HOUSEHOLD_CONTACT_DIST = THREAD_PARAM_HOSUEHOLD_SPREAD_DIST + 1;
+    public static final int THREAD_PARAM_METAPOP_LOCKDOWN_SETTING = THREAD_PARAM_NON_HOUSEHOLD_CONTACT_DIST + 1;
 
     public static final int TEST_STAT_ALL = 0;
     public static final int TEST_STAT_POS = 1;
     public static final int TEST_STAT_LENGTH = 2;
+
+    public static final int LOCKDOWN_NUM_INFECTED = 0;
+    public static final int LOCKDOWN_NUM_POSITIVE = LOCKDOWN_NUM_INFECTED + 1;
+    public static final int LOCKDOWN_DURATION = LOCKDOWN_NUM_POSITIVE + 1;
 
     Object[] threadParam = new Object[]{
         // THREAD_PARAM_TEST_TRIGGER
@@ -71,7 +76,8 @@ class Thread_PopRun_COVID19 implements Runnable {
         new double[][][]{},
         // THREAD_PARAM_TRIGGERED_SYM_RESPONSE
         // Format: [triggerIndex][k]{probability}
-        // k: 0 = adjustment to non-household contact, 1 = adjustment to household contact, 2 = adjustment to movement
+        // k: 0 = adjustment to non-household contact, 1 = adjustment to household contact, 
+        //    2 = adjustment to movement, 3 = seek test rate (per day)
         // probability: {cumul_prob_1, response_1, cumul_prob_2, ...}
         new double[][][]{},
         // THREAD_PARAM_TRIGGERED_HOUSEHOLD_TESTING
@@ -86,7 +92,10 @@ class Thread_PopRun_COVID19 implements Runnable {
         new float[][]{},
         // THREAD_PARAM_NON_HOUSEHOLD_CONTACT_DIST
         // Format:[loc][cumul_proproption_of_contact_1, per_day_contact_rate_1 ...]
-        new float[][]{},};
+        new float[][]{},
+        // THREAD_PARAM_METAPOP_LOCKDOWN_SETTING
+        // Format:{number_of_infected, number_of_postive_test, how long (or -1 if indefinite)
+        new int[]{},};
 
     public static final String FILE_REGEX_OUTPUT = "output_%d.txt";
     public static final String FILE_REGEX_TEST_STAT = "testStat_%d.csv";
@@ -244,7 +253,8 @@ class Thread_PopRun_COVID19 implements Runnable {
         StringBuilder triggerText = new StringBuilder();
 
         pop.printCSVOutputHeader(outputCSV);
-        pop.printCSVOutputEntry(outputCSV);
+        int[][] numStat = pop.generateInfectionStat();
+        pop.printCSVOutputEntry(outputCSV, numStat);
 
         // Print testingCSV header 
         testingCSV.print("Time");
@@ -266,6 +276,44 @@ class Thread_PopRun_COVID19 implements Runnable {
                     float[] testRate = triggeredTestRate[testTriggerIndex];
                     for (AbstractIndividualInterface p : pop.getPop()) {
                         Person_Remote_MetaPopulation rmp = (Person_Remote_MetaPopulation) p;
+
+                        if (Population_Remote_MetaPopulation_COVID19.RESPONSE_SYM_SEEK_TEST
+                                < triggeredSymResponse[testTriggerIndex].length && covid.hasSymptoms(p)) {
+                            double[] symSeekResponse = triggeredSymResponse[testTriggerIndex][Population_Remote_MetaPopulation_COVID19.RESPONSE_SYM_SEEK_TEST];
+
+                            int symRespIndex = 0;
+                            boolean correcIndex = symSeekResponse[symRespIndex] >= 1;
+                            double seekTestProb = 0;
+
+                            if (symSeekResponse[symRespIndex] < 1) {
+                                double pR = pop.getInfectionRNG().nextDouble();
+                                correcIndex = pR < symSeekResponse[symRespIndex];
+
+                                while (!correcIndex && (symRespIndex + 2) < symSeekResponse.length) {
+                                    symRespIndex += 2;
+                                    correcIndex = pR < symSeekResponse[symRespIndex];
+                                }
+                            }
+                            if (correcIndex) {
+                                seekTestProb = symSeekResponse[symRespIndex + 1];
+                            }
+
+                            if (pop.getInfectionRNG().nextDouble() < seekTestProb) {
+                                testing_stat_cumul[TEST_STAT_ALL][rmp.getHomeLocation()]++;
+                                testing_stat_cumul_all[TEST_STAT_ALL]++;
+                                test_stat_today[TEST_STAT_ALL]++;
+
+                                // Assume test 100% accurate
+                                positiveTestResponse(rmp, covid,
+                                        testTriggerIndex,
+                                        triggeredTestResponse,
+                                        triggetedHouseholdTestRate,
+                                        testing_stat_cumul, testing_stat_cumul_all, test_stat_today);
+
+                            }
+
+                        }
+
                         if (testRate[rmp.getHomeLocation()] > 0) {
                             float pTest = pop.getRNG().nextFloat();
                             float dailyRate = (float) (1 - Math.exp(Math.log(1 - testRate[rmp.getHomeLocation()])
@@ -276,71 +324,14 @@ class Thread_PopRun_COVID19 implements Runnable {
                                     testing_stat_cumul[TEST_STAT_ALL][rmp.getHomeLocation()]++;
                                     testing_stat_cumul_all[TEST_STAT_ALL]++;
                                     test_stat_today[TEST_STAT_ALL]++;
+
                                     if (covid.isInfected(p)) {
-                                        testing_stat_cumul[TEST_STAT_POS][rmp.getHomeLocation()]++;
-                                        testing_stat_cumul_all[TEST_STAT_POS]++;
-                                        test_stat_today[TEST_STAT_POS]++;
 
-                                        // Single response 
-                                        if (testTriggerIndex < triggeredTestResponse.length) {
-                                            setTriggeredPositiveTestResponse(rmp, triggeredTestResponse[testTriggerIndex]);
-                                        }
-
-                                        // Household test
-                                        if (testTriggerIndex < triggetedHouseholdTestRate.length) {
-                                            double[][] householdTestRateAll = triggetedHouseholdTestRate[testTriggerIndex];
-                                            if (rmp.getHomeLocation() < householdTestRateAll.length) {
-                                                double[] householdTestRateLoc = householdTestRateAll[rmp.getHomeLocation()];
-
-                                                if (householdTestRateLoc.length > 0) {
-                                                    int pIndex = 0;
-                                                    if (householdTestRateLoc.length > 2) {
-                                                        double pHT = pop.getInfectionRNG().nextDouble();
-                                                        for (int k = pIndex + 2; k < householdTestRateLoc.length
-                                                                && householdTestRateLoc[pIndex] >= pHT; k += 2) {
-                                                            pIndex = k;
-                                                        }
-                                                    }
-
-                                                    double householdTestRate = householdTestRateLoc[pIndex + 1];
-
-                                                    boolean householdTest = householdTestRate >= 1;
-                                                    if (householdTestRate < 1) {
-                                                        householdTest = pop.getInfectionRNG().nextDouble() < householdTestRate;
-                                                    }
-
-                                                    if (householdTest) {
-                                                        AbstractIndividualInterface[] sameHousehold = pop.inSameHousehold(p, null);
-
-                                                        for (AbstractIndividualInterface sameHouseholdPerson : sameHousehold) {
-                                                            Person_Remote_MetaPopulation rmpSameHousehold = (Person_Remote_MetaPopulation) sameHouseholdPerson;
-
-                                                            if (sameHouseholdPerson.getId() != p.getId()
-                                                                    && rmpSameHousehold.getHomeLocation() == pop.getCurrentLocation(rmpSameHousehold)) {
-                                                                testing_stat_cumul[TEST_STAT_ALL][rmpSameHousehold.getHomeLocation()]++;
-                                                                testing_stat_cumul_all[TEST_STAT_ALL]++;
-                                                                test_stat_today[TEST_STAT_ALL]++;
-
-                                                                if (covid.isInfected(rmpSameHousehold)) {
-                                                                    testing_stat_cumul[TEST_STAT_POS][rmp.getHomeLocation()]++;
-                                                                    testing_stat_cumul_all[TEST_STAT_POS]++;
-                                                                    test_stat_today[TEST_STAT_POS]++;
-
-                                                                    setTriggeredPositiveTestResponse(rmpSameHousehold,
-                                                                            triggeredTestResponse[testTriggerIndex]);
-
-                                                                }
-
-                                                            }
-
-                                                        }
-
-                                                    }
-                                                }
-
-                                            }
-
-                                        }
+                                        positiveTestResponse(rmp, covid,
+                                                testTriggerIndex,
+                                                triggeredTestResponse,
+                                                triggetedHouseholdTestRate,
+                                                testing_stat_cumul, testing_stat_cumul_all, test_stat_today);
 
                                     }
                                 }
@@ -383,11 +374,37 @@ class Thread_PopRun_COVID19 implements Runnable {
                             ageExp));
                 }
 
+                // Lock down
+                int[][] metapopStat = (int[][]) pop.getFields()[Population_Remote_MetaPopulation_COVID19.FIELDS_REMOTE_METAPOP_COVID19_META_POP_STAT];
+                int[] lockdownSetting = (int[]) getThreadParam()[THREAD_PARAM_METAPOP_LOCKDOWN_SETTING];
+                if (lockdownSetting.length > 0) {
+                    for (int loc = 0; loc < popSize.length; loc++) {
+                        // Only lockdown once
+                        if (metapopStat[loc][Population_Remote_MetaPopulation_COVID19.META_POP_STAT_LOCKDOWN_START] == -1) {
+                            boolean inLockdown = lockdownSetting[LOCKDOWN_NUM_INFECTED] > 0
+                                    && numStat[loc][Population_Remote_MetaPopulation_COVID19.NUM_STAT_NUM_INFECTED]
+                                    >= lockdownSetting[LOCKDOWN_NUM_INFECTED];
+
+                            inLockdown |= lockdownSetting[LOCKDOWN_NUM_POSITIVE] > 0
+                                    && testing_stat_cumul[TEST_STAT_POS][loc] >= lockdownSetting[LOCKDOWN_NUM_POSITIVE];
+
+                            if (inLockdown) {
+                                metapopStat[loc][Population_Remote_MetaPopulation_COVID19.META_POP_STAT_LOCKDOWN_START] = pop.getGlobalTime();
+                                if (lockdownSetting[LOCKDOWN_DURATION] > 0) {
+                                    metapopStat[loc][Population_Remote_MetaPopulation_COVID19.META_POP_STAT_LOCKDOWN_END]
+                                            = pop.getGlobalTime() + lockdownSetting[LOCKDOWN_DURATION];
+
+                                }
+                            }
+                        }
+                    }
+                }
+
                 pop.advanceTimeStep(1);
 
             }
 
-            pop.printCSVOutputEntry(outputCSV);
+            pop.printCSVOutputEntry(outputCSV, pop.generateInfectionStat());
 
             testingCSV.print(pop.getGlobalTime());
             for (int[] testing_stat_cumul_type : testing_stat_cumul) {
@@ -414,9 +431,9 @@ class Thread_PopRun_COVID19 implements Runnable {
                     this.threadId, getPop().getGlobalTime())));
             pop.printPopulationSnapCSV(popStatCSV);
             popStatCSV.close();
-            
+
             CSV_Analaysis(baseDir, threadId, popSize.length);
-            
+
         } catch (IOException ex) {
             ex.printStackTrace(System.err);
         }
@@ -424,7 +441,90 @@ class Thread_PopRun_COVID19 implements Runnable {
         pri.close();
     }
 
-    protected void setTriggeredPositiveTestResponse(Person_Remote_MetaPopulation rmp, double[][] default_test_resp) {
+    protected void positiveTestResponse(Person_Remote_MetaPopulation rmp,
+            COVID19_Remote_Infection covid,
+            int testTriggerIndex,
+            double[][][] triggeredTestResponse,
+            double[][][] triggetedHouseholdTestRate,
+            int[][] testing_stat_cumul,
+            int[] testing_stat_cumul_all,
+            int[] test_stat_today) {
+
+        testing_stat_cumul[TEST_STAT_POS][rmp.getHomeLocation()]++;
+        testing_stat_cumul_all[TEST_STAT_POS]++;
+        test_stat_today[TEST_STAT_POS]++;
+
+        int[][] metaPopStat
+                = ((int[][]) pop.getFields()[Population_Remote_MetaPopulation_COVID19.FIELDS_REMOTE_METAPOP_COVID19_META_POP_STAT]);
+
+        if (metaPopStat[pop.getCurrentLocation(rmp)][Population_Remote_MetaPopulation_COVID19.META_POP_STAT_FIRST_POS_TEST_AT] == -1) {
+            metaPopStat[pop.getCurrentLocation(rmp)][Population_Remote_MetaPopulation_COVID19.META_POP_STAT_FIRST_POS_TEST_AT]
+                    = pop.getGlobalTime();
+        }
+
+        // Single test response
+        if (testTriggerIndex < triggeredTestResponse.length) {
+            setTriggeredTestResponse(rmp, triggeredTestResponse[testTriggerIndex]);
+        }
+
+        // Household test
+        if (testTriggerIndex < triggetedHouseholdTestRate.length) {
+            double[][] householdTestRateAll = triggetedHouseholdTestRate[testTriggerIndex];
+            if (rmp.getHomeLocation() < householdTestRateAll.length) {
+                double[] householdTestRateLoc = householdTestRateAll[rmp.getHomeLocation()];
+
+                if (householdTestRateLoc.length > 0) {
+                    int pIndex = 0;
+                    if (householdTestRateLoc.length > 2) {
+                        double pHT = pop.getInfectionRNG().nextDouble();
+                        for (int k = pIndex + 2; k < householdTestRateLoc.length
+                                && householdTestRateLoc[pIndex] >= pHT; k += 2) {
+                            pIndex = k;
+                        }
+                    }
+
+                    double householdTestRate = householdTestRateLoc[pIndex + 1];
+
+                    boolean householdTest = householdTestRate >= 1;
+                    if (householdTestRate < 1) {
+                        householdTest = pop.getInfectionRNG().nextDouble() < householdTestRate;
+                    }
+
+                    if (householdTest) {
+                        AbstractIndividualInterface[] sameHousehold = pop.inSameHousehold(rmp, null);
+
+                        for (AbstractIndividualInterface sameHouseholdPerson : sameHousehold) {
+                            Person_Remote_MetaPopulation rmpSameHousehold = (Person_Remote_MetaPopulation) sameHouseholdPerson;
+
+                            if (sameHouseholdPerson.getId() != rmp.getId()
+                                    && rmpSameHousehold.getHomeLocation() == pop.getCurrentLocation(rmpSameHousehold)) {
+                                testing_stat_cumul[TEST_STAT_ALL][rmpSameHousehold.getHomeLocation()]++;
+                                testing_stat_cumul_all[TEST_STAT_ALL]++;
+                                test_stat_today[TEST_STAT_ALL]++;
+
+                                if (covid.isInfected(rmpSameHousehold)) {
+                                    testing_stat_cumul[TEST_STAT_POS][rmp.getHomeLocation()]++;
+                                    testing_stat_cumul_all[TEST_STAT_POS]++;
+                                    test_stat_today[TEST_STAT_POS]++;
+
+                                    setTriggeredTestResponse(rmpSameHousehold,
+                                            triggeredTestResponse[testTriggerIndex]);
+
+                                }
+
+                            }
+
+                        }
+
+                    }
+                }
+
+            }
+
+        }
+    }
+
+    protected void setTriggeredTestResponse(Person_Remote_MetaPopulation rmp, double[][] default_test_resp) {
         // Format: [triggerIndex]{ {valid_for_days}, {probability_for_k=0}, {probability_for_k=1} ...}
         double[] test_resp = pop.getTestResponse().get(rmp.getId());
 
@@ -447,6 +547,7 @@ class Thread_PopRun_COVID19 implements Runnable {
             }
         }
         pop.getTestResponse().put(rmp.getId(), test_resp);
+
     }
 
     protected int detectResponseTrigger(int testTriggerIndex,
@@ -521,13 +622,22 @@ class Thread_PopRun_COVID19 implements Runnable {
             matchEntries[loc] = (float[]) iterator[loc].next();
         }
 
-        reader = new BufferedReader(new FileReader(snapStatCSV));        
+        reader = new BufferedReader(new FileReader(snapStatCSV));
         reader.readLine(); // Header row
+
+        int[] firstInfectionAt = new int[numLoc];
+        Arrays.fill(firstInfectionAt, Integer.MAX_VALUE);
 
         while ((line = reader.readLine()) != null) {
             ent = line.split(",");
             int time = Integer.parseInt(ent[0]);
             for (int loc = 0; loc < numLoc; loc++) {
+
+                int infected = Integer.parseInt(ent[1 + numLoc * 3 + loc]);
+                if (infected > 0 && time < firstInfectionAt[loc]) {
+                    firstInfectionAt[loc] = time;
+                }
+
                 if ((int) matchEntries[loc][0] == time) {
                     matchEntries[loc][2] = Float.parseFloat(ent[1 + numLoc + loc])
                             / Float.parseFloat(ent[1 + loc]);
@@ -542,14 +652,14 @@ class Thread_PopRun_COVID19 implements Runnable {
 
         PrintWriter wri = new PrintWriter(diagPrevCSV);
         for (int loc = 0; loc < numLoc; loc++) {
-            wri.println("Loc " + loc);
-            StringBuilder timeLine = new StringBuilder("Time");
+            wri.println(String.format("Loc %d, First infection at global time, %d", loc, firstInfectionAt[loc]));
+            StringBuilder timeLine = new StringBuilder("Time since first infection: ");
             StringBuilder diagLine = new StringBuilder("# pos diag");
             StringBuilder prevLine = new StringBuilder("Preval");
 
             for (float[] matchEnt : timePointsByLoc.get(loc)) {
                 timeLine.append(',');
-                timeLine.append((int) matchEnt[0]);
+                timeLine.append((int) matchEnt[0] - firstInfectionAt[loc]);
                 diagLine.append(',');
                 diagLine.append((int) matchEnt[1]);
                 prevLine.append(',');
@@ -561,11 +671,9 @@ class Thread_PopRun_COVID19 implements Runnable {
             wri.println(prevLine.toString());
 
         }
-        
+
         wri.close();
 
     }
-    
-   
 
 }
