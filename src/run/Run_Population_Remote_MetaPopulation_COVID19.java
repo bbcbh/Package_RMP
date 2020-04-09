@@ -94,9 +94,11 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
             int threadOffset = pop.getFields().length + covid19.DIST_TOTAL;
             for (int f = threadOffset; f < Math.min(propModelInitStr.length, threadOffset + thread.getThreadParam().length); f++) {
                 if (propModelInitStr[f] != null) {
-                    int threadIndex = f - threadOffset;
+                    int threadIndex = f - threadOffset;                    
                     thread.getThreadParam()[threadIndex] = util.PropValUtils.propStrToObject(propModelInitStr[f],
                             thread.getThreadParam()[threadIndex].getClass());
+                    
+                    
                 }
 
             }

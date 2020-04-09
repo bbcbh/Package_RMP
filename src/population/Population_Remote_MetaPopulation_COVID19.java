@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 import org.apache.commons.math3.distribution.PoissonDistribution;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import person.AbstractIndividualInterface;
@@ -29,8 +30,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
     public static final int FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS = LENGTH_FIELDS_REMOTE_META_POP;
     public static final int FIELDS_REMOTE_METAPOP_COVID19_UNIQUE_HOUSEHOLD = FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS + 1;
     public static final int FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_HOUSEHOLD = FIELDS_REMOTE_METAPOP_COVID19_UNIQUE_HOUSEHOLD + 1;
-    public static final int FIELDS_REMOTE_METAPOP_COVID19_SYMPTOMATIC_RESPONSE = FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_HOUSEHOLD + 1;
-    public static final int FIELDS_REMOTE_METAPOP_COVID19_META_POP_STAT = FIELDS_REMOTE_METAPOP_COVID19_SYMPTOMATIC_RESPONSE + 1;
+    public static final int FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_QUARANTINE = FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_HOUSEHOLD + 1;
+    public static final int FIELDS_REMOTE_METAPOP_COVID19_META_POP_LOCKDOWN_SETTING = FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_QUARANTINE + 1;
 
     Object[] DEFAULT_FIELDS_REMOTE_METAPOP_COVID19 = {
         // FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS
@@ -40,20 +41,14 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         // Integer[loc]{list of household id}
         new Integer[][]{},
         // FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_HOUSEHOLD
-        // HashMap<person_id, household_id>
+        // HashMap<person_id, until_age>
         new HashMap<Integer, Integer>(),
-        // FIELDS_REMOTE_METAPOP_COVID19_SYMPTOMATIC_RESPONSE
-        // Format: [k] {probability}
-        // k: 0 = adjustment to non-household contact, 1 = adjustment to household contact, 2 = adjustment to movement
-        //    3 = seek test rate (per day) (not used in this level)
-        // probability: {cumul_prob_1, response_1, cumul_prob_2, ...}
-        new double[][]{},
-        // FIELDS_REMOTE_METAPOP_COVID19_META_POP_STAT
+        // FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_QUARANTINE
+        new HashMap<Integer, Integer>(),
+        // FIELDS_REMOTE_METAPOP_COVID19_META_POP_LOCKDOWN_SETTING
         // int[loc][k] 
-        // k: 0 = META_POP_STAT_FIRST_INFECTION_AT
-        //    1 = META_POP_STAT_FIRST_POS_TEST_AT 
-        //    2 = META_POP_STAT_ISOLATION_START
-        //    3 = META_POP_STAT_ISOLATION_END    
+        // k: 0 = META_POP_STAT_ISOLATION_START
+        //    1 = META_POP_STAT_ISOLATION_END    
         new int[][]{},};
 
     public static final int RELMAP_HOUSEHOLD = 0;
@@ -82,17 +77,31 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
     public static final int TEST_RESPONSE_VALID_UNTIL_AGE = RESPONSE_MOVEMENT + 1;
     public static final int TEST_RESPONSE_TOTAL = TEST_RESPONSE_VALID_UNTIL_AGE + 1;
 
-    public static final int META_POP_STAT_FIRST_INFECTION_AT = 0;
-    public static final int META_POP_STAT_FIRST_POS_TEST_AT = META_POP_STAT_FIRST_INFECTION_AT + 1;
-    public static final int META_POP_STAT_LOCKDOWN_START = META_POP_STAT_FIRST_POS_TEST_AT + 1;
+    private final transient HashSet<SingleRelationship> TEMP_EDGES = new HashSet<>();
+    
+    private final transient HashMap<Integer, Integer> testingRecord = new HashMap<>(); // Id, min age until next test
+    
+
+    // FIELDS_REMOTE_METAPOP_COVID19_META_POP_LOCKDOWN_SETTING
+    public static final int META_POP_STAT_LOCKDOWN_START = 0;
     public static final int META_POP_STAT_LOCKDOWN_END = META_POP_STAT_LOCKDOWN_START + 1;
     public static final int META_POP_STAT_LENGTH = META_POP_STAT_LOCKDOWN_END + 1;
 
+    // generateInfectionStat()
     public static final int NUM_STAT_NUM_IN_LOC = 0;
     public static final int NUM_STAT_NUM_INFECTIOUS = NUM_STAT_NUM_IN_LOC + 1;
     public static final int NUM_STAT_NUM_WITH_SYM = NUM_STAT_NUM_INFECTIOUS + 1;
     public static final int NUM_STAT_NUM_INFECTED = NUM_STAT_NUM_WITH_SYM + 1;
     public static final int NUM_STAT_NUM_LENGTH = NUM_STAT_NUM_INFECTED + 1;
+
+    // inSameHousehold
+    public static final int HOUSEHOLD_TYPE_CURRENT = 0;
+    public static final int HOUSEHOLD_TYPE_CORE = HOUSEHOLD_TYPE_CURRENT + 1;
+    public static final int HOUSEHOLD_TYPE_NON_CORE = HOUSEHOLD_TYPE_CORE + 1;
+    public static final int HOUSEHOLD_TYPE_TEMP = HOUSEHOLD_TYPE_NON_CORE + 1;
+    public static final int HOUSEHOLD_TYPE_LENGTH = HOUSEHOLD_TYPE_TEMP + 1;
+
+    private float[][] DEFAULT_AWAY_FROM_HOME_PROB = null;
 
     public Population_Remote_MetaPopulation_COVID19(long seed) {
         super(seed);
@@ -110,19 +119,26 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         return testResponse;
     }
 
+    public HashMap<Integer, double[]> getSymptomResponse() {
+        return symptomResponse;
+    }
+
     @Override
     protected int modelMaxAge() {
         return 80 * AbstractIndividualInterface.ONE_YEAR_INT;
     }
 
-    private Integer[] inSameHouseholdAs(AbstractIndividualInterface p,
-            HashSet<SingleRelationship> tempEdges) {
+    public HashMap<Integer, Integer> getTestingRecord() {
+        return testingRecord;
+    }    
+    
+    private Integer[] currentlyInSameHouseholdAs(AbstractIndividualInterface p) {
 
         RelationshipMap housholdMap = getRelMap()[RELMAP_HOUSEHOLD];
         HashMap<Integer, Integer> currentlyAtHouseholdMap
                 = (HashMap<Integer, Integer>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_HOUSEHOLD];
 
-        assignCurrentlyAtHousehold(p, tempEdges);
+        assignCurrentlyAtHousehold(p);
 
         if (housholdMap.containsVertex(p.getId())) {
 
@@ -139,9 +155,9 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
             for (SingleRelationship e : housholdMap.edgesOf(householdId)) {
                 int candidateId = e.getLinksValues()[0] == householdId
-                        ? e.getLinksValues()[1] : e.getLinksValues()[0];
-
-                assignCurrentlyAtHousehold(getLocalData().get(candidateId), tempEdges);
+                        ? e.getLinksValues()[1] : e.getLinksValues()[0];                
+                
+                assignCurrentlyAtHousehold(getLocalData().get(candidateId));
 
                 if (householdId.equals(currentlyAtHouseholdMap.get(candidateId))) {
                     resList.add(candidateId);
@@ -155,13 +171,62 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         }
     }
 
-    public AbstractIndividualInterface[] inSameHousehold(AbstractIndividualInterface p, HashSet<SingleRelationship> tempEdges) {
-        Integer[] res = inSameHouseholdAs(p, tempEdges);
-        AbstractIndividualInterface[] member = new AbstractIndividualInterface[res.length];
-        for (int i = 0; i < res.length; i++) {
-            member[i] = getLocalData().get(res[i]);
+    public AbstractIndividualInterface[][] currentlyInSameHouseholdAsByType(AbstractIndividualInterface p) {
+        AbstractIndividualInterface[][] res = new AbstractIndividualInterface[HOUSEHOLD_TYPE_LENGTH][];
+
+        LinkedList<AbstractIndividualInterface> current = new LinkedList<>();
+        LinkedList<AbstractIndividualInterface> core = new LinkedList<>();
+        LinkedList<AbstractIndividualInterface> non_core = new LinkedList<>();
+        LinkedList<AbstractIndividualInterface> temp = new LinkedList<>();
+
+        RelationshipMap householdMap = getRelMap()[RELMAP_HOUSEHOLD];
+        HashMap<Integer, Integer> currentlyAtHouseholdMap
+                = (HashMap<Integer, Integer>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_HOUSEHOLD];
+        HashMap<Integer, float[]> contactOption = (HashMap<Integer, float[]>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS];
+
+        assignCurrentlyAtHousehold(p);
+
+        if (householdMap.containsVertex(p.getId())) {
+            Set<SingleRelationship> houseIndexSet = householdMap.edgesOf(p.getId());
+            for (SingleRelationship houseRel : houseIndexSet) {
+                int houseIndex = houseRel.getLinksValues()[0] == p.getId()
+                        ? houseRel.getLinksValues()[1] : houseRel.getLinksValues()[0];
+
+                Set<SingleRelationship> memberSet = householdMap.edgesOf(houseIndex);
+                for (SingleRelationship memRel : memberSet) {
+                    int memberId = memRel.getLinksValues()[0] == houseIndex
+                            ? memRel.getLinksValues()[1] : memRel.getLinksValues()[0];
+
+                    if (memberId != p.getId()) {
+                        AbstractIndividualInterface member = getLocalData().get(memberId);
+                        assignCurrentlyAtHousehold(member);
+                        if (houseIndex == currentlyAtHouseholdMap.get(p.getId())) {
+                            if (houseIndex == currentlyAtHouseholdMap.get(memberId)) {
+                                current.add(member);
+                            } else {
+                                if (houseIndex == contactOption.get(memberId)[CONTACT_OPTIONS_CORE_HOUSEHOLD_ID]) {
+                                    core.add(member);
+                                } else {
+                                    if (TEMP_EDGES.contains(houseRel)) {
+                                        temp.add(member);
+                                    } else {
+                                        non_core.add(member);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
-        return member;
+
+        res[HOUSEHOLD_TYPE_CURRENT] = current.toArray(new AbstractIndividualInterface[current.size()]);
+        res[HOUSEHOLD_TYPE_CORE] = core.toArray(new AbstractIndividualInterface[core.size()]);
+        res[HOUSEHOLD_TYPE_NON_CORE] = non_core.toArray(new AbstractIndividualInterface[non_core.size()]);
+        res[HOUSEHOLD_TYPE_TEMP] = temp.toArray(new AbstractIndividualInterface[temp.size()]);
+
+        return res;
+
     }
 
     public void allolocateCoreHosuehold(float[][] householdSizeDistByLoc,
@@ -345,8 +410,7 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         boolean moving = true;
 
         if (((MoveablePersonInterface) person).getHomeLocation() != locId) {
-
-            int[][] metapopStat = (int[][]) getFields()[FIELDS_REMOTE_METAPOP_COVID19_META_POP_STAT];
+            int[][] metapopStat = (int[][]) getFields()[FIELDS_REMOTE_METAPOP_COVID19_META_POP_LOCKDOWN_SETTING];
 
             moving = metapopStat[locId][META_POP_STAT_LOCKDOWN_START] != -1
                     && metapopStat[locId][META_POP_STAT_LOCKDOWN_START] >= getGlobalTime()
@@ -398,15 +462,35 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         HashMap<Integer, Integer> currentlyInHousehold
                 = (HashMap<Integer, Integer>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_HOUSEHOLD];
 
+        RelationshipMap householdMap = getRelMap()[RELMAP_HOUSEHOLD];
+
+        // Clear previous household record
         currentlyInHousehold.clear();
 
+        // Remove temp edges from previous turn
+        for (SingleRelationship rel : TEMP_EDGES) {
+            householdMap.removeEdge(rel);
+        }
+        TEMP_EDGES.clear();
+
+        int[][] metapopStat = (int[][]) getFields()[FIELDS_REMOTE_METAPOP_COVID19_META_POP_LOCKDOWN_SETTING];
+
+        for (int loc = 0; loc < ((int[]) getFields()[FIELDS_REMOTE_METAPOP_POP_SIZE]).length; loc++) {
+            if (metapopStat[loc][META_POP_STAT_LOCKDOWN_START] != -1
+                    && metapopStat[loc][META_POP_STAT_LOCKDOWN_START] == getGlobalTime()) {
+                ((float[][]) getFields()[FIELDS_REMOTE_METAPOP_AWAY_FROM_HOME_BY_LOCATION])[loc]
+                        = new float[((float[][]) getFields()[FIELDS_REMOTE_METAPOP_AWAY_FROM_HOME_BY_LOCATION])[loc].length];
+
+            } else if (metapopStat[loc][META_POP_STAT_LOCKDOWN_START] != -1
+                    && metapopStat[loc][META_POP_STAT_LOCKDOWN_START] >= getGlobalTime()
+                    && (metapopStat[loc][META_POP_STAT_LOCKDOWN_END] >= getGlobalTime()
+                    || metapopStat[loc][META_POP_STAT_LOCKDOWN_END] != -1)) {
+                ((float[][]) getFields()[FIELDS_REMOTE_METAPOP_AWAY_FROM_HOME_BY_LOCATION])[loc]
+                        = Arrays.copyOf(DEFAULT_AWAY_FROM_HOME_PROB[loc], DEFAULT_AWAY_FROM_HOME_PROB[loc].length);
+            }
+        }
+
         super.advanceTimeStep(deltaT);
-
-        double[][] sym_infect_response = (double[][]) getFields()[FIELDS_REMOTE_METAPOP_COVID19_SYMPTOMATIC_RESPONSE];
-
-        HashSet<SingleRelationship> tempEdges = new HashSet<>();
-
-        RelationshipMap householdMap = getRelMap()[RELMAP_HOUSEHOLD];
 
         for (AbstractIndividualInterface p : getPop()) {
 
@@ -417,29 +501,10 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
             currentlyAt.get(loc).add(p);
 
             if (covid19.isInfectious(p)) {
-                currentlyInfectious.add(p);
-                if (((int[][]) getFields()[FIELDS_REMOTE_METAPOP_COVID19_META_POP_STAT])[loc][META_POP_STAT_FIRST_INFECTION_AT] == -1) {
-                    ((int[][]) getFields()[FIELDS_REMOTE_METAPOP_COVID19_META_POP_STAT])[loc][META_POP_STAT_FIRST_INFECTION_AT]
-                            = getGlobalTime();
-                }
+                currentlyInfectious.add(p);                
             }
 
-            //assignCurrentlyAtHousehold(p, tempEdges);
-            if (sym_infect_response.length > 0) {
-                if (covid19.isInfected(p)) {
-                    double[] infectParam = covid19.getCurrentlyInfected().get(p.getId());
-
-                    // Symptom just appeared
-                    if (infectParam[COVID19_Remote_Infection.PARAM_SYMPTOM_START_AGE] == (int) p.getAge()) {
-                        double[] sym_resp = symptomResponse.get(p.getId());
-                        if (sym_resp == null) {
-                            sym_resp = initiialiseSymInfectionResponse();
-                            symptomResponse.put(p.getId(), sym_resp);
-                        }
-                    }
-                }
-            }
-
+            //assignCurrentlyAtHousehold(p);            
         }
         // Transmission
         for (AbstractIndividualInterface infectious : currentlyInfectious) {
@@ -458,10 +523,12 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
                 ent = incidence_collection.get(key);
             }
 
+            assignCurrentlyAtHousehold(infectious);
+
             boolean hasHouseholdContact = allowContact(covid19, infectious, RESPONSE_ADJ_HOUSEHOLD_CONTACT);
             boolean hasNonHouseholdContact = allowContact(covid19, infectious, RESPONSE_ADJ_NON_HOUSEHOLD_CONTACT);
 
-            Integer[] sameHousehold = inSameHouseholdAs(infectious, tempEdges);
+            Integer[] sameHousehold = currentlyInSameHouseholdAs(infectious);
             int infectiousLoc = getCurrentLocation(infectious);
 
             // Infecting housefold 
@@ -521,79 +588,103 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
             }
         }
 
-        // Remove temp edges
-        for (SingleRelationship rel : tempEdges) {
-            householdMap.removeEdge(rel);
-        }
-
     }
 
-    protected void assignCurrentlyAtHousehold(AbstractIndividualInterface p, HashSet<SingleRelationship> tempEdges) {
+    protected void assignCurrentlyAtHousehold(AbstractIndividualInterface p) {
 
         HashMap<Integer, Integer> currentlyInHousehold
                 = (HashMap<Integer, Integer>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_HOUSEHOLD];
 
+        HashSet<SingleRelationship> tempEdges = TEMP_EDGES;
+
+        Integer inQuarantine = inQuarantineUntil(p);
+
         if (!currentlyInHousehold.containsKey(p.getId())) {
+            if (inQuarantine != null) {
+                movePerson(p, ((Person_Remote_MetaPopulation) p).getHomeLocation(), -1);
+                currentlyInHousehold.put(p.getId(), 
+                        (int) ((HashMap<Integer, float[]>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS]).get(p.getId())
+                                [CONTACT_OPTIONS_CORE_HOUSEHOLD_ID]);
+                
+            } else {
+                int loc = getCurrentLocation(p);
+                RelationshipMap householdMap = getRelMap()[RELMAP_HOUSEHOLD];
+                HashMap<Integer, float[]> contactOptions
+                        = (HashMap<Integer, float[]>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS];
 
-            int loc = getCurrentLocation(p);
-            RelationshipMap householdMap = getRelMap()[RELMAP_HOUSEHOLD];
-            HashMap<Integer, float[]> contactOptions
-                    = (HashMap<Integer, float[]>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS];
+                boolean requireTempEdge = true;
 
-            boolean requireTempEdge = true;
-
-            if (loc == ((MoveablePersonInterface) p).getHomeLocation()) {
-                float[] contactOptionsEnt = contactOptions.get(p.getId());
-                float pHouse = getRNG().nextFloat();
-                int pHouseIndex = CONTACT_OPTIONS_CORE_HOUSEHOLD_PROB;
-                while (pHouseIndex + 1 < contactOptionsEnt.length
-                        && pHouse >= contactOptionsEnt[pHouseIndex]) {
-                    pHouseIndex += 2;
+                if (loc == ((MoveablePersonInterface) p).getHomeLocation()) {
+                    float[] contactOptionsEnt = contactOptions.get(p.getId());
+                    float pHouse = getRNG().nextFloat();
+                    int pHouseIndex = CONTACT_OPTIONS_CORE_HOUSEHOLD_PROB;
+                    while (pHouseIndex + 1 < contactOptionsEnt.length
+                            && pHouse >= contactOptionsEnt[pHouseIndex]) {
+                        pHouseIndex += 2;
+                    }
+                    if (pHouseIndex + 1 < contactOptionsEnt.length) {
+                        currentlyInHousehold.put(p.getId(), (int) contactOptionsEnt[pHouseIndex + 1]);
+                        requireTempEdge = false;
+                    } else {
+                        // Sproadic
+                        requireTempEdge = true;
+                    }
                 }
-                if (pHouseIndex + 1 < contactOptionsEnt.length) {
-                    currentlyInHousehold.put(p.getId(), (int) contactOptionsEnt[pHouseIndex + 1]);
-                    requireTempEdge = false;
-                } else {
-                    // Sproadic
-                    requireTempEdge = true;
-                }
-            }
-            if (requireTempEdge) {
-                Integer[] household_at_loc = ((Integer[][]) getFields()[FIELDS_REMOTE_METAPOP_COVID19_UNIQUE_HOUSEHOLD])[loc];
-                household_at_loc = Arrays.copyOf(household_at_loc, household_at_loc.length);
+                if (requireTempEdge && tempEdges != null) {
+                    Integer[] household_at_loc = ((Integer[][]) getFields()[FIELDS_REMOTE_METAPOP_COVID19_UNIQUE_HOUSEHOLD])[loc];
+                    household_at_loc = Arrays.copyOf(household_at_loc, household_at_loc.length);
 
-                int validOption = household_at_loc.length;
+                    int validOption = household_at_loc.length;
 
-                int possibleHouseholdIndex = getRNG().nextInt(validOption);
-                int possibleHousehold = household_at_loc[possibleHouseholdIndex];
+                    int possibleHouseholdIndex = getRNG().nextInt(validOption);
+                    int possibleHousehold = household_at_loc[possibleHouseholdIndex];
 
-                while (validOption > 0 && householdMap.containsEdge(possibleHousehold, p.getId())) {
-                    validOption--;
-                    household_at_loc[possibleHouseholdIndex] = household_at_loc[validOption];
-                    household_at_loc[validOption] = possibleHousehold;
+                    while (validOption > 0 && householdMap.containsEdge(possibleHousehold, p.getId())) {
+                        validOption--;
+                        household_at_loc[possibleHouseholdIndex] = household_at_loc[validOption];
+                        household_at_loc[validOption] = possibleHousehold;
 
-                    possibleHouseholdIndex = getRNG().nextInt(validOption);
-                    possibleHousehold = household_at_loc[possibleHouseholdIndex];
-                }
+                        possibleHouseholdIndex = getRNG().nextInt(validOption);
+                        possibleHousehold = household_at_loc[possibleHouseholdIndex];
+                    }
 
-                SingleRelationship tempEdge = new SingleRelationshipTimeStamp(
-                        new Integer[]{possibleHousehold, p.getId()});
+                    SingleRelationship tempEdge = new SingleRelationshipTimeStamp(
+                            new Integer[]{possibleHousehold, p.getId()});
 
-                householdMap.addEdge(possibleHousehold, p.getId(), tempEdge);
+                    householdMap.addEdge(possibleHousehold, p.getId(), tempEdge);
 
-                currentlyInHousehold.put(p.getId(), possibleHousehold);
+                    currentlyInHousehold.put(p.getId(), possibleHousehold);
 
-                if (tempEdges != null) {
                     tempEdges.add(tempEdge);
-                }
 
+                }
             }
         }
     }
 
+    public Integer inQuarantineUntil(AbstractIndividualInterface p) {
+        HashMap<Integer, Integer> quarantineMap
+                = (HashMap<Integer, Integer>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_QUARANTINE];
+        Integer inQuantineUntil = quarantineMap.get(p.getId());
+        if (inQuantineUntil != null) {
+            if (p.getAge() >= inQuantineUntil) {
+                quarantineMap.remove(p.getId());
+                inQuantineUntil = null;
+            } else {
+                if (getCurrentLocation(p) != ((Person_Remote_MetaPopulation) p).getHomeLocation()) {
+                    movePerson(p, ((Person_Remote_MetaPopulation) p).getHomeLocation(), -1);
+                }
+
+            }
+        }
+
+        return inQuantineUntil;
+    }
+
     protected boolean allowContact(COVID19_Remote_Infection covid19,
             AbstractIndividualInterface infectious, int contactType) {
-        boolean hasContact = true;
+        boolean hasContact = inQuarantineUntil(infectious) == null;
+
         if (covid19.hasSymptoms(infectious) && symptomResponse.containsKey(infectious.getId())) {
             double[] sym_resp = symptomResponse.get(infectious.getId());
 
@@ -619,12 +710,12 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
             }
 
         }
+
         return hasContact;
     }
 
-    protected double[] initiialiseSymInfectionResponse() {
+    public double[] initiialiseSymInfectionResponse(double[][] sym_infect_response) {
         double[] sym_resp = new double[SYM_RESPONSE_TOTAL];
-        double[][] sym_infect_response = (double[][]) getFields()[FIELDS_REMOTE_METAPOP_COVID19_SYMPTOMATIC_RESPONSE];
         Arrays.fill(sym_resp, 1);
 
         for (int r = 0; r < sym_infect_response.length; r++) {
@@ -634,13 +725,16 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
                         // Do nothing
                         break;
                     default:
-                        double pR = getInfectionRNG().nextDouble();
                         int index = 0;
-                        while (index + 1 < sym_infect_response[r].length) {
-                            if (pR < sym_infect_response[r][index]) {
-                                sym_resp[r] = sym_infect_response[r][index + 1];
+                        sym_resp[r] = sym_infect_response[r][index + 1];
+                        if (sym_infect_response[r].length > 1) {
+                            double pR = getInfectionRNG().nextDouble();
+                            while (index + 1 < sym_infect_response[r].length) {
+                                if (pR < sym_infect_response[r][index]) {
+                                    sym_resp[r] = sym_infect_response[r][index + 1];
+                                }
+                                index += 2;
                             }
-                            index += 2;
                         }
                         break;
 
@@ -774,6 +868,15 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
             totalPopSize += popSizes[i];
         }
 
+        // Initialise default away from home location
+        DEFAULT_AWAY_FROM_HOME_PROB = Arrays.copyOf((float[][]) getFields()[FIELDS_REMOTE_METAPOP_AWAY_FROM_HOME_BY_LOCATION],
+                ((float[][]) getFields()[FIELDS_REMOTE_METAPOP_AWAY_FROM_HOME_BY_LOCATION]).length);
+
+        for (int loc = 0; loc < DEFAULT_AWAY_FROM_HOME_PROB.length; loc++) {
+            float[] src = ((float[][]) getFields()[FIELDS_REMOTE_METAPOP_AWAY_FROM_HOME_BY_LOCATION])[loc];
+            DEFAULT_AWAY_FROM_HOME_PROB[loc] = Arrays.copyOf(src, src.length);
+        }
+
         AbstractIndividualInterface[] pop = new AbstractIndividualInterface[totalPopSize];
 
         for (int locId = 0; locId < popSizes.length; locId++) {
@@ -868,7 +971,7 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         for (int loc = 0; loc < popSizes.length; loc++) {
             Arrays.fill(metaPopStat[loc], -1);
         }
-        getFields()[FIELDS_REMOTE_METAPOP_COVID19_META_POP_STAT] = metaPopStat;
+        getFields()[FIELDS_REMOTE_METAPOP_COVID19_META_POP_LOCKDOWN_SETTING] = metaPopStat;
 
     }
 
@@ -1105,7 +1208,7 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
             wri.print(currentHouseholdIsSet);
 
             if (!currentHouseholdIsSet) {
-                assignCurrentlyAtHousehold(p, null);
+                assignCurrentlyAtHousehold(p);
             }
 
             // CurrentHousehold
