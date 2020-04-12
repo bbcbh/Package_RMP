@@ -4,7 +4,6 @@ import infection.AbstractInfection;
 import infection.COVID19_Remote_Infection;
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileFilter;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
@@ -726,6 +725,7 @@ class Thread_PopRun_COVID19 implements Runnable {
         wri.close();
 
     }
+
     
 
 }

@@ -2,15 +2,23 @@ package run;
 
 import infection.AbstractInfection;
 import infection.COVID19_Remote_Infection;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileFilter;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Enumeration;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 import population.Population_Remote_MetaPopulation_COVID19;
 import sim.SimulationInterface;
@@ -23,6 +31,54 @@ import static sim.SimulationInterface.PROP_SNAP_FREQ;
  * @author Ben Hui
  */
 public class Run_Population_Remote_MetaPopulation_COVID19 {
+
+    public static void decodePrevalencebyLoc(File basedir,
+            int numPop, int timeSteps) throws FileNotFoundException, IOException, NumberFormatException {
+
+        Pattern pattern = Pattern.compile(Thread_PopRun_COVID19.FILE_REGEX_SNAP_STAT.replaceAll("%d", "(\\\\d+)"));
+        ZipFile snapZip = new ZipFile(new File(basedir, Thread_PopRun_COVID19.FILE_REGEX_SNAP_STAT.replaceAll("%d", "All") + ".zip"));
+        Enumeration<? extends ZipEntry> zipEntryEnum = snapZip.entries();
+
+        int numSim = snapZip.size();
+
+        String line;
+        float[][][] prevalEnt = new float[numPop][timeSteps][numSim];
+
+        while (zipEntryEnum.hasMoreElements()) {
+            ZipEntry zipEnt = zipEntryEnum.nextElement();
+            Matcher m = pattern.matcher(zipEnt.getName());
+            if (m.matches()) {
+                int simIndex = Integer.parseInt(m.group(1));
+                try (final BufferedReader reader = new BufferedReader(new InputStreamReader(snapZip.getInputStream(zipEnt)))) {
+                    int lineNum = 0;
+                    while ((line = reader.readLine()) != null) {
+                        if (lineNum != 0 && line.length() > 0) {
+                            String[] lineEnt = line.split(",");
+                            int t = Integer.parseInt(lineEnt[0]);
+                            for (int p = 0; p < numPop; p++) {
+                                prevalEnt[p][t][simIndex] = Float.parseFloat(lineEnt[p + numPop + 1]) / Float.parseFloat(lineEnt[p + 1]);
+                            }
+                        }
+                        lineNum++;
+                    }
+                }
+            }
+        }
+        PrintWriter[] pri = new PrintWriter[numPop];
+        for (int p = 0; p < numPop; p++) {
+            pri[p] = new PrintWriter(new File(basedir, String.format("Prevalence_loc_%d.csv", p)));
+            pri[p].println("Time, Prevalence by sim");
+            for (int t = 0; t < prevalEnt[p].length; t++) {
+                pri[p].print(t);
+                for (int s = 0; s < prevalEnt[p][t].length; s++) {
+                    pri[p].print(',');
+                    pri[p].print(prevalEnt[p][t][s]);
+                }
+                pri[p].println();
+            }
+            pri[p].close();
+        }
+    }
 
     protected final File baseDir;
     protected final String[] propModelInitStr;
@@ -41,6 +97,7 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
         int numSnap = (int) propVal[PROP_NUM_SNAP];
         int snapFreq = (int) propVal[PROP_SNAP_FREQ];
         int numProcess = Math.min((int) propVal[SimulationInterface.PROP_USE_PARALLEL], Runtime.getRuntime().availableProcessors());
+        int[] popSize = null;
 
         random.MersenneTwisterRandomGenerator rng = new random.MersenneTwisterRandomGenerator(2251913970037127827l);
 
@@ -94,13 +151,15 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
             int threadOffset = pop.getFields().length + covid19.DIST_TOTAL;
             for (int f = threadOffset; f < Math.min(propModelInitStr.length, threadOffset + thread.getThreadParam().length); f++) {
                 if (propModelInitStr[f] != null) {
-                    int threadIndex = f - threadOffset;                    
+                    int threadIndex = f - threadOffset;
                     thread.getThreadParam()[threadIndex] = util.PropValUtils.propStrToObject(propModelInitStr[f],
                             thread.getThreadParam()[threadIndex].getClass());
-                    
-                    
-                }
 
+                }
+            }
+
+            if (popSize == null) {
+                popSize = (int[]) pop.getFields()[Population_Remote_MetaPopulation_COVID19.FIELDS_REMOTE_METAPOP_POP_SIZE];
             }
 
             if (numProcess <= 1) {
@@ -114,7 +173,7 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
                     executor.submit(thread);
                     numInExe++;
                 } else {
-                    System.out.println(String.format("Thread #%d skipped as output file %s of size %d already present.", 
+                    System.out.println(String.format("Thread #%d skipped as output file %s of size %d already present.",
                             thread.getThreadId(), statFile.getName(), statFile.length()));
                 }
 
@@ -156,15 +215,13 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
                 Thread_PopRun_COVID19.FILE_REGEX_SNAP_STAT,
                 Thread_PopRun_COVID19.FILE_REGEX_TEST_STAT,
                 Thread_PopRun_COVID19.FILE_REGEX_POP_SNAP,
-                Thread_PopRun_COVID19.FILE_REGEX_DIAG_PREVAL,
-                    
-            };
+                Thread_PopRun_COVID19.FILE_REGEX_DIAG_PREVAL,};
 
             for (String regex : file_regex) {
 
                 File[] collection = baseDir.listFiles(new FileFilter() {
                     @Override
-                    public boolean accept(File pathname) {                        
+                    public boolean accept(File pathname) {
                         return pathname.getName().matches(regex.replaceAll("%d", "\\\\d+"));
                     }
                 });
@@ -203,6 +260,27 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
 
         }
 
+        if (popSize != null) {
+            Run_Population_Remote_MetaPopulation_COVID19.decodePrevalencebyLoc(baseDir, popSize.length, numSnap * snapFreq);
+        }
+
     }
 
+    /*
+    public static void main(String[] arg) throws FileNotFoundException, IOException {
+        File baseDir = new File("C:\\Users\\bhui\\OneDrive - UNSW\\RMP\\Covid19\\COVID19_GenResults\\CI_CT_CQ_100");
+
+        File[] dir = baseDir.listFiles(new FileFilter() {
+            @Override
+            public boolean accept(File pathname) {
+                return pathname.isDirectory();
+            }
+        });
+
+        for (File d : dir) {
+            Run_Population_Remote_MetaPopulation_COVID19.decodePrevalencebyLoc(d, 11, 201);
+        }
+
+    }
+*/
 }
