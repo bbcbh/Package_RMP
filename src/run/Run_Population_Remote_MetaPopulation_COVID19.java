@@ -35,48 +35,53 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
     public static void decodePrevalencebyLoc(File basedir,
             int numPop, int timeSteps) throws FileNotFoundException, IOException, NumberFormatException {
 
-        Pattern pattern = Pattern.compile(Thread_PopRun_COVID19.FILE_REGEX_SNAP_STAT.replaceAll("%d", "(\\\\d+)"));
-        ZipFile snapZip = new ZipFile(new File(basedir, Thread_PopRun_COVID19.FILE_REGEX_SNAP_STAT.replaceAll("%d", "All") + ".zip"));
-        Enumeration<? extends ZipEntry> zipEntryEnum = snapZip.entries();
+        File srcZipFile = new File(basedir, Thread_PopRun_COVID19.FILE_REGEX_SNAP_STAT.replaceAll("%d", "All") + ".zip");
 
-        int numSim = snapZip.size();
+        if (srcZipFile.exists()) {
 
-        String line;
-        float[][][] prevalEnt = new float[numPop][timeSteps][numSim];
+            Pattern pattern = Pattern.compile(Thread_PopRun_COVID19.FILE_REGEX_SNAP_STAT.replaceAll("%d", "(\\\\d+)"));
+            ZipFile snapZip = new ZipFile(srcZipFile);
+            Enumeration<? extends ZipEntry> zipEntryEnum = snapZip.entries();
 
-        while (zipEntryEnum.hasMoreElements()) {
-            ZipEntry zipEnt = zipEntryEnum.nextElement();
-            Matcher m = pattern.matcher(zipEnt.getName());
-            if (m.matches()) {
-                int simIndex = Integer.parseInt(m.group(1));
-                try (final BufferedReader reader = new BufferedReader(new InputStreamReader(snapZip.getInputStream(zipEnt)))) {
-                    int lineNum = 0;
-                    while ((line = reader.readLine()) != null) {
-                        if (lineNum != 0 && line.length() > 0) {
-                            String[] lineEnt = line.split(",");
-                            int t = Integer.parseInt(lineEnt[0]);
-                            for (int p = 0; p < numPop; p++) {
-                                prevalEnt[p][t][simIndex] = Float.parseFloat(lineEnt[p + numPop + 1]) / Float.parseFloat(lineEnt[p + 1]);
+            int numSim = snapZip.size();
+
+            String line;
+            float[][][] prevalEnt = new float[numPop][timeSteps][numSim];
+
+            while (zipEntryEnum.hasMoreElements()) {
+                ZipEntry zipEnt = zipEntryEnum.nextElement();
+                Matcher m = pattern.matcher(zipEnt.getName());
+                if (m.matches()) {
+                    int simIndex = Integer.parseInt(m.group(1));
+                    try (final BufferedReader reader = new BufferedReader(new InputStreamReader(snapZip.getInputStream(zipEnt)))) {
+                        int lineNum = 0;
+                        while ((line = reader.readLine()) != null) {
+                            if (lineNum != 0 && line.length() > 0) {
+                                String[] lineEnt = line.split(",");
+                                int t = Integer.parseInt(lineEnt[0]);
+                                for (int p = 0; p < numPop; p++) {
+                                    prevalEnt[p][t][simIndex] = Float.parseFloat(lineEnt[p + numPop + 1]) / Float.parseFloat(lineEnt[p + 1]);
+                                }
                             }
+                            lineNum++;
                         }
-                        lineNum++;
                     }
                 }
             }
-        }
-        PrintWriter[] pri = new PrintWriter[numPop];
-        for (int p = 0; p < numPop; p++) {
-            pri[p] = new PrintWriter(new File(basedir, String.format("Prevalence_loc_%d.csv", p)));
-            pri[p].println("Time, Prevalence by sim");
-            for (int t = 0; t < prevalEnt[p].length; t++) {
-                pri[p].print(t);
-                for (int s = 0; s < prevalEnt[p][t].length; s++) {
-                    pri[p].print(',');
-                    pri[p].print(prevalEnt[p][t][s]);
+            PrintWriter[] pri = new PrintWriter[numPop];
+            for (int p = 0; p < numPop; p++) {
+                pri[p] = new PrintWriter(new File(basedir, String.format("Prevalence_loc_%d.csv", p)));
+                pri[p].println("Time, Prevalence by sim");
+                for (int t = 0; t < prevalEnt[p].length; t++) {
+                    pri[p].print(t);
+                    for (int s = 0; s < prevalEnt[p][t].length; s++) {
+                        pri[p].print(',');
+                        pri[p].print(prevalEnt[p][t][s]);
+                    }
+                    pri[p].println();
                 }
-                pri[p].println();
+                pri[p].close();
             }
-            pri[p].close();
         }
     }
 
@@ -282,5 +287,5 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
         }
 
     }
-*/
+     */
 }
