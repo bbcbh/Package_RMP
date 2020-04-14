@@ -46,13 +46,14 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
             int numSim = snapZip.size();
 
             String line;
-            float[][][] prevalEnt = new float[numPop][timeSteps][numSim];
+            float[][][] prevalEnt = new float[numPop][timeSteps+1][numSim];
 
             while (zipEntryEnum.hasMoreElements()) {
                 ZipEntry zipEnt = zipEntryEnum.nextElement();
                 Matcher m = pattern.matcher(zipEnt.getName());
                 if (m.matches()) {
                     int simIndex = Integer.parseInt(m.group(1));
+                    //System.out.println(zipEnt.getName());
                     try (final BufferedReader reader = new BufferedReader(new InputStreamReader(snapZip.getInputStream(zipEnt)))) {
                         int lineNum = 0;
                         while ((line = reader.readLine()) != null) {
@@ -60,6 +61,7 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
                                 String[] lineEnt = line.split(",");
                                 int t = Integer.parseInt(lineEnt[0]);
                                 for (int p = 0; p < numPop; p++) {
+
                                     prevalEnt[p][t][simIndex] = Float.parseFloat(lineEnt[p + numPop + 1]) / Float.parseFloat(lineEnt[p + 1]);
                                 }
                             }
