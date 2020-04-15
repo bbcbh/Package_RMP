@@ -2,10 +2,8 @@ package run;
 
 import infection.AbstractInfection;
 import infection.COVID19_Remote_Infection;
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -13,7 +11,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.ListIterator;
 import person.AbstractIndividualInterface;
 import person.Person_Remote_MetaPopulation;
 import population.AbstractFieldsArrayPopulation;
@@ -113,8 +110,7 @@ class Thread_PopRun_COVID19 implements Runnable {
     public static final String FILE_REGEX_OUTPUT = "output_%d.txt";
     public static final String FILE_REGEX_TEST_STAT = "testStat_%d.csv";
     public static final String FILE_REGEX_SNAP_STAT = "snapStat_%d.csv";
-    public static final String FILE_REGEX_POP_SNAP = "popSnap_%d_%d.csv";
-    public static final String FILE_REGEX_DIAG_PREVAL = "diag_prev_%d.csv";
+    public static final String FILE_REGEX_POP_SNAP = null; //"popSnap_%d_%d.csv";
 
     public Thread_PopRun_COVID19(int threadId, File baseDir, int numSnap, int snapFreq) throws FileNotFoundException {
         this(threadId, baseDir, numSnap, snapFreq, false);
@@ -302,8 +298,8 @@ class Thread_PopRun_COVID19 implements Runnable {
                 testingCSV.print(i);
             }
         }
-
         testingCSV.println();
+        printCSVTestEntry(testingCSV, testing_stat_cumul);
 
         for (int sn = 0; sn < numSnap; sn++) {
             for (int sf = 0; sf < snapFreq; sf++) {
@@ -352,7 +348,7 @@ class Thread_PopRun_COVID19 implements Runnable {
                                 int[] delayOption = triggeredTestResultDelay.length > 0
                                         ? triggeredTestResultDelay[trigger_loc][testTriggerIndex] : new int[]{};
 
-                                if (insertTestingResult(rmp, covid19, delayOption)) {
+                                if (insertTestingResult(rmp, covid19, delayOption, null)) {
                                     testing_stat_cumul[TEST_STAT_POS][trigger_loc]++;
                                     testing_stat_cumul_all[TEST_STAT_POS]++;
                                     test_stat_today[TEST_STAT_POS]++;
@@ -383,7 +379,7 @@ class Thread_PopRun_COVID19 implements Runnable {
                                     int[] delayOption = triggeredTestResultDelay.length > 0
                                             ? triggeredTestResultDelay[trigger_loc][testTriggerIndex] : new int[]{};
 
-                                    if (insertTestingResult(rmp, covid19, delayOption)) {
+                                    if (insertTestingResult(rmp, covid19, delayOption, null)) {
                                         testing_stat_cumul[TEST_STAT_POS][trigger_loc]++;
                                         testing_stat_cumul_all[TEST_STAT_POS]++;
                                         test_stat_today[TEST_STAT_POS]++;
@@ -421,7 +417,7 @@ class Thread_PopRun_COVID19 implements Runnable {
                     }
                 }
 
-                // Respons to positive test results              
+                // Response to positive test results              
                 ArrayList<Person_Remote_MetaPopulation> positiveResultAvailableToday
                         = pop.getPositiveTestResults().get(pop.getGlobalTime());
 
@@ -479,7 +475,8 @@ class Thread_PopRun_COVID19 implements Runnable {
                         int ageExp = -1;
                         if (stat != null) {
                             ageExp = (int) stat[COVID19_Remote_Infection.PARAM_AGE_OF_EXPOSURE];
-                        }
+                        }                       
+                      
 
                         System.out.println(String.format("%d: PZ at Loc #%d Inf_Stat =(%b, %b, %b). Age of exp = %d",
                                 pop.getGlobalTime(),
@@ -496,15 +493,7 @@ class Thread_PopRun_COVID19 implements Runnable {
             }
 
             pop.printCSVOutputEntry(outputCSV, pop.generateInfectionStat());
-
-            testingCSV.print(pop.getGlobalTime());
-            for (int[] testing_stat_cumul_type : testing_stat_cumul) {
-                for (int loc = 0; loc < testing_stat_cumul_type.length; loc++) {
-                    testingCSV.print(',');
-                    testingCSV.print(testing_stat_cumul_type[loc]);
-                }
-            }
-            testingCSV.println();
+            printCSVTestEntry(testingCSV, testing_stat_cumul);
 
         }
 
@@ -518,12 +507,12 @@ class Thread_PopRun_COVID19 implements Runnable {
 
         try {
             // Printing end pop_stat file
-            popStatCSV = new PrintWriter(new File(baseDir, String.format(FILE_REGEX_POP_SNAP,
-                    this.threadId, getPop().getGlobalTime())));
-            pop.printPopulationSnapCSV(popStatCSV);
-            popStatCSV.close();
-
-            CSV_Analaysis(baseDir, threadId, popSize.length);
+            if (FILE_REGEX_POP_SNAP != null) {
+                popStatCSV = new PrintWriter(new File(baseDir, String.format(FILE_REGEX_POP_SNAP,
+                        this.threadId, getPop().getGlobalTime())));
+                pop.printPopulationSnapCSV(popStatCSV);
+                popStatCSV.close();
+            }
 
         } catch (IOException ex) {
             ex.printStackTrace(System.err);
@@ -532,9 +521,22 @@ class Thread_PopRun_COVID19 implements Runnable {
         pri.close();
     }
 
+    protected void printCSVTestEntry(PrintWriter testingCSV, int[][] testing_stat_cumul) {
+        testingCSV.print(pop.getGlobalTime());
+        for (int[] testing_stat_cumul_type : testing_stat_cumul) {
+            for (int loc = 0; loc < testing_stat_cumul_type.length; loc++) {
+                testingCSV.print(',');
+                testingCSV.print(testing_stat_cumul_type[loc]);
+            }
+        }
+        testingCSV.println();
+    }
+
     protected boolean insertTestingResult(Person_Remote_MetaPopulation rmp,
             COVID19_Remote_Infection covid19,
-            int[] resultDelayOptions) {
+            int[] resultDelayOptions, double[][] contactTestResponse) {
+        
+        // Index case testing for  testResponse = null 
 
         if (covid19.isInfected(rmp)) { // Assume 100% sensitivity
 
@@ -545,23 +547,29 @@ class Thread_PopRun_COVID19 implements Runnable {
                     resultDelay += pop.getInfectionRNG().nextInt(resultDelayOptions[1] - resultDelay);
                 }
             }
-            ArrayList<Person_Remote_MetaPopulation> positiveResArr
-                    = pop.getPositiveTestResults().get(pop.getGlobalTime() + resultDelay);
 
-            if (positiveResArr == null) {
-                positiveResArr = new ArrayList<>();
-                pop.getPositiveTestResults().put(pop.getGlobalTime() + resultDelay, positiveResArr);
-            }
+            if (resultDelay > 0 || contactTestResponse == null) {
+                ArrayList<Person_Remote_MetaPopulation> positiveResArr
+                        = pop.getPositiveTestResults().get(pop.getGlobalTime() + resultDelay);
 
-            int index = Collections.binarySearch(positiveResArr, rmp, new Comparator<Person_Remote_MetaPopulation>() {
-                @Override
-                public int compare(Person_Remote_MetaPopulation o1, Person_Remote_MetaPopulation o2) {
-                    return Integer.compare(o1.getId(), o2.getId());
+                if (positiveResArr == null) {
+                    positiveResArr = new ArrayList<>();
+                    pop.getPositiveTestResults().put(pop.getGlobalTime() + resultDelay, positiveResArr);
                 }
-            });
 
-            if (index < 0) {
-                positiveResArr.add(~index, rmp);
+                int index = Collections.binarySearch(positiveResArr, rmp, new Comparator<Person_Remote_MetaPopulation>() {
+                    @Override
+                    public int compare(Person_Remote_MetaPopulation o1, Person_Remote_MetaPopulation o2) {
+                        return Integer.compare(o1.getId(), o2.getId());
+                    }
+                });
+
+                if (index < 0) {
+                    positiveResArr.add(~index, rmp);
+                }
+
+            } else {
+                setTriggeredIndexCaseTestResponse(rmp, covid19, contactTestResponse);
             }
 
             return true;
@@ -630,7 +638,8 @@ class Thread_PopRun_COVID19 implements Runnable {
                                 int[] delayOption = triggeredTestResultDelay.length > 0
                                         ? triggeredTestResultDelay[testTriggerIndex] : new int[]{};
 
-                                if (insertTestingResult(rmp, covid19, delayOption)) {
+                                if (insertTestingResult(rmp, covid19, delayOption,
+                                        triggeredTestResponse.length == 0 ? new double[0][] : triggeredTestResponse[testTriggerIndex])) {
                                     testing_stat_cumul[TEST_STAT_POS][trigger_loc]++;
                                     testing_stat_cumul_all[TEST_STAT_POS]++;
                                     test_stat_today[TEST_STAT_POS]++;
@@ -675,6 +684,7 @@ class Thread_PopRun_COVID19 implements Runnable {
 
         test_resp[Population_Remote_MetaPopulation_COVID19.TEST_RESPONSE_VALID_UNTIL_AGE]
                 = minRetestAge;
+
         for (int k = 1; k < default_test_resp.length; k++) {
             test_resp[k - 1] = 1; // No response
             boolean correctResp = false;
@@ -688,8 +698,18 @@ class Thread_PopRun_COVID19 implements Runnable {
                 }
             }
         }
+
         pop.getTestResponse().put(rmp.getId(), test_resp);
         pop.getTestingRecord().put(rmp.getId(), minRetestAge);
+
+        if (test_resp[Population_Remote_MetaPopulation_COVID19.RESPONSE_ADJ_HOUSEHOLD_CONTACT] == 0
+                && test_resp[Population_Remote_MetaPopulation_COVID19.RESPONSE_ADJ_NON_HOUSEHOLD_CONTACT] == 0) {
+
+            // Effectively in quarantine
+            HashMap<Integer, Integer> qMap
+                    = ((HashMap<Integer, Integer>) pop.getFields()[Population_Remote_MetaPopulation_COVID19.FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_QUARANTINE]);
+            qMap.put(rmp.getId(), minRetestAge);
+        }
 
     }
 
@@ -717,99 +737,6 @@ class Thread_PopRun_COVID19 implements Runnable {
             testTriggerIndex = possibleTriggerIndex;
         }
         return testTriggerIndex;
-    }
-
-    public static void CSV_Analaysis(File baseDir, int threadId, int numLoc) throws FileNotFoundException, IOException {
-        File snapStatCSV = new File(baseDir, String.format(FILE_REGEX_SNAP_STAT, threadId));
-        File testStatCSV = new File(baseDir, String.format(FILE_REGEX_TEST_STAT, threadId));
-        File diagPrevCSV = new File(baseDir, String.format(FILE_REGEX_DIAG_PREVAL, threadId));
-
-        ArrayList<ArrayList<float[]>> timePointsByLoc = new ArrayList<>(); // byLoc<float[]{time, number_of_positive_case, prevalence_at_time}
-
-        for (int i = 0; i < numLoc; i++) {
-            timePointsByLoc.add(new ArrayList<>());
-        }
-
-        String line, ent[];
-        BufferedReader reader;
-
-        reader = new BufferedReader(new FileReader(testStatCSV));
-        reader.readLine(); // Header row
-
-        int[] numPositiveDiagCumul = new int[numLoc];
-
-        while ((line = reader.readLine()) != null) {
-            ent = line.split(",");
-            for (int loc = 0; loc < numLoc; loc++) {
-                int numPos = Integer.parseInt(ent[loc + numLoc + 1]);
-                if (numPos > numPositiveDiagCumul[loc]) {
-                    float[] arrEnt = new float[]{
-                        Integer.parseInt(ent[0]), numPos, -1};
-                    timePointsByLoc.get(loc).add(arrEnt);
-                    numPositiveDiagCumul[loc] = numPos;
-                }
-            }
-        }
-
-        ListIterator[] iterator = new ListIterator[numLoc];
-        float[][] matchEntries = new float[numLoc][];
-        for (int loc = 0; loc < numLoc; loc++) {
-            iterator[loc] = timePointsByLoc.get(loc).listIterator();
-            matchEntries[loc] = (float[]) iterator[loc].next();
-        }
-
-        reader = new BufferedReader(new FileReader(snapStatCSV));
-        reader.readLine(); // Header row
-
-        int[] firstInfectionAt = new int[numLoc];
-        Arrays.fill(firstInfectionAt, Integer.MAX_VALUE);
-
-        while ((line = reader.readLine()) != null) {
-            ent = line.split(",");
-            int time = Integer.parseInt(ent[0]);
-            for (int loc = 0; loc < numLoc; loc++) {
-
-                int infected = Integer.parseInt(ent[1 + numLoc * 3 + loc]);
-                if (infected > 0 && time < firstInfectionAt[loc]) {
-                    firstInfectionAt[loc] = time;
-                }
-
-                if ((int) matchEntries[loc][0] == time) {
-                    matchEntries[loc][2] = Float.parseFloat(ent[1 + numLoc + loc])
-                            / Float.parseFloat(ent[1 + loc]);
-
-                    if (iterator[loc].hasNext()) {
-                        matchEntries[loc] = (float[]) iterator[loc].next();
-                    }
-                }
-
-            }
-        }
-
-        PrintWriter wri = new PrintWriter(diagPrevCSV);
-        for (int loc = 0; loc < numLoc; loc++) {
-            wri.println(String.format("Loc %d, First infection at global time, %d", loc, firstInfectionAt[loc]));
-            StringBuilder timeLine = new StringBuilder("Time since first infection: ");
-            StringBuilder diagLine = new StringBuilder("# pos diag");
-            StringBuilder prevLine = new StringBuilder("Preval");
-
-            for (float[] matchEnt : timePointsByLoc.get(loc)) {
-                timeLine.append(',');
-                timeLine.append((int) matchEnt[0] - firstInfectionAt[loc]);
-                diagLine.append(',');
-                diagLine.append((int) matchEnt[1]);
-                prevLine.append(',');
-                prevLine.append(matchEnt[2]);
-            }
-
-            wri.println(timeLine.toString());
-            wri.println(diagLine.toString());
-            wri.println(prevLine.toString());
-
-        }
-
-        wri.close();
-
     }
 
 }

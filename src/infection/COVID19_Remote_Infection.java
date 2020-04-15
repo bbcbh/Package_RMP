@@ -98,6 +98,7 @@ public class COVID19_Remote_Infection extends AbstractInfectionWithPatientMappin
 
     @Override
     public double advancesState(AbstractIndividualInterface p) {
+        
         double[] param = getCurrentlyInfected().get(p.getId());
         if (param != null) {
             p.setTimeUntilNextStage(getInfectionIndex(), 1); // Check daily for now

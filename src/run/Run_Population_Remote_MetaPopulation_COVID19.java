@@ -32,21 +32,35 @@ import static sim.SimulationInterface.PROP_SNAP_FREQ;
  */
 public class Run_Population_Remote_MetaPopulation_COVID19 {
 
-    public static void decodePrevalencebyLoc(File basedir,
+    public static final String DECODE_FILE_REGEX_INCIDENT_BY_LOC = "Cumul_Incident_loc_%d.csv";
+    public static final String DECODE_FILE_REGEX_PREVALENCE_BY_LOC = "Prevalence_loc_%d.csv";
+    public static final String DECODE_FILE_REGEX_TEST_BY_LOC = "Cumul_test_loc_%d.csv";
+    public static final String DECODE_FILE_REGEX_POSITIVE_TEST_BY_LOC = "Cumul_pos_test_loc_%d.csv";
+
+    public static void decodeZipCSVByLoc(File basedir,
             int numPop, int timeSteps) throws FileNotFoundException, IOException, NumberFormatException {
 
-        File srcZipFile = new File(basedir, Thread_PopRun_COVID19.FILE_REGEX_SNAP_STAT.replaceAll("%d", "All") + ".zip");
+        File srcZipFile;
+        Pattern pattern;
+        ZipFile srcZip;
+        Enumeration<? extends ZipEntry> zipEntryEnum;
+        int numSim;
+        String line;
+        PrintWriter[] pri = new PrintWriter[numPop];
+
+        // SnapStat
+        srcZipFile = new File(basedir, Thread_PopRun_COVID19.FILE_REGEX_SNAP_STAT.replaceAll("%d", "All") + ".zip");
 
         if (srcZipFile.exists()) {
 
-            Pattern pattern = Pattern.compile(Thread_PopRun_COVID19.FILE_REGEX_SNAP_STAT.replaceAll("%d", "(\\\\d+)"));
-            ZipFile snapZip = new ZipFile(srcZipFile);
-            Enumeration<? extends ZipEntry> zipEntryEnum = snapZip.entries();
+            pattern = Pattern.compile(Thread_PopRun_COVID19.FILE_REGEX_SNAP_STAT.replaceAll("%d", "(\\\\d+)"));
+            srcZip = new ZipFile(srcZipFile);
+            zipEntryEnum = srcZip.entries();
+            numSim = srcZip.size();
 
-            int numSim = snapZip.size();
-
-            String line;
-            float[][][] prevalEnt = new float[numPop][timeSteps+1][numSim];
+            
+            float[][][] prevalEnt = new float[numPop][timeSteps + 1][numSim];
+            int[][][] incidentEnt = new int[numPop][timeSteps + 1][numSim];
 
             while (zipEntryEnum.hasMoreElements()) {
                 ZipEntry zipEnt = zipEntryEnum.nextElement();
@@ -54,15 +68,16 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
                 if (m.matches()) {
                     int simIndex = Integer.parseInt(m.group(1));
                     //System.out.println(zipEnt.getName());
-                    try (final BufferedReader reader = new BufferedReader(new InputStreamReader(snapZip.getInputStream(zipEnt)))) {
+                    try (final BufferedReader reader = new BufferedReader(new InputStreamReader(srcZip.getInputStream(zipEnt)))) {
                         int lineNum = 0;
                         while ((line = reader.readLine()) != null) {
                             if (lineNum != 0 && line.length() > 0) {
                                 String[] lineEnt = line.split(",");
                                 int t = Integer.parseInt(lineEnt[0]);
                                 for (int p = 0; p < numPop; p++) {
-
                                     prevalEnt[p][t][simIndex] = Float.parseFloat(lineEnt[p + numPop + 1]) / Float.parseFloat(lineEnt[p + 1]);
+                                    incidentEnt[p][t][simIndex] = Integer.parseInt(lineEnt[1 + p + 4 * numPop + 1]);
+
                                 }
                             }
                             lineNum++;
@@ -70,9 +85,9 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
                     }
                 }
             }
-            PrintWriter[] pri = new PrintWriter[numPop];
+            
             for (int p = 0; p < numPop; p++) {
-                pri[p] = new PrintWriter(new File(basedir, String.format("Prevalence_loc_%d.csv", p)));
+                pri[p] = new PrintWriter(new File(basedir, String.format(DECODE_FILE_REGEX_PREVALENCE_BY_LOC, p)));
                 pri[p].println("Time, Prevalence by sim");
                 for (int t = 0; t < prevalEnt[p].length; t++) {
                     pri[p].print(t);
@@ -83,8 +98,90 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
                     pri[p].println();
                 }
                 pri[p].close();
+
+                pri[p] = new PrintWriter(new File(basedir, String.format(DECODE_FILE_REGEX_INCIDENT_BY_LOC, p)));
+                pri[p].println("Time, Cumulative incident by sim");
+                for (int t = 0; t < incidentEnt[p].length; t++) {
+                    pri[p].print(t);
+                    for (int s = 0; s < incidentEnt[p][t].length; s++) {
+                        pri[p].print(',');
+                        pri[p].print(incidentEnt[p][t][s]);
+                    }
+                    pri[p].println();
+                }
+                pri[p].close();
+
             }
         }
+
+        // Test stat 
+        srcZipFile = new File(basedir, Thread_PopRun_COVID19.FILE_REGEX_TEST_STAT.replaceAll("%d", "All") + ".zip");
+        if (srcZipFile.exists()) {
+            pattern = Pattern.compile(Thread_PopRun_COVID19.FILE_REGEX_TEST_STAT.replaceAll("%d", "(\\\\d+)"));
+            srcZip = new ZipFile(srcZipFile);
+            zipEntryEnum = srcZip.entries();
+            numSim = srcZip.size();
+            
+            int[][][] numTest = new int[numPop][timeSteps + 1][numSim];
+            int[][][] testPositive = new int[numPop][timeSteps + 1][numSim];
+
+            
+            while (zipEntryEnum.hasMoreElements()) {
+                ZipEntry zipEnt = zipEntryEnum.nextElement();
+                Matcher m = pattern.matcher(zipEnt.getName());
+                if (m.matches()) {
+                    int simIndex = Integer.parseInt(m.group(1));
+                    //System.out.println(zipEnt.getName());
+                    try (final BufferedReader reader = new BufferedReader(new InputStreamReader(srcZip.getInputStream(zipEnt)))) {
+                        int lineNum = 0;
+                        while ((line = reader.readLine()) != null) {
+                            if (lineNum != 0 && line.length() > 0) {
+                                String[] lineEnt = line.split(",");
+                                int t = Integer.parseInt(lineEnt[0]);
+                                for (int p = 0; p < numPop; p++) {
+                                    numTest[p][t][simIndex] = Integer.parseInt(lineEnt[1 + p]);
+                                    testPositive[p][t][simIndex] = Integer.parseInt(lineEnt[1 + numPop + p]);
+
+                                }
+                            }
+                            lineNum++;
+                        }
+                    }
+                }
+            }
+            
+            for (int p = 0; p < numPop; p++) {
+                pri[p] = new PrintWriter(new File(basedir, String.format(DECODE_FILE_REGEX_TEST_BY_LOC, p)));
+                pri[p].println("Time, Cumulative test by sim");
+                for (int t = 0; t < numTest[p].length; t++) {
+                    pri[p].print(t);
+                    for (int s = 0; s < numTest[p][t].length; s++) {
+                        pri[p].print(',');
+                        pri[p].print(numTest[p][t][s]);
+                    }
+                    pri[p].println();
+                }
+                pri[p].close();
+
+                pri[p] = new PrintWriter(new File(basedir, String.format(DECODE_FILE_REGEX_POSITIVE_TEST_BY_LOC, p)));
+                pri[p].println("Time, Cumulative positive test by sim");
+                for (int t = 0; t < testPositive[p].length; t++) {
+                    pri[p].print(t);
+                    for (int s = 0; s < testPositive[p][t].length; s++) {
+                        pri[p].print(',');
+                        pri[p].print(testPositive[p][t][s]);
+                    }
+                    pri[p].println();
+                }
+                pri[p].close();
+
+            }
+            
+            
+            
+            
+        }
+
     }
 
     protected final File baseDir;
@@ -215,52 +312,49 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
         System.out.println(String.format("Simulation completed. Time needed = %.4f min",
                 (System.currentTimeMillis() - tic) / (1000f * 60)));
 
-        if (numProcess > 1) {
-            // Zip output files
-            String[] file_regex = new String[]{
-                Thread_PopRun_COVID19.FILE_REGEX_OUTPUT,
-                Thread_PopRun_COVID19.FILE_REGEX_SNAP_STAT,
-                Thread_PopRun_COVID19.FILE_REGEX_TEST_STAT,
-                Thread_PopRun_COVID19.FILE_REGEX_POP_SNAP,
-                Thread_PopRun_COVID19.FILE_REGEX_DIAG_PREVAL,};
+        // Zip output files
+        String[] file_regex = new String[]{
+            Thread_PopRun_COVID19.FILE_REGEX_OUTPUT,
+            Thread_PopRun_COVID19.FILE_REGEX_SNAP_STAT,
+            Thread_PopRun_COVID19.FILE_REGEX_TEST_STAT};
 
-            for (String regex : file_regex) {
+        for (String regex : file_regex) {
 
-                File[] collection = baseDir.listFiles(new FileFilter() {
-                    @Override
-                    public boolean accept(File pathname) {
-                        return pathname.getName().matches(regex.replaceAll("%d", "\\\\d+"));
-                    }
-                });
+            File[] collection = baseDir.listFiles(new FileFilter() {
+                @Override
+                public boolean accept(File pathname) {
+                    return pathname.getName().matches(regex.replaceAll("%d", "\\\\d+"));
+                }
+            });
 
-                if (collection.length > 0) {
-                    String zipFileName = regex.replace("%d", "All") + ".zip";
-                    File zipFile = new File(baseDir, zipFileName);
+            if (collection.length > 0) {
+                String zipFileName = regex.replace("%d", "All") + ".zip";
+                File zipFile = new File(baseDir, zipFileName);
 
-                    Path p = Files.createFile(zipFile.toPath());
+                Path p = Files.createFile(zipFile.toPath());
 
-                    try (ZipOutputStream zs = new ZipOutputStream(Files.newOutputStream(p))) {
-                        for (File srcFile : collection) {
-                            ZipEntry zipEntry = new ZipEntry(srcFile.getName());
-                            try {
-                                zs.putNextEntry(zipEntry);
-                                Files.copy(srcFile.toPath(), zs);
-                                zs.closeEntry();
-                            } catch (IOException e) {
-                                System.err.println(e);
-                            }
+                try (ZipOutputStream zs = new ZipOutputStream(Files.newOutputStream(p))) {
+                    for (File srcFile : collection) {
+                        ZipEntry zipEntry = new ZipEntry(srcFile.getName());
+                        try {
+                            zs.putNextEntry(zipEntry);
+                            Files.copy(srcFile.toPath(), zs);
+                            zs.closeEntry();
+                        } catch (IOException e) {
+                            System.err.println(e);
                         }
                     }
+                }
 
-                    System.out.println(String.format("Zipping %d file(s) that matches with '%s' to %s",
-                            collection.length, regex, zipFile.getAbsolutePath()));
+                System.out.println(String.format("Zipping %d file(s) that matches with '%s' to %s",
+                        collection.length, regex, zipFile.getAbsolutePath()));
 
+                if (numProcess > 1) {
                     if (zipFile.exists() && zipFile.length() > 0) {
                         for (File srcFile : collection) {
                             srcFile.delete();
                         }
                     }
-
                 }
 
             }
@@ -268,7 +362,7 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
         }
 
         if (popSize != null) {
-            Run_Population_Remote_MetaPopulation_COVID19.decodePrevalencebyLoc(baseDir, popSize.length, numSnap * snapFreq);
+            Run_Population_Remote_MetaPopulation_COVID19.decodeZipCSVByLoc(baseDir, popSize.length, numSnap * snapFreq);
         }
 
     }
