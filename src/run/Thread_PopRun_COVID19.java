@@ -638,7 +638,7 @@ class Thread_PopRun_COVID19 implements Runnable {
                                 int[] delayOption = triggeredTestResultDelay.length > 0
                                         ? triggeredTestResultDelay[testTriggerIndex] : new int[]{};
 
-                                if (insertTestingResult(rmp, covid19, delayOption,
+                                if (insertTestingResult((Person_Remote_MetaPopulation) candidate, covid19, delayOption,
                                         triggeredTestResponse.length == 0 ? new double[0][] : triggeredTestResponse[testTriggerIndex])) {
                                     testing_stat_cumul[TEST_STAT_POS][trigger_loc]++;
                                     testing_stat_cumul_all[TEST_STAT_POS]++;

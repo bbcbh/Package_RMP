@@ -191,7 +191,7 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
 
     public void generateOneResultSet() throws IOException, InterruptedException {
 
-        File zipSnapFilename = new File(baseDir, Thread_PopRun_COVID19.FILE_REGEX_POP_SNAP.replace("%d", "All") + ".zip");
+        File zipSnapFilename = new File(baseDir, Thread_PopRun_COVID19.FILE_REGEX_OUTPUT.replace("%d", "All") + ".zip");
         int[] popSize = null;
 
         int numSnap = (int) propVal[PROP_NUM_SNAP];
