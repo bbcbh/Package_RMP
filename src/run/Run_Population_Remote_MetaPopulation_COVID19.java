@@ -376,21 +376,4 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
 
     }
 
-    /*
-    public static void main(String[] arg) throws FileNotFoundException, IOException {
-        File baseDir = new File("C:\\Users\\bhui\\OneDrive - UNSW\\RMP\\Covid19\\COVID19_GenResults\\CI_CT_CQ_100");
-
-        File[] dir = baseDir.listFiles(new FileFilter() {
-            @Override
-            public boolean accept(File pathname) {
-                return pathname.isDirectory();
-            }
-        });
-
-        for (File d : dir) {
-            Run_Population_Remote_MetaPopulation_COVID19.decodePrevalencebyLoc(d, 11, 201);
-        }
-
-    }
-     */
 }

@@ -542,13 +542,13 @@ class Thread_PopRun_COVID19 implements Runnable {
 
             int resultDelay = 0;
             if (resultDelayOptions.length > 0) {
-                resultDelay = resultDelayOptions[0];
+                resultDelay = Math.abs(resultDelayOptions[0]);
                 if (resultDelayOptions.length > 1 && resultDelayOptions[1] > resultDelay) {
                     resultDelay += pop.getInfectionRNG().nextInt(resultDelayOptions[1] - resultDelay);
                 }
             }
 
-            if (resultDelay > 0 || contactTestResponse == null) {
+            if (resultDelayOptions[0] > 0 || contactTestResponse == null) {
                 ArrayList<Person_Remote_MetaPopulation> positiveResArr
                         = pop.getPositiveTestResults().get(pop.getGlobalTime() + resultDelay);
 
