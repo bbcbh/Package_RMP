@@ -619,8 +619,11 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         if (!currentlyInHousehold.containsKey(p.getId())) {
             if (inQuarantine != null) {
                 movePerson(p, ((Person_Remote_MetaPopulation) p).getHomeLocation(), -1);
+
+                float[] contactOption = ((HashMap<Integer, float[]>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS]).get(p.getId());
+
                 currentlyInHousehold.put(p.getId(),
-                        (int) ((HashMap<Integer, float[]>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS]).get(p.getId())[CONTACT_OPTIONS_CORE_HOUSEHOLD_ID]);
+                        (int) contactOption[CONTACT_OPTIONS_CORE_HOUSEHOLD_ID]);
 
             } else {
                 int loc = getCurrentLocation(p);
@@ -865,7 +868,7 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
                 = (HashMap<Integer, float[]>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS];
 
         contactOptions.put(newPerson.getId(), contactOptions.get(removedPerson.getId()));
-        contactOptions.remove(removedPerson.getId());
+        //contactOptions.remove(removedPerson.getId());
 
         return newPerson;
     }

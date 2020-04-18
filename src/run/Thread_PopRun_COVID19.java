@@ -430,6 +430,10 @@ class Thread_PopRun_COVID19 implements Runnable {
 
                         if (rmp != null) {
                             int trigger_loc = pop.getCurrentLocation(rmp);
+                            if(trigger_loc <0){
+                                trigger_loc =  rmp.getHomeLocation();
+                            }
+                            
                             // Assume test 100% accurate
                             positiveTestResponse(rmp, covid19,
                                     testTriggerIndex_by_loc[trigger_loc],

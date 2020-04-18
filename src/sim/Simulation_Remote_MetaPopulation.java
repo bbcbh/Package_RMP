@@ -79,7 +79,13 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
     protected File baseDir = new File("");
 
     protected boolean stopNextTurn = false;
+    protected String extraFlag = "";
 
+    public void setExtraFlag(String extraFlag) {
+        this.extraFlag = extraFlag;
+    }
+
+    
     @Override
     public void loadProperties(Properties prop) {
         for (int i = 0; i < PROP_NAME.length; i++) {
@@ -350,7 +356,11 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                 try {
 
                 Run_Population_Remote_MetaPopulation_COVID19 run
-                        = new Run_Population_Remote_MetaPopulation_COVID19(baseDir, propVal, propModelInitStr);
+                        = new Run_Population_Remote_MetaPopulation_COVID19(baseDir, propVal, propModelInitStr);                
+                
+                if(extraFlag.contains("-noZip")){
+                   run.setZipCSV(false);
+                }
                 run.generateOneResultSet();
 
             } catch (IOException | InterruptedException ex) {
@@ -420,11 +430,17 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                 prop.loadFromXML(inStr);
             }
             sim.setBaseDir(singleSetDir);
-            sim.loadProperties(prop);
+            sim.loadProperties(prop);            
+            if(arg[arg.length - 1].startsWith("-")){
+                sim.setExtraFlag(arg[arg.length - 1]);
+            }
             sim.generateOneResultSet();
             if (!arg[arg.length - 1].contains("-skipAnalysis")) {
                 Run_Population_Remote_MetaPopulation_Pop_Analysis.popAnalysis(singleSetDir.getAbsolutePath());
             }
+            
+            
+            
         }
 
     }
