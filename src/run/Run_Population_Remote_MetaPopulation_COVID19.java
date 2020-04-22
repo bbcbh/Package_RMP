@@ -36,6 +36,8 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
     public static final String DECODE_FILE_REGEX_PREVALENCE_BY_LOC = "Prevalence_loc_%d.csv";
     public static final String DECODE_FILE_REGEX_TEST_BY_LOC = "Cumul_test_loc_%d.csv";
     public static final String DECODE_FILE_REGEX_POSITIVE_TEST_BY_LOC = "Cumul_pos_test_loc_%d.csv";
+    public static final String DECODE_FILE_REGEX_IN_QUARANTINE_BY_LOC = "In_quarantine_loc_%d.csv";
+    public static final String DECODE_FILE_REGEX_RESPONSE_QUEUE_BY_LOC = "Resposnse_queue_loc_%d.csv";
 
     public static void decodeZipCSVByLoc(File basedir,
             int numPop, int timeSteps) throws FileNotFoundException, IOException, NumberFormatException {
@@ -60,6 +62,7 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
 
             float[][][] prevalEnt = new float[numPop][timeSteps + 1][numSim];
             int[][][] incidentEnt = new int[numPop][timeSteps + 1][numSim];
+            int[][][] inQuarantineEnt = new int[numPop][timeSteps+1][numSim];
 
             while (zipEntryEnum.hasMoreElements()) {
                 ZipEntry zipEnt = zipEntryEnum.nextElement();
@@ -76,7 +79,7 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
                                 for (int p = 0; p < numPop; p++) {
                                     prevalEnt[p][t][simIndex] = Float.parseFloat(lineEnt[p + numPop + 1]) / Float.parseFloat(lineEnt[p + 1]);
                                     incidentEnt[p][t][simIndex] = Integer.parseInt(lineEnt[1 + p + 4 * numPop + 1]);
-
+                                    inQuarantineEnt[p][t][simIndex] = Integer.parseInt(lineEnt[1+ p + 5 * numPop + 1]);
                                 }
                             }
                             lineNum++;
@@ -109,6 +112,18 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
                     pri[p].println();
                 }
                 pri[p].close();
+                
+                 pri[p] = new PrintWriter(new File(basedir, String.format(DECODE_FILE_REGEX_IN_QUARANTINE_BY_LOC, p)));
+                pri[p].println("Time, In quarantine by sim");
+                for (int t = 0; t < inQuarantineEnt[p].length; t++) {
+                    pri[p].print(t);
+                    for (int s = 0; s < inQuarantineEnt[p][t].length; s++) {
+                        pri[p].print(',');
+                        pri[p].print(inQuarantineEnt[p][t][s]);
+                    }
+                    pri[p].println();
+                }
+                pri[p].close();
 
             }
         }
@@ -123,6 +138,7 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
 
             int[][][] numTest = new int[numPop][timeSteps + 1][numSim];
             int[][][] testPositive = new int[numPop][timeSteps + 1][numSim];
+            int[][][] inResponseQueue = new int[numPop][timeSteps+1][numSim];
 
             while (zipEntryEnum.hasMoreElements()) {
                 ZipEntry zipEnt = zipEntryEnum.nextElement();
@@ -139,6 +155,7 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
                                 for (int p = 0; p < numPop; p++) {
                                     numTest[p][t][simIndex] = Integer.parseInt(lineEnt[1 + p]);
                                     testPositive[p][t][simIndex] = Integer.parseInt(lineEnt[1 + numPop + p]);
+                                    inResponseQueue[p][t][simIndex] = Integer.parseInt(lineEnt[1 + 2*numPop + p]);
 
                                 }
                             }
@@ -168,6 +185,18 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
                     for (int s = 0; s < testPositive[p][t].length; s++) {
                         pri[p].print(',');
                         pri[p].print(testPositive[p][t][s]);
+                    }
+                    pri[p].println();
+                }
+                pri[p].close();
+                
+                pri[p] = new PrintWriter(new File(basedir, String.format(DECODE_FILE_REGEX_RESPONSE_QUEUE_BY_LOC, p)));
+                pri[p].println("Time, Number in response queue by sim");
+                for (int t = 0; t < inResponseQueue[p].length; t++) {
+                    pri[p].print(t);
+                    for (int s = 0; s < inResponseQueue[p][t].length; s++) {
+                        pri[p].print(',');
+                        pri[p].print(inResponseQueue[p][t][s]);
                     }
                     pri[p].println();
                 }

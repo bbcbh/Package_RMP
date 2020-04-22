@@ -81,8 +81,16 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
     private final transient HashSet<SingleRelationship> TEMP_EDGES = new HashSet<>();
 
-    private final transient HashMap<Integer, Integer> testingRecord = new HashMap<>(); // Id, min age until next test
-    private final transient HashMap<Integer, ArrayList<Person_Remote_MetaPopulation>> positiveTestResults = new HashMap<>(); // Global time, List of indivuduals with postive result available}
+    private final transient HashMap<Integer, Integer> minAgeForNextTest
+            = new HashMap<>(); // Id, min age until next test
+    private final transient HashMap<List<Integer>, ArrayList<Object[]>> testOutcomeInPipeline
+            = new HashMap<>();   // Key: Global time, loc  
+
+    public static final int TEST_OUTCOME_PIPELINE_ENT_PERSON_TESTED = 0;
+    public static final int TEST_OUTCOME_PIPELINE_ENT_AGE_TESTED = TEST_OUTCOME_PIPELINE_ENT_PERSON_TESTED + 1;
+    public static final int TEST_OUTCOME_PIPELINE_ENT_TEST_TYPE = TEST_OUTCOME_PIPELINE_ENT_AGE_TESTED + 1;
+    public static final int TEST_OUTCOME_PIPELINE_ENT_TEST_RESULT = TEST_OUTCOME_PIPELINE_ENT_TEST_TYPE + 1;
+    public static final int TEST_OUTCOME_PIPELINE_ENT_LENGTH = TEST_OUTCOME_PIPELINE_ENT_TEST_RESULT + 1;
 
     // FIELDS_REMOTE_METAPOP_COVID19_META_POP_LOCKDOWN_SETTING
     public static final int META_POP_STAT_LOCKDOWN_START = 0;
@@ -117,8 +125,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         super.setAvailability(null);
     }
 
-    public HashMap<Integer, ArrayList<Person_Remote_MetaPopulation>> getPositiveTestResults() {
-        return positiveTestResults;
+    public HashMap<List<Integer>, ArrayList<Object[]>> getTestOutcomeInPipeline() {
+        return testOutcomeInPipeline;
     }
 
     public HashMap<Integer, double[]> getTestResponse() {
@@ -134,8 +142,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         return 80 * AbstractIndividualInterface.ONE_YEAR_INT;
     }
 
-    public HashMap<Integer, Integer> getTestingRecord() {
-        return testingRecord;
+    public HashMap<Integer, Integer> getMinAgeForNextTest() {
+        return minAgeForNextTest;
     }
 
     private Integer[] currentlyInSameHouseholdAs(AbstractIndividualInterface p) {
@@ -1066,6 +1074,25 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
         }
 
+        int[] numInQuarantine = new int[numStat[NUM_STAT_NUM_IN_LOC].length];
+        HashMap<Integer, Integer> quarantineMap
+                = (HashMap<Integer, Integer>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_QUARANTINE];
+
+        for (Integer pid : quarantineMap.keySet()) {
+            Integer inQuantineUntil = quarantineMap.get(pid);
+            Person_Remote_MetaPopulation rmp = (Person_Remote_MetaPopulation) getLocalData().get(pid);
+            if (rmp != null) {
+                if (rmp.getAge() < inQuantineUntil) {
+                    numInQuarantine[rmp.getHomeLocation()]++;
+                }
+            }
+        }
+
+        for (int i = 0; i < numInQuarantine.length; i++) {
+            csvOutput.print(',');
+            csvOutput.print(numInQuarantine[i]);
+        }
+
         for (DescriptiveStatistics des : r0_collection_stat) {
             csvOutput.print(
                     String.format(",%.2f,%.2f,%.2f", des.getMean(),
@@ -1105,7 +1132,11 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         for (int i = 1; i < popSize.length; i++) {
             csvOutput.print(',');
         }
-
+        csvOutput.print(',');
+        csvOutput.print("# inQuarantine");
+        for (int i = 1; i < popSize.length; i++) {
+            csvOutput.print(',');
+        }
         csvOutput.print(',');
         csvOutput.print("# successful tranmission per infection (household),,");
         csvOutput.print(',');
