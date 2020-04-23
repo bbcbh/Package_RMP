@@ -300,8 +300,8 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
                 Matcher m2 = Pattern_importFile.matcher(f2.getName());
                 m1.find();
                 m2.find();
-                Integer n1 = new Integer(m1.group(1));
-                Integer n2 = new Integer(m2.group(1));
+                Integer n1 = Integer.valueOf(m1.group(1));
+                Integer n2 = Integer.valueOf(m2.group(1));
                 return n1.compareTo(n2);
             }
         });
