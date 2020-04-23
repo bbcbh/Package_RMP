@@ -80,6 +80,11 @@ class Thread_PopRun_COVID19 implements Runnable {
 
     public static final int MAX_TEST_NUM = 0;
     public static final int MAX_TEST_PERIOD = MAX_TEST_NUM + 1;
+    public static final int MAX_TEST_QUEUE_SETTING = MAX_TEST_PERIOD + 1;
+    
+    public static final int MAX_TEST_QUEUE_TYPE_FIFO = 0; // Default
+    public static final int MAX_TEST_QUEUE_TYPE_LIFO = MAX_TEST_QUEUE_TYPE_FIFO+1;
+    public static final int MAX_TEST_QUEUE_TYPE_NONE = -1;
 
     Object[] threadParam = new Object[]{
         // THREAD_PARAM_HOSUEHOLD_SIZE_DIST        
@@ -136,6 +141,7 @@ class Thread_PopRun_COVID19 implements Runnable {
         new double[]{},
         // THREAD_PARAM_MAX_TEST_BY_LOC
         // Format: [loc][max_num_test, period]
+        // Format: [loc][max_num_test, period, queue_method]
         new int[][]{},};
 
     public static final String FILE_REGEX_OUTPUT = "output_%d.txt";
@@ -492,20 +498,34 @@ class Thread_PopRun_COVID19 implements Runnable {
                     }
 
                     // Reset rolling limit to current timepoint                  
-                    int limit = responseQueue.size(); // Default
+                    int limit = responseQueue.size(); // Default                    
+                    int queueType = MAX_TEST_QUEUE_TYPE_FIFO; 
 
-                    if (rolling_response_count_by_loc != null) {
+                    if (rolling_response_count_by_loc != null) {                        
+                        int[] maxResponse = ((int[][]) getThreadParam()[THREAD_PARAM_MAX_RESPONSE_BY_LOC])[loc];
+                        
                         int timeIndex = pop.getGlobalTime() % rolling_response_count_by_loc[loc].length;
                         rollingSum[loc] -= rolling_response_count_by_loc[loc][timeIndex];
-                        rolling_response_count_by_loc[loc][timeIndex] = 0;
-                        limit = Math.max(0,
-                                ((int[][]) getThreadParam()[THREAD_PARAM_MAX_RESPONSE_BY_LOC])[loc][MAX_TEST_NUM] - rollingSum[loc]);
+                        rolling_response_count_by_loc[loc][timeIndex] = 0;                                                
+                        limit = Math.max(0, maxResponse[MAX_TEST_NUM] - rollingSum[loc]);
+                        if(MAX_TEST_QUEUE_SETTING < maxResponse.length){
+                            queueType = maxResponse[MAX_TEST_QUEUE_SETTING];
+                        }
 
                     }
 
                     int count = 0;
-                    while (count < limit && !responseQueue.isEmpty()) {
-                        Object[] ent = responseQueue.poll();
+                    while (count < limit && !responseQueue.isEmpty()) {                                                                                                
+                        
+                        Object[] ent; 
+                        switch(queueType){
+                            case MAX_TEST_QUEUE_TYPE_LIFO:
+                                ent = responseQueue.pollLast();
+                                break;
+                            default:
+                                ent = responseQueue.poll();
+                        }                                                
+                        
                         Person_Remote_MetaPopulation rmp
                                 = (Person_Remote_MetaPopulation) ent[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_PERSON_TESTED];
 
@@ -536,7 +556,9 @@ class Thread_PopRun_COVID19 implements Runnable {
 
                         count++;
                     }
-
+                    if(responseQueue.size() >0 && queueType == MAX_TEST_QUEUE_TYPE_NONE){
+                        responseQueue.clear();
+                    }                    
                 }
 
                 for (int loc = 0; loc < popSize.length; loc++) {
