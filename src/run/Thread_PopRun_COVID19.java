@@ -600,7 +600,7 @@ class Thread_PopRun_COVID19 implements Runnable {
 
                 }
 
-                // Place in quaratine
+                // Place in quarantine
                 ArrayList<Integer[]> putInQuarantine = pop.getQuarantineInPipeline().remove(pop.getGlobalTime());
                 if (putInQuarantine != null) {
                     HashMap<Integer, Integer> qMap
