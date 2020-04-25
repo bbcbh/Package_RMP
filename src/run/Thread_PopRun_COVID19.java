@@ -874,12 +874,8 @@ class Thread_PopRun_COVID19 implements Runnable {
                                 quaratineDelay = getDelay(quarantineDelayOptions);
                             }
 
-                            ArrayList<Integer[]> inQ = pop.getQuarantineInPipeline().get(pop.getGlobalTime() + contactTraceDelay + quaratineDelay);
-
-                            if (inQ == null) {
-                                inQ = new ArrayList<>();
-                                pop.getQuarantineInPipeline().put(pop.getGlobalTime() + contactTraceDelay + quaratineDelay, inQ);
-                            }
+                            ArrayList<Integer[]> inQ = getQuarantineScheduleEnt(
+                                    pop.getGlobalTime() + contactTraceDelay + quaratineDelay);
                             inQ.add(new Integer[]{candidate.getId(),
                                 ((int) (candidate.getAge()
                                 + householdQuarantineRate[type + fromCurrentHousehold.length]))});
@@ -892,6 +888,15 @@ class Thread_PopRun_COVID19 implements Runnable {
 
         }
 
+    }
+
+    private ArrayList<Integer[]> getQuarantineScheduleEnt(int inQ_time) {
+        ArrayList<Integer[]> inQ = pop.getQuarantineInPipeline().get(inQ_time);
+        if (inQ == null) {
+            inQ = new ArrayList<>();
+            pop.getQuarantineInPipeline().put(inQ_time, inQ);
+        }
+        return inQ;
     }
 
     private int getDelay(float[] delayOptions) {
@@ -945,12 +950,7 @@ class Thread_PopRun_COVID19 implements Runnable {
                 quaratineDelay = getDelay(quarantineDelayOptions);
             }
 
-            ArrayList<Integer[]> inQ = pop.getQuarantineInPipeline().get(pop.getGlobalTime() + quaratineDelay);
-
-            if (inQ == null) {
-                inQ = new ArrayList<>();
-                pop.getQuarantineInPipeline().put(pop.getGlobalTime() + quaratineDelay, inQ);
-            }
+            ArrayList<Integer[]> inQ = getQuarantineScheduleEnt(pop.getGlobalTime() + quaratineDelay);
             inQ.add(new Integer[]{rmp.getId(), minRetestAge});
 
         }
