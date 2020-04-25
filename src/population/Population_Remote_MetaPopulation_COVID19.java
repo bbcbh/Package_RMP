@@ -44,6 +44,7 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         // HashMap<person_id, until_age>
         new HashMap<Integer, Integer>(),
         // FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_QUARANTINE
+        // HashMap<person_id, until_age>
         new HashMap<Integer, Integer>(),
         // FIELDS_REMOTE_METAPOP_COVID19_META_POP_LOCKDOWN_SETTING
         // int[loc][k] 
@@ -98,7 +99,13 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
     public static final int TEST_OUTCOME_PIPELINE_ENT_AGE_TESTED = TEST_OUTCOME_PIPELINE_ENT_PERSON_TESTED + 1;
     public static final int TEST_OUTCOME_PIPELINE_ENT_TEST_TYPE = TEST_OUTCOME_PIPELINE_ENT_AGE_TESTED + 1;
     public static final int TEST_OUTCOME_PIPELINE_ENT_TEST_RESULT = TEST_OUTCOME_PIPELINE_ENT_TEST_TYPE + 1;
-    public static final int TEST_OUTCOME_PIPELINE_ENT_LENGTH = TEST_OUTCOME_PIPELINE_ENT_TEST_RESULT + 1;
+    public static final int TEST_OUTCOME_PIPELINE_ENT_LENGTH = TEST_OUTCOME_PIPELINE_ENT_TEST_RESULT + 1;      
+    
+    private final transient HashMap<Integer, ArrayList<Integer[]>> quarantineInPipeline 
+            = new HashMap<>();
+    public static final int QUARANTINE_PIPELINE_ENT_PERSON_ID = 0;
+    public static final int QUARANTINE_PIPELINE_ENT_IN_QUARANTINE_UNTIL = QUARANTINE_PIPELINE_ENT_PERSON_ID+1;
+    
 
     // FIELDS_REMOTE_METAPOP_COVID19_META_POP_LOCKDOWN_SETTING
     public static final int META_POP_STAT_LOCKDOWN_START = 0;
@@ -140,6 +147,11 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
     public HashMap<List<Integer>, ArrayList<Object[]>> getTestScheduelInPipeline() {
         return testScheduelInPipeline;
     }    
+
+    public HashMap<Integer, ArrayList<Integer[]>> getQuarantineInPipeline() {
+        return quarantineInPipeline;
+    }   
+    
 
     public HashMap<Integer, double[]> getTestResponse() {
         return testResponse;
