@@ -720,9 +720,7 @@ class Thread_PopRun_COVID19 implements Runnable {
         if (testType == TEST_TYPE_SYM || covid19.hasSymptoms(rmp)) {
             // No delay for symptmatic test?
             delayOption = new float[delayOption.length];
-        } else {
-            int k = 1;
-        }
+        } 
         boolean testPositive;
         if (delayOption.length == 0) { // Special case for instant test and results for all test
             testPositive = covid19.isInfected(rmp);
