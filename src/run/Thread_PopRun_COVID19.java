@@ -518,6 +518,11 @@ class Thread_PopRun_COVID19 implements Runnable {
 
                                 float[] delayOption = triggeredTestResultDelay.length > 0
                                         ? triggeredTestResultDelay[loc][testTriggerIndex_by_loc[loc]] : new float[]{};
+                                
+                                if(testType == TEST_TYPE_SYM || covid19.hasSymptoms(rmp)){
+                                    // No delay for symptmatic test?
+                                    Arrays.fill(delayOption, 0);
+                                }
 
                                 boolean testPositive;
 
