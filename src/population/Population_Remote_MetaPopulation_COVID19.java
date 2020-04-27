@@ -84,6 +84,7 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
     private final transient HashMap<Integer, Integer> minAgeForNextTest
             = new HashMap<>(); // Id, min age until next test
+    
     private final transient HashMap<List<Integer>, ArrayList<Object[]>> testScheduelInPipeline
             = new HashMap<>(); // Key: Global time, loc  
     
@@ -101,8 +102,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
     public static final int TEST_OUTCOME_PIPELINE_ENT_TEST_RESULT = TEST_OUTCOME_PIPELINE_ENT_TEST_TYPE + 1;
     public static final int TEST_OUTCOME_PIPELINE_ENT_LENGTH = TEST_OUTCOME_PIPELINE_ENT_TEST_RESULT + 1;      
     
-    private final transient HashMap<Integer, ArrayList<Integer[]>> quarantineInPipeline 
-            = new HashMap<>();
+    private final transient HashMap<List<Integer>, ArrayList<Integer[]>> quarantineInPipeline 
+            = new HashMap<>(); // Key: Global time, loc
     public static final int QUARANTINE_PIPELINE_ENT_PERSON_ID = 0;
     public static final int QUARANTINE_PIPELINE_ENT_IN_QUARANTINE_UNTIL = QUARANTINE_PIPELINE_ENT_PERSON_ID+1;
     
@@ -148,7 +149,7 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         return testScheduelInPipeline;
     }    
 
-    public HashMap<Integer, ArrayList<Integer[]>> getQuarantineInPipeline() {
+    public HashMap<List<Integer>, ArrayList<Integer[]>> getQuarantineInPipeline() {
         return quarantineInPipeline;
     }   
     

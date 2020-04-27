@@ -474,8 +474,12 @@ class Thread_PopRun_COVID19 implements Runnable {
 
                     List<Integer> timeLocKey = List.of(pop.getGlobalTime(), loc);
 
-                    // Running test schedule - first round                
-                    ArrayList<Object[]> testSchArr = pop.getTestScheduelInPipeline().remove(timeLocKey);
+                    // Test schedule               
+                    ArrayList<Object[]> testScheduleArr = pop.getTestScheduelInPipeline().remove(timeLocKey);
+                    // Response schedule
+                    ArrayList<Object[]> testResponseArr = pop.getTestOutcomeInPipeline().remove(timeLocKey);
+                    // Place in quarantine
+                    ArrayList<Integer[]> putInQuarantine = pop.getQuarantineInPipeline().remove(timeLocKey);
 
                     // Reset rolling limit to current timepoint         
                     int testLimit = Integer.MAX_VALUE;
@@ -496,7 +500,7 @@ class Thread_PopRun_COVID19 implements Runnable {
                     float[] testResultDelayOption = triggeredTestResultDelay.length > 0
                             ? triggeredTestResultDelay[loc][testTriggerIndex_by_loc[loc]] : new float[]{};
 
-                    // Special resposne for no delay
+                    // Special resposne for null delay
                     double[][] testResponseNoDelay;
                     if (triggeredTestResponse.length == 0) {
                         testResponseNoDelay = new double[0][];
@@ -506,123 +510,94 @@ class Thread_PopRun_COVID19 implements Runnable {
 
                     int testCount = 0;
 
-                    if (testSchArr != null) {
-                        // Modification of test queue - if any
+                    while (testScheduleArr != null || testResponseArr != null 
+                            || putInQuarantine != null) {
 
-                        // Running test schedule - first round
-                        for (Object[] ent : testSchArr) {
-                            if (testCount >= testLimit) {
-                                // Handle exceed test scheduled
-                                handleExcessTest(ent, testQueueType);
-                            } else {
-                                testing_stat_cumul[TEST_STAT_ALL][loc]++;
-                                testing_stat_cumul_all[TEST_STAT_ALL]++;
-                                test_stat_today[TEST_STAT_ALL]++;
+                        if (testScheduleArr != null) {
+                            // Modification of test queue - if any
 
-                                boolean testPositive
-                                        = runTestSchedule(ent, covid19, testResultDelayOption, testResponseNoDelay);
+                            // Running test schedule - first round
+                            for (Object[] ent : testScheduleArr) {
+                                if (testCount >= testLimit) {
+                                    // Handle exceed test scheduled
+                                    handleExcessTest(ent, testQueueType);
+                                } else {
+                                    testing_stat_cumul[TEST_STAT_ALL][loc]++;
+                                    testing_stat_cumul_all[TEST_STAT_ALL]++;
+                                    test_stat_today[TEST_STAT_ALL]++;
 
-                                if (testPositive) {
-                                    testing_stat_cumul[TEST_STAT_POS][loc]++;
-                                    testing_stat_cumul_all[TEST_STAT_POS]++;
-                                    test_stat_today[TEST_STAT_POS]++;
+                                    boolean testPositive
+                                            = runTestSchedule(ent, covid19, testResultDelayOption, testResponseNoDelay);
 
+                                    if (testPositive) {
+                                        testing_stat_cumul[TEST_STAT_POS][loc]++;
+                                        testing_stat_cumul_all[TEST_STAT_POS]++;
+                                        test_stat_today[TEST_STAT_POS]++;
+
+                                    }
+
+                                    if (rolling_test_count_by_loc != null) {
+                                        int timeIndex = pop.getGlobalTime() % rolling_test_count_by_loc[loc].length;
+                                        rolling_test_count_by_loc[loc][timeIndex]++;
+                                        rollingSum[loc]++;
+                                    }
+
+                                    testCount++;
                                 }
 
-                                if (rolling_test_count_by_loc != null) {
-                                    int timeIndex = pop.getGlobalTime() % rolling_test_count_by_loc[loc].length;
-                                    rolling_test_count_by_loc[loc][timeIndex]++;
-                                    rollingSum[loc]++;
-                                }
-
-                                testCount++;
                             }
 
                         }
 
-                    }
+                        if (testResponseArr != null) {
+                            // Modification of resposne queue - if any
 
-                    // Response to positive test results  
-                    ArrayList<Object[]> testOutcomeArr = pop.getTestOutcomeInPipeline().remove(timeLocKey);
-                    LinkedList<Object[]> responseQueue = responseQueueList.get(loc);
+                            for (Object[] ent : testResponseArr) {
+                                Person_Remote_MetaPopulation rmp
+                                        = (Person_Remote_MetaPopulation) ent[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_PERSON_TESTED];
 
-                    // Insert response from pipeline to end of response queue
-                    if (testOutcomeArr != null) {
-                        for (Object[] ent : testOutcomeArr) {
-                            responseQueue.add(ent);
-                        }
-                    }
+                                if ((Boolean) ent[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_TEST_RESULT]) {
 
-                    // Modification of resposne queue - if any
-                    for (Object[] ent : responseQueue) {
+                                    int trigger_loc = pop.getCurrentLocation(rmp);
+                                    if (trigger_loc < 0) {
+                                        trigger_loc = rmp.getHomeLocation();
+                                    }
 
-                        Person_Remote_MetaPopulation rmp
-                                = (Person_Remote_MetaPopulation) ent[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_PERSON_TESTED];
+                                    int triggerIndex = testTriggerIndex_by_loc[trigger_loc];
 
-                        if ((Boolean) ent[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_TEST_RESULT]) {
-
-                            int trigger_loc = pop.getCurrentLocation(rmp);
-                            if (trigger_loc < 0) {
-                                trigger_loc = rmp.getHomeLocation();
-                            }
-
-                            int triggerIndex = testTriggerIndex_by_loc[trigger_loc];
-
-                            // Assume test 100% accurate
-                            positiveTestResponse(rmp, covid19,
-                                    (Integer) ent[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_TEST_TYPE],
-                                    triggeredTestResponse.length == 0 ? new double[0][] : triggeredTestResponse[trigger_loc][triggerIndex],
-                                    triggetedHouseholdTestRate.length == 0 ? new double[0] : triggetedHouseholdTestRate[trigger_loc][triggerIndex],
-                                    triggetedHouseholdQuarantineRate.length == 0 ? new double[0] : triggetedHouseholdQuarantineRate[trigger_loc][triggerIndex],
-                                    triggeredContactDelay.length == 0 ? new float[0] : triggeredContactDelay[trigger_loc][triggerIndex],
-                                    triggeredQuarantineDelay.length == 0 ? new float[0] : triggeredQuarantineDelay[trigger_loc][triggerIndex],
-                                    testing_stat_cumul, testing_stat_cumul_all, test_stat_today);
-
-                        }
-
-                    }
-
-                    // Running test schedule - second round (from positive test respose)
-                    testSchArr = pop.getTestScheduelInPipeline().remove(timeLocKey);
-
-                    if (testSchArr != null) {
-                        for (Object[] ent : testSchArr) {
-                            if (testCount >= testLimit) {
-                                handleExcessTest(ent, testQueueType);
-                            } else {
-                                testing_stat_cumul[TEST_STAT_ALL][loc]++;
-                                testing_stat_cumul_all[TEST_STAT_ALL]++;
-                                test_stat_today[TEST_STAT_ALL]++;
-                                boolean testPositive
-                                        = runTestSchedule(ent, covid19, testResultDelayOption, testResponseNoDelay);
-                                if (testPositive) {
-                                    testing_stat_cumul[TEST_STAT_POS][loc]++;
-                                    testing_stat_cumul_all[TEST_STAT_POS]++;
-                                    test_stat_today[TEST_STAT_POS]++;
+                                    runPositiveTestResponse(rmp, covid19,
+                                            (Integer) ent[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_TEST_TYPE],
+                                            triggeredTestResponse.length == 0 ? new double[0][] : triggeredTestResponse[trigger_loc][triggerIndex],
+                                            triggetedHouseholdTestRate.length == 0 ? new double[0] : triggetedHouseholdTestRate[trigger_loc][triggerIndex],
+                                            triggetedHouseholdQuarantineRate.length == 0 ? new double[0] : triggetedHouseholdQuarantineRate[trigger_loc][triggerIndex],
+                                            triggeredContactDelay.length == 0 ? new float[0] : triggeredContactDelay[trigger_loc][triggerIndex],
+                                            triggeredQuarantineDelay.length == 0 ? new float[0] : triggeredQuarantineDelay[trigger_loc][triggerIndex],
+                                            testing_stat_cumul, testing_stat_cumul_all, test_stat_today);
 
                                 }
-                                if (rolling_test_count_by_loc != null) {
-                                    int timeIndex = pop.getGlobalTime() % rolling_test_count_by_loc[loc].length;
-                                    rolling_test_count_by_loc[loc][timeIndex]++;
-                                    rollingSum[loc]++;
-                                }
 
-                                testCount++;
                             }
                         }
-                    }
-                }
 
-                // Place in quarantine
-                ArrayList<Integer[]> putInQuarantine = pop.getQuarantineInPipeline().remove(pop.getGlobalTime());
-                if (putInQuarantine != null) {
-                    HashMap<Integer, Integer> qMap
-                            = ((HashMap<Integer, Integer>) pop.getFields()[Population_Remote_MetaPopulation_COVID19.FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_QUARANTINE]);
+                        if (putInQuarantine != null) {
+                            HashMap<Integer, Integer> qMap
+                                    = ((HashMap<Integer, Integer>) pop.getFields()[Population_Remote_MetaPopulation_COVID19.FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_QUARANTINE]);
 
-                    for (Integer[] inQ : putInQuarantine) {
-                        qMap.put(inQ[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_PERSON_ID],
-                                inQ[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_IN_QUARANTINE_UNTIL]);
+                            for (Integer[] inQ : putInQuarantine) {
+                                qMap.put(inQ[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_PERSON_ID],
+                                        inQ[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_IN_QUARANTINE_UNTIL]);
+                            }
+                        }
+
+                        // Test schedule - mulitple rounds 
+                        testScheduleArr = pop.getTestScheduelInPipeline().remove(timeLocKey);
+                        // Resposnse schedule - mulitple rounds
+                        testResponseArr = pop.getTestOutcomeInPipeline().remove(timeLocKey);
+                        // Place in quarantine - multiple rounds
+                        putInQuarantine = pop.getQuarantineInPipeline().remove(timeLocKey);
+
                     }
+
                 }
 
                 for (int loc = 0; loc < popSize.length; loc++) {
@@ -712,15 +687,17 @@ class Thread_PopRun_COVID19 implements Runnable {
     private boolean runTestSchedule(Object[] testSchduled,
             COVID19_Remote_Infection covid19,
             float[] delayOption, double[][] testResponseNoDelay) {
-        
+
         Person_Remote_MetaPopulation rmp
                 = (Person_Remote_MetaPopulation) testSchduled[Population_Remote_MetaPopulation_COVID19.TEST_SCHEDULE_PIPELINE_ENT_PERSON_TESTED];
         int testType = (Integer) testSchduled[Population_Remote_MetaPopulation_COVID19.TEST_SCHEDULE_PIPELINE_ENT_TEST_TYPE];
 
+        /*
         if (testType == TEST_TYPE_SYM || covid19.hasSymptoms(rmp)) {
             // No delay for symptmatic test?
             delayOption = new float[delayOption.length];
         } 
+         */
         boolean testPositive;
         if (delayOption.length == 0) { // Special case for instant test and results for all test
             testPositive = covid19.isInfected(rmp);
@@ -851,7 +828,7 @@ class Thread_PopRun_COVID19 implements Runnable {
         return hasPositiveTest;
     }
 
-    protected void positiveTestResponse(Person_Remote_MetaPopulation rmp,
+    protected void runPositiveTestResponse(Person_Remote_MetaPopulation rmp,
             COVID19_Remote_Infection covid19,
             int srcTestType,
             double[][] testResponse,
@@ -921,7 +898,8 @@ class Thread_PopRun_COVID19 implements Runnable {
                             }
 
                             ArrayList<Integer[]> inQ = getQuarantineScheduleEnt(
-                                    pop.getGlobalTime() + contactTraceDelay + quaratineDelay);
+                                    pop.getGlobalTime() + contactTraceDelay + quaratineDelay,
+                                    pop.getCurrentLocation(candidate));
                             inQ.add(new Integer[]{candidate.getId(),
                                 ((int) (candidate.getAge()
                                 + householdQuarantineRate[type + fromCurrentHousehold.length]))});
@@ -936,11 +914,12 @@ class Thread_PopRun_COVID19 implements Runnable {
 
     }
 
-    private ArrayList<Integer[]> getQuarantineScheduleEnt(int inQ_time) {
-        ArrayList<Integer[]> inQ = pop.getQuarantineInPipeline().get(inQ_time);
+    private ArrayList<Integer[]> getQuarantineScheduleEnt(int inQ_time, int loc) {   
+        List<Integer> quarnatineSchKey = List.of(inQ_time, loc);
+        ArrayList<Integer[]> inQ = pop.getQuarantineInPipeline().get(quarnatineSchKey);
         if (inQ == null) {
             inQ = new ArrayList<>();
-            pop.getQuarantineInPipeline().put(inQ_time, inQ);
+            pop.getQuarantineInPipeline().put(quarnatineSchKey, inQ);
         }
         return inQ;
     }
@@ -996,7 +975,8 @@ class Thread_PopRun_COVID19 implements Runnable {
                 quaratineDelay = getDelay(quarantineDelayOptions);
             }
 
-            ArrayList<Integer[]> inQ = getQuarantineScheduleEnt(pop.getGlobalTime() + quaratineDelay);
+            ArrayList<Integer[]> inQ = getQuarantineScheduleEnt(
+                    pop.getGlobalTime() + quaratineDelay, pop.getCurrentLocation(rmp));
             inQ.add(new Integer[]{rmp.getId(), minRetestAge});
 
         }
