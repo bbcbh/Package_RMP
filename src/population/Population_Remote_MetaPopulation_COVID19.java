@@ -59,7 +59,11 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
     public static final int CONTACT_OPTIONS_CORE_HOUSEHOLD_PROB = CONTACT_OPTIONS_NON_HOUSEHOLD_CONTACT_RATE + 1;
     public static final int CONTACT_OPTIONS_CORE_HOUSEHOLD_ID = CONTACT_OPTIONS_CORE_HOUSEHOLD_PROB + 1;
 
+    // Incident in real time
     private final transient HashMap<List<Integer>, int[]> incidence_collection = new HashMap<>();
+    // For calculation of r0  - incidence only included if infection no longer infectious
+    private final transient HashMap<List<Integer>, int[]> incidence_collenction_final = new HashMap<>();
+
     public static final int INCIDENCE_COLLECTION_NUM_TRANMISSION_HOUSHOLD_ATTEMPT = 0;
     public static final int INCIDENCE_COLLECTION_NUM_TRANMISSION_HOUSHOLD_SUC = INCIDENCE_COLLECTION_NUM_TRANMISSION_HOUSHOLD_ATTEMPT + 1;
     public static final int INCIDENCE_COLLECTION_NUM_TRANMISSION_NON_HOUSEHOLD_ATTEMPT = INCIDENCE_COLLECTION_NUM_TRANMISSION_HOUSHOLD_SUC + 1;
@@ -84,15 +88,15 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
     private final transient HashMap<Integer, Integer> minAgeForNextTest
             = new HashMap<>(); // Id, min age until next test
-    
+
     private final transient HashMap<List<Integer>, ArrayList<Object[]>> testScheduelInPipeline
             = new HashMap<>(); // Key: Global time, loc  
-    
+
     public static final int TEST_SCHEDULE_PIPELINE_ENT_PERSON_TESTED = 0;
     public static final int TEST_SCHEDULE_PIPELINE_ENT_AGE_TESTED = TEST_SCHEDULE_PIPELINE_ENT_PERSON_TESTED + 1;
-    public static final int TEST_SCHEDULE_PIPELINE_ENT_TEST_TYPE = TEST_SCHEDULE_PIPELINE_ENT_AGE_TESTED + 1; 
+    public static final int TEST_SCHEDULE_PIPELINE_ENT_TEST_TYPE = TEST_SCHEDULE_PIPELINE_ENT_AGE_TESTED + 1;
     public static final int TEST_SCHEDULE_PIPELINE_ENT_LENGTH = TEST_SCHEDULE_PIPELINE_ENT_TEST_TYPE + 1;
-    
+
     private final transient HashMap<List<Integer>, ArrayList<Object[]>> testOutcomeInPipeline
             = new HashMap<>();   // Key: Global time, loc  
 
@@ -100,13 +104,12 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
     public static final int TEST_OUTCOME_PIPELINE_ENT_AGE_TESTED = TEST_OUTCOME_PIPELINE_ENT_PERSON_TESTED + 1;
     public static final int TEST_OUTCOME_PIPELINE_ENT_TEST_TYPE = TEST_OUTCOME_PIPELINE_ENT_AGE_TESTED + 1;
     public static final int TEST_OUTCOME_PIPELINE_ENT_TEST_RESULT = TEST_OUTCOME_PIPELINE_ENT_TEST_TYPE + 1;
-    public static final int TEST_OUTCOME_PIPELINE_ENT_LENGTH = TEST_OUTCOME_PIPELINE_ENT_TEST_RESULT + 1;      
-    
-    private final transient HashMap<List<Integer>, ArrayList<Integer[]>> quarantineInPipeline 
+    public static final int TEST_OUTCOME_PIPELINE_ENT_LENGTH = TEST_OUTCOME_PIPELINE_ENT_TEST_RESULT + 1;
+
+    private final transient HashMap<List<Integer>, ArrayList<Integer[]>> quarantineInPipeline
             = new HashMap<>(); // Key: Global time, loc
     public static final int QUARANTINE_PIPELINE_ENT_PERSON_ID = 0;
-    public static final int QUARANTINE_PIPELINE_ENT_IN_QUARANTINE_UNTIL = QUARANTINE_PIPELINE_ENT_PERSON_ID+1;
-    
+    public static final int QUARANTINE_PIPELINE_ENT_IN_QUARANTINE_UNTIL = QUARANTINE_PIPELINE_ENT_PERSON_ID + 1;
 
     // FIELDS_REMOTE_METAPOP_COVID19_META_POP_LOCKDOWN_SETTING
     public static final int META_POP_STAT_LOCKDOWN_START = 0;
@@ -147,12 +150,11 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
     public HashMap<List<Integer>, ArrayList<Object[]>> getTestScheduelInPipeline() {
         return testScheduelInPipeline;
-    }    
+    }
 
     public HashMap<List<Integer>, ArrayList<Integer[]>> getQuarantineInPipeline() {
         return quarantineInPipeline;
-    }   
-    
+    }
 
     public HashMap<Integer, double[]> getTestResponse() {
         return testResponse;
@@ -544,8 +546,24 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
             }
             currentlyAt.get(loc).add(p);
 
-            if (covid19.isInfectious(p)) {
-                currentlyInfectious.add(p);
+            if (covid19.isInfected(p)) {
+                
+                double[] infStat = covid19.getCurrentlyInfected().get(p.getId());
+                
+                if (p.getAge() >= infStat[COVID19_Remote_Infection.PARAM_INFECTIOUS_START_AGE]
+                    && p.getAge() < infStat[COVID19_Remote_Infection.PARAM_INFECTIOUS_END_AGE]) {
+                    // Infectious 
+                    currentlyInfectious.add(p);
+                }else if(p.getAge() ==  infStat[COVID19_Remote_Infection.PARAM_INFECTIOUS_END_AGE]){
+                    // Just stop being infections 
+                    List<Integer> key = List.of(p.getId(), (int) infStat[COVID19_Remote_Infection.PARAM_AGE_OF_EXPOSURE]);
+                    int[] ent = incidence_collection.remove(key);
+                    if(ent != null){
+                        incidence_collenction_final.put(key, ent);
+                    }
+                    
+                    
+                }
             }
 
             //assignCurrentlyAtHousehold(p);            
@@ -556,10 +574,7 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
             double[] infStat = covid19.getCurrentlyInfected().get(infectious.getId());
             int ageOfExp = (int) infStat[COVID19_Remote_Infection.PARAM_AGE_OF_EXPOSURE];
 
-            List<Integer> key = new ArrayList<>(2);
-            key.add(infectious.getId());
-            key.add(ageOfExp);
-
+            List<Integer> key = List.of(infectious.getId(), ageOfExp);
             int[] ent = incidence_collection.get(key);
 
             if (ent == null) {
@@ -660,10 +675,10 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
             } else {
                 int loc = getCurrentLocation(p);
-                if(loc == -1){
+                if (loc == -1) {
                     loc = ((MoveablePersonInterface) p).getHomeLocation();
                 }
-                    
+
                 RelationshipMap householdMap = getRelMap()[RELMAP_HOUSEHOLD];
                 HashMap<Integer, float[]> contactOptions
                         = (HashMap<Integer, float[]>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS];
@@ -824,9 +839,7 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         return nh_contactRate;
     }
 
-    public HashMap<List<Integer>, int[]> getIncidence_collection() {
-        return incidence_collection;
-    }
+    
 
     protected boolean infectionAttempt(AbstractInfection inf,
             AbstractIndividualInterface src, AbstractIndividualInterface target) {
@@ -1063,17 +1076,18 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
         int t = getGlobalTime();
 
-        HashMap<List<Integer>, int[]> incidenceCollection = getIncidence_collection();
+        HashMap<List<Integer>, int[]> completedIncidenceCollection = incidence_collenction_final;
+        
 
         if (numStat == null) {
             numStat = generateInfectionStat();
         }
 
-        double[][] r0_collection = new double[3][incidenceCollection.size()];
+        double[][] r0_collection = new double[3][completedIncidenceCollection.size()];
         int k = 0;
 
-        for (List<Integer> incidKey : incidenceCollection.keySet()) {
-            int[] infectStat = incidenceCollection.get(incidKey);
+        for (List<Integer> incidKey : completedIncidenceCollection.keySet()) {
+            int[] infectStat = completedIncidenceCollection.get(incidKey);
             r0_collection[0][k] = infectStat[INCIDENCE_COLLECTION_NUM_TRANMISSION_HOUSHOLD_SUC];
             r0_collection[1][k] = infectStat[INCIDENCE_COLLECTION_NUM_TRANMISSION_NON_HOUSEHOLD_SUC];
             r0_collection[2][k] = r0_collection[0][k] + r0_collection[1][k];
@@ -1095,7 +1109,7 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         }
 
         csvOutput.print(',');
-        csvOutput.print(incidenceCollection.size());
+        csvOutput.print(incidence_collection.size());
 
         for (int i = 0; i < cumulative_incident_by_location.length; i++) {
             csvOutput.print(',');

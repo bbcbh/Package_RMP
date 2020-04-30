@@ -25,6 +25,7 @@ import sim.SimulationInterface;
 import static sim.SimulationInterface.PROP_NUM_SIM_PER_SET;
 import static sim.SimulationInterface.PROP_NUM_SNAP;
 import static sim.SimulationInterface.PROP_SNAP_FREQ;
+import sim.Simulation_Remote_MetaPopulation;
 
 /**
  *
@@ -62,7 +63,7 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
 
             float[][][] prevalEnt = new float[numPop][timeSteps + 1][numSim];
             int[][][] incidentEnt = new int[numPop][timeSteps + 1][numSim];
-            int[][][] inQuarantineEnt = new int[numPop][timeSteps+1][numSim];
+            int[][][] inQuarantineEnt = new int[numPop][timeSteps + 1][numSim];
 
             while (zipEntryEnum.hasMoreElements()) {
                 ZipEntry zipEnt = zipEntryEnum.nextElement();
@@ -79,7 +80,7 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
                                 for (int p = 0; p < numPop; p++) {
                                     prevalEnt[p][t][simIndex] = Float.parseFloat(lineEnt[p + numPop + 1]) / Float.parseFloat(lineEnt[p + 1]);
                                     incidentEnt[p][t][simIndex] = Integer.parseInt(lineEnt[1 + p + 4 * numPop + 1]);
-                                    inQuarantineEnt[p][t][simIndex] = Integer.parseInt(lineEnt[1+ p + 5 * numPop + 1]);
+                                    inQuarantineEnt[p][t][simIndex] = Integer.parseInt(lineEnt[1 + p + 5 * numPop + 1]);
                                 }
                             }
                             lineNum++;
@@ -112,8 +113,8 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
                     pri[p].println();
                 }
                 pri[p].close();
-                
-                 pri[p] = new PrintWriter(new File(basedir, String.format(DECODE_FILE_REGEX_IN_QUARANTINE_BY_LOC, p)));
+
+                pri[p] = new PrintWriter(new File(basedir, String.format(DECODE_FILE_REGEX_IN_QUARANTINE_BY_LOC, p)));
                 pri[p].println("Time, In quarantine by sim");
                 for (int t = 0; t < inQuarantineEnt[p].length; t++) {
                     pri[p].print(t);
@@ -138,7 +139,7 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
 
             int[][][] numTest = new int[numPop][timeSteps + 1][numSim];
             int[][][] testPositive = new int[numPop][timeSteps + 1][numSim];
-            int[][][] inResponseQueue = new int[numPop][timeSteps+1][numSim];
+            int[][][] inResponseQueue = new int[numPop][timeSteps + 1][numSim];
 
             while (zipEntryEnum.hasMoreElements()) {
                 ZipEntry zipEnt = zipEntryEnum.nextElement();
@@ -155,7 +156,7 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
                                 for (int p = 0; p < numPop; p++) {
                                     numTest[p][t][simIndex] = Integer.parseInt(lineEnt[1 + p]);
                                     testPositive[p][t][simIndex] = Integer.parseInt(lineEnt[1 + numPop + p]);
-                                    inResponseQueue[p][t][simIndex] = Integer.parseInt(lineEnt[1 + 2*numPop + p]);
+                                    inResponseQueue[p][t][simIndex] = Integer.parseInt(lineEnt[1 + 2 * numPop + p]);
 
                                 }
                             }
@@ -189,7 +190,7 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
                     pri[p].println();
                 }
                 pri[p].close();
-                
+
                 pri[p] = new PrintWriter(new File(basedir, String.format(DECODE_FILE_REGEX_RESPONSE_QUEUE_BY_LOC, p)));
                 pri[p].println("Time, Number in response queue by sim");
                 for (int t = 0; t < inResponseQueue[p].length; t++) {
@@ -212,9 +213,14 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
     protected final String[] propModelInitStr;
     protected final Object[] propVal;
     protected boolean zipCSV = true;
+    protected boolean clearPrevResult = false;
 
     public void setZipCSV(boolean zipCSV) {
         this.zipCSV = zipCSV;
+    }
+
+    public void setClearPrevResult(boolean clearPrevResult) {
+        this.clearPrevResult = clearPrevResult;
     }
 
     public Run_Population_Remote_MetaPopulation_COVID19(File baseDir, Object[] propVal, String[] propModelInitStr) {
@@ -224,6 +230,19 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
     }
 
     public void generateOneResultSet() throws IOException, InterruptedException {
+
+        if (clearPrevResult) {
+            File[] fileToClear = baseDir.listFiles(new FileFilter() {
+                @Override
+                public boolean accept(File pathname) {
+                    return !pathname.getName().equals(Simulation_Remote_MetaPopulation.FILENAME_PROP);
+                }
+            });
+            
+            for(File del: fileToClear){
+                del.delete();
+            }
+        }
 
         File zipSnapFilename = new File(baseDir, Thread_PopRun_COVID19.FILE_REGEX_OUTPUT.replace("%d", "All") + ".zip");
         int[] popSize = null;
