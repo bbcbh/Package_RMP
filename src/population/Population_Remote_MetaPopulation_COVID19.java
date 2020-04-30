@@ -547,22 +547,21 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
             currentlyAt.get(loc).add(p);
 
             if (covid19.isInfected(p)) {
-                
+
                 double[] infStat = covid19.getCurrentlyInfected().get(p.getId());
-                
+
                 if (p.getAge() >= infStat[COVID19_Remote_Infection.PARAM_INFECTIOUS_START_AGE]
-                    && p.getAge() < infStat[COVID19_Remote_Infection.PARAM_INFECTIOUS_END_AGE]) {
+                        && p.getAge() < infStat[COVID19_Remote_Infection.PARAM_INFECTIOUS_END_AGE]) {
                     // Infectious 
                     currentlyInfectious.add(p);
-                }else if(p.getAge() ==  infStat[COVID19_Remote_Infection.PARAM_INFECTIOUS_END_AGE]){
+                } else if (p.getAge() == infStat[COVID19_Remote_Infection.PARAM_INFECTIOUS_END_AGE]) {
                     // Just stop being infections 
                     List<Integer> key = List.of(p.getId(), (int) infStat[COVID19_Remote_Infection.PARAM_AGE_OF_EXPOSURE]);
                     int[] ent = incidence_collection.remove(key);
-                    if(ent != null){
+                    if (ent != null) {
                         incidence_collenction_final.put(key, ent);
                     }
-                    
-                    
+
                 }
             }
 
@@ -839,8 +838,6 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         return nh_contactRate;
     }
 
-    
-
     protected boolean infectionAttempt(AbstractInfection inf,
             AbstractIndividualInterface src, AbstractIndividualInterface target) {
         if (inf instanceof COVID19_Remote_Infection) {
@@ -850,10 +847,16 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
             double r0 = param[COVID19_Remote_Infection.PARAM_R0_INFECTED];
 
-            // For now just assume uniform tranmission probabiliy per day
-            double[] infectious_dur = (double[]) covid19.getParameter(AbstractInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceFirst("\\d+",
-                    Integer.toString(COVID19_Remote_Infection.DIST_INFECTIOUS_DUR_INDEX)));
-            double tranmissionProbPerContact = r0 / infectious_dur[0];
+            double tranmissionProbPerContact;
+            if (r0 < 0) {                
+                tranmissionProbPerContact = -r0;
+            } else {
+
+                // For now just assume uniform tranmission probabiliy per day
+                double[] infectious_dur = (double[]) covid19.getParameter(AbstractInfection.PARAM_DIST_PARAM_INDEX_REGEX.replaceFirst("\\d+",
+                        Integer.toString(COVID19_Remote_Infection.DIST_INFECTIOUS_DUR_INDEX)));
+                tranmissionProbPerContact = r0 / infectious_dur[0];
+            }
 
             if (covid19.getRNG().nextDouble() < tranmissionProbPerContact) {
                 covid19.infecting(target);
@@ -1077,7 +1080,6 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         int t = getGlobalTime();
 
         HashMap<List<Integer>, int[]> completedIncidenceCollection = incidence_collenction_final;
-        
 
         if (numStat == null) {
             numStat = generateInfectionStat();
