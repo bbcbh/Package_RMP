@@ -965,7 +965,11 @@ class Thread_PopRun_COVID19 implements Runnable {
         if (triggeredTestResponse.length == 0) {
             default_test_resp = new double[0][];
         } else {
-            default_test_resp = triggeredTestResponse[pop.getCurrentLocation(rmp)][triggerIndex];
+            int currentLoc = pop.getCurrentLocation(rmp);
+            if(currentLoc == -1){
+                currentLoc = rmp.getHomeLocation();
+            }
+            default_test_resp = triggeredTestResponse[currentLoc][triggerIndex];
         }
 
         // Assume will not be tested again until symptom disspates or within the 14 days period

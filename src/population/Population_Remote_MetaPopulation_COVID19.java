@@ -660,6 +660,10 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
             } else {
                 int loc = getCurrentLocation(p);
+                if(loc == -1){
+                    loc = ((MoveablePersonInterface) p).getHomeLocation();
+                }
+                    
                 RelationshipMap householdMap = getRelMap()[RELMAP_HOUSEHOLD];
                 HashMap<Integer, float[]> contactOptions
                         = (HashMap<Integer, float[]>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS];
