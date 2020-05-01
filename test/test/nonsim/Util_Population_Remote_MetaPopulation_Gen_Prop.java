@@ -49,18 +49,6 @@ public class Util_Population_Remote_MetaPopulation_Gen_Prop {
         for (int r = 0; r < COMMON_REPLACE_INDEX.length; r++){
             lines_default[COMMON_REPLACE_INDEX[r]] = COMMON_REPLACE_STRING[r];
         }
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
 
     }
 

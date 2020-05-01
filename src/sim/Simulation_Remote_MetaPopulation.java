@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -358,7 +359,15 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                         = new Run_Population_Remote_MetaPopulation_COVID19(baseDir, propVal, propModelInitStr);
 
                 run.setZipCSV(!extraFlag.contains("-noZip"));
-                run.setClearPrevResult(extraFlag.contains("-clearPrevResult"));
+
+                if (extraFlag.contains("-clearPrevResult")) {
+                    System.out.print("Clear previous result? Y to confirm: ");
+                    java.io.BufferedReader in = new java.io.BufferedReader(new InputStreamReader(System.in));
+                    if (in.readLine().equals("Y")) {
+                        run.setClearPrevResult(true);
+                    }
+
+                }
 
                 run.generateOneResultSet();
 

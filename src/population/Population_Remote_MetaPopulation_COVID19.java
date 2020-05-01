@@ -721,7 +721,12 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
                     SingleRelationship tempEdge = new SingleRelationshipTimeStamp(
                             new Integer[]{possibleHousehold, p.getId()});
 
+                    
+                    if(!householdMap.containsVertex(p.getId())){        
+                        householdMap.addVertex(p.getId());
+                    }            
                     householdMap.addEdge(possibleHousehold, p.getId(), tempEdge);
+                    
 
                     currentlyInHousehold.put(p.getId(), possibleHousehold);
 

@@ -238,8 +238,8 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
                     return !pathname.getName().equals(Simulation_Remote_MetaPopulation.FILENAME_PROP);
                 }
             });
-            
-            for(File del: fileToClear){
+
+            for (File del : fileToClear) {
                 del.delete();
             }
         }
@@ -329,8 +329,11 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
 
                 File statFile = new File(baseDir,
                         String.format(Thread_PopRun_COVID19.FILE_REGEX_SNAP_STAT, thread.getThreadId()));
+                File testFile = new File(baseDir,
+                        String.format(Thread_PopRun_COVID19.FILE_REGEX_TEST_STAT, thread.getThreadId()));
 
-                boolean runSim = !statFile.exists() || statFile.length() == 0;
+                boolean runSim = !statFile.exists() || statFile.length() == 0 
+                        || !testFile.exists() || testFile.length() == 0;
 
                 if (runSim) {
                     if (numProcess <= 1) {
@@ -351,8 +354,8 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
                         }
                     }
                 } else {
-                    System.out.println(String.format("Thread #%d skipped as output file %s of size %d already present.",
-                            thread.getThreadId(), statFile.getName(), statFile.length()));
+                    System.out.println(String.format("Thread #%d skipped as output file %s of size %d and testing file %s of size %d already present.",
+                            thread.getThreadId(), statFile.getName(), statFile.length(), testFile.getName(), testFile.length()));
                 }
 
             }
