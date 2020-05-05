@@ -21,11 +21,10 @@ public class Util_Population_Remote_MetaPopulation_GenProp_Recursive {
 
     private final String[] LINE_SRC_SUFFIX = new String[]{
         "Last modification:",
-        "<entry key=\"POP_PROP_INIT_PREFIX_30\">",};
+        };
     private final String[] LINE_TARGET = new String[]{
         "Last modification: " + dateFormat.format(date),
-        "<entry key=\"POP_PROP_INIT_PREFIX_30\">[-0.052, -0.048]</entry>"
-    };
+        };
 
     public void genPropFile(File tarDir, File scrDir) throws IOException {
         File propFile = new File(scrDir, PROP_FILE_NAME);
@@ -39,9 +38,11 @@ public class Util_Population_Remote_MetaPopulation_GenProp_Recursive {
                 pWri = new PrintWriter(tarProp);
                 String srcLine;
                 while ((srcLine = src.readLine()) != null) {
-                    if (repPt <  LINE_SRC_SUFFIX.length 
-                            && srcLine.startsWith(LINE_SRC_SUFFIX[repPt])) {
-                        pWri.println(LINE_TARGET[repPt]);
+                    if (repPt < LINE_SRC_SUFFIX.length
+                            && srcLine.trim().startsWith(LINE_SRC_SUFFIX[repPt])) {
+                        if (LINE_TARGET[repPt].length() > 0) {
+                            pWri.println(LINE_TARGET[repPt]);
+                        }
                         repPt++;
                     } else {
                         pWri.println(srcLine.trim());
@@ -69,6 +70,7 @@ public class Util_Population_Remote_MetaPopulation_GenProp_Recursive {
     public static void main(String[] arg) throws IOException {
         File genDir = new File("C:\\Users\\bhui\\OneDrive - UNSW\\RMP\\Covid19\\HPC_Blank\\Gen_Base");
         File[] recursiveDir = new File[]{
+            new File("C:\\Users\\bhui\\OneDrive - UNSW\\RMP\\Covid19\\HPC_Blank\\Gen_Src\\Covid19_No_Response"),
             new File("C:\\Users\\bhui\\OneDrive - UNSW\\RMP\\Covid19\\HPC_Blank\\Gen_Src\\CTE"),
             new File("C:\\Users\\bhui\\OneDrive - UNSW\\RMP\\Covid19\\HPC_Blank\\Gen_Src\\CQE"),
             new File("C:\\Users\\bhui\\OneDrive - UNSW\\RMP\\Covid19\\HPC_Blank\\Gen_Src\\CTE_SymAll"),

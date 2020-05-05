@@ -39,8 +39,8 @@ public class COVID19_Remote_Infection extends AbstractInfectionWithPatientMappin
     private final double[] DEFAULT_RO_RAW = {1.5, 3.5};
     // From Kucharski 2020, Kretzschmar 2020, James email
     private final double[] DEFAULT_LATANT_DURATION = {3, 6};
-    private final double[] DEFAULT_INCUBATION_DURATION = {6.4, 2.3};
-    private final double[] DEFAULT_INFECTIOUS_DURATION = {10, 4};
+    private final double[] DEFAULT_INCUBATION_DURATION = {3, 7.2};
+    private final double[] DEFAULT_INFECTIOUS_DURATION = {5.8, 10.8};
     private final double[] DEFAULT_POST_INFECTIOUS_DURATION = {0, 10};
     private final double[] DEFAULT_IMMUNE_DURATION = {Double.POSITIVE_INFINITY, 0};
     private final double[] DEFAULT_SYM_PROB = {0.5, 0.1};
@@ -75,8 +75,12 @@ public class COVID19_Remote_Infection extends AbstractInfectionWithPatientMappin
             distributions[DIST_INCUBATION_DUR_INDEX] = new WeibullDistribution(RNG, 3, 7.2); // Default
         }
         if (DEF_DIST_VAR[DIST_INFECTIOUS_DUR_INDEX][1] != 0) {
+            /*
+            // Pre 20200505
             double[] var = super.generatedGammaParam(DEF_DIST_VAR[DIST_INFECTIOUS_DUR_INDEX]);
             distributions[DIST_INFECTIOUS_DUR_INDEX] = new GammaDistribution(RNG, var[0], 1 / var[1]);
+             */
+            distributions[DIST_INFECTIOUS_DUR_INDEX] = new WeibullDistribution(RNG, 5.8, 10.8); 
         }
         if (DEF_DIST_VAR[DIST_POST_INFECTIOUS_DUR_INDEX][1] != 0) {
             double[] var = DEF_DIST_VAR[DIST_POST_INFECTIOUS_DUR_INDEX];
@@ -98,7 +102,7 @@ public class COVID19_Remote_Infection extends AbstractInfectionWithPatientMappin
 
     @Override
     public double advancesState(AbstractIndividualInterface p) {
-        
+
         double[] param = getCurrentlyInfected().get(p.getId());
         if (param != null) {
             p.setTimeUntilNextStage(getInfectionIndex(), 1); // Check daily for now
@@ -233,40 +237,57 @@ public class COVID19_Remote_Infection extends AbstractInfectionWithPatientMappin
         AbstractRealDistribution distribution = getDistribution(distId);
 
         if (distribution instanceof WeibullDistribution) {
-            System.arraycopy(distState, 0, getDistributionState(distId), 0, distState.length);
-            // http://www.real-statistics.com/distribution-fitting/method-of-moments/method-of-moments-weibull/
-            BaseAbstractUnivariateSolver<UnivariateDifferentiableFunction> solver = new NewtonRaphsonSolver();
 
-            UnivariateDifferentiableFunction function = new UnivariateDifferentiableFunction() {
-                @Override
-                public DerivativeStructure value(DerivativeStructure ds) throws DimensionMismatchException {
-                    double beta = ds.getValue();
-                    double val = value(beta);
-                    switch (ds.getOrder()) {
-                        case 0:
-                            return new DerivativeStructure(ds.getFreeParameters(), 0, val);
-                        case 1:
-                            final int parameters = ds.getFreeParameters();
-                            final double[] derivatives = new double[parameters + 1];
-                            derivatives[0] = value(ds.getValue());
-                            derivatives[1] = (- 2 * Gamma.digamma(1 + 2 / beta)
-                                    + 2 * Gamma.digamma(1 + 1 / beta)) / (beta * beta);
-                            return new DerivativeStructure(parameters, 1, derivatives);
-                        default:
-                            throw new NumberIsTooLargeException(ds.getOrder(), 1, true);
+            double shape = distState[0];
+            double scale = distState[1];
+
+            if (distState[0] < 0 || distState[1] < 0) {
+
+                System.arraycopy(distState, 0, getDistributionState(distId), 0, distState.length);
+                System.out.println(getClass().getName()
+                        + ".setDistributionState (Weibull): Estimate Weibull parameters using mean and SD");
+
+                double[] distStateAbs = new double[distState.length];
+                for (int s = 0; s < distStateAbs.length; s++) {
+                    distStateAbs[s] = Math.abs(distState[s]);
+                }
+
+                // http://www.real-statistics.com/distribution-fitting/method-of-moments/method-of-moments-weibull/
+                BaseAbstractUnivariateSolver<UnivariateDifferentiableFunction> solver = new NewtonRaphsonSolver();
+
+                UnivariateDifferentiableFunction function = new UnivariateDifferentiableFunction() {
+                    @Override
+                    public DerivativeStructure value(DerivativeStructure ds) throws DimensionMismatchException {
+                        double beta = ds.getValue();
+                        double val = value(beta);
+                        switch (ds.getOrder()) {
+                            case 0:
+                                return new DerivativeStructure(ds.getFreeParameters(), 0, val);
+                            case 1:
+                                final int parameters = ds.getFreeParameters();
+                                final double[] derivatives = new double[parameters + 1];
+                                derivatives[0] = value(ds.getValue());
+                                derivatives[1] = (- 2 * Gamma.digamma(1 + 2 / beta)
+                                        + 2 * Gamma.digamma(1 + 1 / beta)) / (beta * beta);
+                                return new DerivativeStructure(parameters, 1, derivatives);
+                            default:
+                                throw new NumberIsTooLargeException(ds.getOrder(), 1, true);
+                        }
+
                     }
 
-                }
+                    @Override
+                    public double value(double beta) {
+                        return Gamma.logGamma(1 + 2 / beta) - 2 * Gamma.logGamma(1 + 1 / beta)
+                                - Math.log(distStateAbs[1] * distStateAbs[1] + distStateAbs[0] * distStateAbs[0])
+                                + 2 * Math.log(distStateAbs[0]);
+                    }
+                };
 
-                @Override
-                public double value(double beta) {
-                    return Gamma.logGamma(1 + 2 / beta) - 2 * Gamma.logGamma(1 + 1 / beta)
-                            - Math.log(distState[1] * distState[1] + distState[0] * distState[0]) + 2 * Math.log(distState[0]);
-                }
-            };
+                shape = solver.solve(10000, function, 0, 15);
+                scale = distStateAbs[0] / Gamma.gamma(1 + 1 / shape);
+            }
 
-            double shape = solver.solve(10000, function, 0, 15);
-            double scale = distState[0] / Gamma.gamma(1 + 1 / shape);
             distribution = new WeibullDistribution(getRNG(), shape, scale);
             setDistribution(distId, distribution);
 
@@ -277,10 +298,9 @@ public class COVID19_Remote_Infection extends AbstractInfectionWithPatientMappin
     }
 
     // Debug
-    /*
     public static void main(String[] arg) {
         COVID19_Remote_Infection inf = new COVID19_Remote_Infection(new random.MersenneTwisterRandomGenerator(2251912970037127827l));
-        inf.setDistributionState(DIST_INCUBATION_DUR_INDEX, new double[]{6.4, 2.3});
+        inf.setDistributionState(DIST_INCUBATION_DUR_INDEX, new double[]{3, 7.2});
         double[] sampleValue = new double[10000];
         for (int i = 0; i < sampleValue.length; i++) {
             sampleValue[i] = inf.getDistribution(DIST_INCUBATION_DUR_INDEX).sample();
@@ -289,5 +309,5 @@ public class COVID19_Remote_Infection extends AbstractInfectionWithPatientMappin
                 = new org.apache.commons.math3.stat.descriptive.DescriptiveStatistics(sampleValue);
         System.out.println(String.format("Mean = %.5f, SD = %.5f", des.getMean(), des.getStandardDeviation()));
     }
-     */
+
 }
