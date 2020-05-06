@@ -38,16 +38,31 @@ public class Util_Population_Remote_MetaPopulation_GenProp_Recursive {
     private final String DATE_STAMP_STR = DEFAULT_DATE_FORMAT.format(CURRENT_DATE);
 
     private String[] entry_key_index = {
-        "POP_PROP_INIT_PREFIX_30",
-        "POP_PROP_INIT_PREFIX_39",};
+        "POP_PROP_INIT_PREFIX_30",};
 
     private String[] entry_key_replacement = {
-        "[-0.12, -0.05]",
-        "[[0.037, 0, 0, 0.089, 0.011, 0.033, 0.248, 0.033, 0.143, 0.793, 0.143, 1, 1, 1, 1],\n"
-        + "[0.041, 0, 0, 0.083, 0.011, 0.033, 0.245, 0.033, 0.143, 0.751, 0.143, 1, 1, 1, 1],\n"
-        + "[0.041, 0, 0, 0.083, 0.011, 0.033, 0.245, 0.033, 0.143, 0.751, 0.143, 1, 1, 1, 1],\n"
-        + "[0.041, 0, 0, 0.083, 0.011, 0.033, 0.245, 0.033, 0.143, 0.751, 0.143, 1, 1, 1, 1],\n"
-        + "[0.041, 0, 0, 0.083, 0.011, 0.033, 0.245, 0.033, 0.143, 0.751, 0.143, 1, 1, 1, 1]]",};
+        "[-0.12, -0.05]",};
+
+    public static Document parseXMLFile(File xml) throws
+            ParserConfigurationException, SAXException, IOException {
+        DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
+        return dBuilder.parse(xml);
+
+    }
+
+    public void setReplacemenEntries(Document xml_doc) {
+        NodeList nList_entry = xml_doc.getElementsByTagName("entry");
+        entry_key_index = new String[nList_entry.getLength()];
+        entry_key_replacement = new String[nList_entry.getLength()];
+
+        for (int entId = 0; entId < nList_entry.getLength(); entId++) {
+            Element entryElement = (Element) nList_entry.item(entId);
+            entry_key_index[entId] = entryElement.getAttribute("key");
+            entry_key_replacement[entId] = entryElement.getTextContent();
+        }
+
+    }
 
     public void genPropFile(File tarDir, File scrDir)
             throws IOException, ParserConfigurationException, SAXException, TransformerException {
@@ -57,7 +72,7 @@ public class Util_Population_Remote_MetaPopulation_GenProp_Recursive {
 
             tarDir.mkdirs();
             File tarProp = new File(tarDir, PROP_FILE_NAME);
-            replacePropEntryByDOM(propFile, tarProp);
+            replacePropEntryByDOM(parseXMLFile(propFile), tarProp);
         }
 
         File[] dirList = scrDir.listFiles(new FileFilter() {
@@ -74,13 +89,10 @@ public class Util_Population_Remote_MetaPopulation_GenProp_Recursive {
         }
     }
 
-    private void replacePropEntryByDOM(File propFile, File tarProp)
+    private void replacePropEntryByDOM(Document src_doc, File tarProp)
             throws IOException, ParserConfigurationException, SAXException, TransformerConfigurationException, TransformerException {
-        DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
-        DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
-        Document doc = (Document) dBuilder.parse(propFile);
 
-        NodeList nList_comment = doc.getElementsByTagName("comment");
+        NodeList nList_comment = src_doc.getElementsByTagName("comment");
 
         for (int c = 0; c < nList_comment.getLength(); c++) {
             Node commentNode = nList_comment.item(c);
@@ -104,7 +116,7 @@ public class Util_Population_Remote_MetaPopulation_GenProp_Recursive {
         }
 
         if (entry_key_index.length > 0) {
-            NodeList nList_entry = doc.getElementsByTagName("entry");
+            NodeList nList_entry = src_doc.getElementsByTagName("entry");
             for (int entId = 0; entId < nList_entry.getLength(); entId++) {
                 Element entryElement = (Element) nList_entry.item(entId);
                 for (int k = 0; k < entry_key_index.length; k++) {
@@ -122,12 +134,12 @@ public class Util_Population_Remote_MetaPopulation_GenProp_Recursive {
 
         //Uncomment if you do not require XML declaration
         //transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");        
-        transformer.setOutputProperty(OutputKeys.DOCTYPE_SYSTEM, doc.getDoctype().getSystemId());
+        transformer.setOutputProperty(OutputKeys.DOCTYPE_SYSTEM, src_doc.getDoctype().getSystemId());
 
         //Write XML to file
         FileOutputStream outStream = new FileOutputStream(tarProp);
 
-        transformer.transform(new DOMSource(doc), new StreamResult(outStream));
+        transformer.transform(new DOMSource(src_doc), new StreamResult(outStream));
 
     }
 
@@ -141,14 +153,45 @@ public class Util_Population_Remote_MetaPopulation_GenProp_Recursive {
             new File("C:\\Users\\bhui\\OneDrive - UNSW\\RMP\\Covid19\\HPC_Blank\\Gen_Src\\CTE_SymAll"),
             new File("C:\\Users\\bhui\\OneDrive - UNSW\\RMP\\Covid19\\HPC_Blank\\Gen_Src\\CQE_SymAll"),};
 
-        Util_Population_Remote_MetaPopulation_GenProp_Recursive util;
-        for (File f : recursiveDir) {
-            util = new Util_Population_Remote_MetaPopulation_GenProp_Recursive();
-            File baseDir = new File(genDir, f.getName());
-            util.genPropFile(baseDir, f);
+        File commonReplacementPropFile = new File("C:\\Users\\bhui\\OneDrive - UNSW\\RMP\\Covid19\\HPC_Blank\\Gen_Src\\replacement.prop");
+
+        if (!commonReplacementPropFile.exists()) {
+            javax.swing.JFileChooser chooser = new javax.swing.JFileChooser();
+            int res = chooser.showOpenDialog(null);
+            if (res == javax.swing.JFileChooser.APPROVE_OPTION) {
+                commonReplacementPropFile = chooser.getSelectedFile();
+            }
         }
 
-        System.out.println("Prop files generated at " + genDir.getAbsolutePath());
+        if (commonReplacementPropFile.exists()) {
+            Util_Population_Remote_MetaPopulation_GenProp_Recursive util;
+            Document commonReplaceDoc = parseXMLFile(commonReplacementPropFile);
+            NodeList nList;
+            
+            nList = commonReplaceDoc.getElementsByTagName("filepath_tar");
+            String ent;
+            if(nList.getLength() > 0){
+                ent = nList.item(0).getTextContent();
+                genDir = new File(ent);                                
+            }
+            nList = commonReplaceDoc.getElementsByTagName("filepath_src");
+            if(nList.getLength() > 0){
+                recursiveDir = new File[nList.getLength()];
+                for(int f = 0; f < recursiveDir.length; f++){
+                    ent = nList.item(f).getTextContent();
+                    recursiveDir[f] = new File(ent);                    
+                }                                                
+            }
+            
+            for (File f : recursiveDir) {
+                util = new Util_Population_Remote_MetaPopulation_GenProp_Recursive();
+                File baseDir = new File(genDir, f.getName());
+                util.setReplacemenEntries(commonReplaceDoc);
+                util.genPropFile(baseDir, f);
+            }
+
+            System.out.println("Prop files generated at " + genDir.getAbsolutePath());
+        }
 
     }
 

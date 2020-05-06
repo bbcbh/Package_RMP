@@ -7,7 +7,6 @@ import org.apache.commons.math3.analysis.solvers.BaseAbstractUnivariateSolver;
 import org.apache.commons.math3.analysis.solvers.NewtonRaphsonSolver;
 import org.apache.commons.math3.distribution.AbstractRealDistribution;
 import org.apache.commons.math3.distribution.BetaDistribution;
-import org.apache.commons.math3.distribution.GammaDistribution;
 import org.apache.commons.math3.distribution.UniformRealDistribution;
 import org.apache.commons.math3.distribution.WeibullDistribution;
 import org.apache.commons.math3.exception.DimensionMismatchException;
@@ -80,7 +79,9 @@ public class COVID19_Remote_Infection extends AbstractInfectionWithPatientMappin
             double[] var = super.generatedGammaParam(DEF_DIST_VAR[DIST_INFECTIOUS_DUR_INDEX]);
             distributions[DIST_INFECTIOUS_DUR_INDEX] = new GammaDistribution(RNG, var[0], 1 / var[1]);
              */
-            distributions[DIST_INFECTIOUS_DUR_INDEX] = new WeibullDistribution(RNG, 5.8, 10.8); 
+            distributions[DIST_INFECTIOUS_DUR_INDEX] = new WeibullDistribution(RNG, 5.8, 10.8); // R0 = 5.0 (3.0, 7.0)            
+            //distributions[DIST_INFECTIOUS_DUR_INDEX] = new WeibullDistribution(RNG, 5.376, 15.183);// R0 = 7.0 (4.0, 8.0)
+           
         }
         if (DEF_DIST_VAR[DIST_POST_INFECTIOUS_DUR_INDEX][1] != 0) {
             double[] var = DEF_DIST_VAR[DIST_POST_INFECTIOUS_DUR_INDEX];

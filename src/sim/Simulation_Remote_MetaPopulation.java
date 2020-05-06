@@ -361,10 +361,14 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                 run.setZipCSV(!extraFlag.contains("-noZip"));
 
                 if (extraFlag.contains("-clearPrevResult")) {
-                    System.out.print("Clear previous result? Y to confirm: ");
-                    java.io.BufferedReader in = new java.io.BufferedReader(new InputStreamReader(System.in));
-                    if (in.readLine().equals("Y")) {
+                    if (baseDir.getName().equals("Covid19_Test_Calibration")) {
                         run.setClearPrevResult(true);
+                    } else {
+                        System.out.print("Clear previous result? Y to confirm: ");
+                        java.io.BufferedReader in = new java.io.BufferedReader(new InputStreamReader(System.in));
+                        if (in.readLine().equals("Y")) {
+                            run.setClearPrevResult(true);
+                        }
                     }
 
                 }
