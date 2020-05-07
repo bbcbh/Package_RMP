@@ -37,11 +37,8 @@ public class Util_Population_Remote_MetaPopulation_GenProp_Recursive {
     private final DateFormat DEFAULT_DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     private final String DATE_STAMP_STR = DEFAULT_DATE_FORMAT.format(CURRENT_DATE);
 
-    private String[] entry_key_index = {
-        "POP_PROP_INIT_PREFIX_30",};
-
-    private String[] entry_key_replacement = {
-        "[-0.12, -0.05]",};
+    private Element[] replacement_element = {};
+    private Element replacement_comment = null;
 
     public static Document parseXMLFile(File xml) throws
             ParserConfigurationException, SAXException, IOException {
@@ -53,14 +50,14 @@ public class Util_Population_Remote_MetaPopulation_GenProp_Recursive {
 
     public void setReplacemenEntries(Document xml_doc) {
         NodeList nList_entry = xml_doc.getElementsByTagName("entry");
-        entry_key_index = new String[nList_entry.getLength()];
-        entry_key_replacement = new String[nList_entry.getLength()];
+        replacement_element = new Element[nList_entry.getLength()];
 
         for (int entId = 0; entId < nList_entry.getLength(); entId++) {
             Element entryElement = (Element) nList_entry.item(entId);
-            entry_key_index[entId] = entryElement.getAttribute("key");
-            entry_key_replacement[entId] = entryElement.getTextContent();
+            replacement_element[entId] = entryElement;
         }
+
+        replacement_comment = (Element) xml_doc.getElementsByTagName("comment").item(0);
 
     }
 
@@ -94,8 +91,13 @@ public class Util_Population_Remote_MetaPopulation_GenProp_Recursive {
 
         NodeList nList_comment = src_doc.getElementsByTagName("comment");
 
-        for (int c = 0; c < nList_comment.getLength(); c++) {
+        for (int c = 0; c < 1; c++) {
             Node commentNode = nList_comment.item(c);
+
+            if (replacement_comment != null) {
+                commentNode.setTextContent(replacement_comment.getTextContent());
+            }
+
             String ent = commentNode.getTextContent();
             StringWriter wri = new StringWriter();
             PrintWriter pWri;
@@ -104,7 +106,7 @@ public class Util_Population_Remote_MetaPopulation_GenProp_Recursive {
                 String srcLine;
                 while ((srcLine = lines.readLine()) != null) {
                     if (srcLine.startsWith("Last modification")) {
-                        String dateStr = "Last modification " + DATE_STAMP_STR;
+                        String dateStr = "Last modification: " + DATE_STAMP_STR;
                         pWri.println(dateStr);
                     } else {
                         pWri.println(srcLine);
@@ -115,16 +117,34 @@ public class Util_Population_Remote_MetaPopulation_GenProp_Recursive {
             commentNode.setTextContent(wri.toString().replaceAll("\r", ""));
         }
 
-        if (entry_key_index.length > 0) {
+        if (replacement_element.length > 0) {
+            boolean[] replaceEntry = new boolean[replacement_element.length];
+
             NodeList nList_entry = src_doc.getElementsByTagName("entry");
             for (int entId = 0; entId < nList_entry.getLength(); entId++) {
                 Element entryElement = (Element) nList_entry.item(entId);
-                for (int k = 0; k < entry_key_index.length; k++) {
-                    if (entry_key_index[k].equals(entryElement.getAttribute("key"))) {
-                        entryElement.setTextContent(entry_key_replacement[k]);
+                for (int k = 0; k < replacement_element.length; k++) {
+                    String keyAttr = replacement_element[k].getAttribute("key");
+                    if (keyAttr != null && keyAttr.equals(entryElement.getAttribute("key"))) {
+                        entryElement.setTextContent(replacement_element[k].getTextContent());
+                        replaceEntry[k] = true;
                     }
                 }
             }
+
+            // Insert entry            
+            NodeList nList_prop = src_doc.getElementsByTagName("properties");
+            Element propElem = (Element) nList_prop.item(0);
+            for (int k = 0; k < replacement_element.length; k++) {
+                if (!replaceEntry[k]) {
+                    Element newEntry = src_doc.createElement(replacement_element[k].getTagName());
+                    newEntry.setAttribute("key", replacement_element[k].getAttribute("key"));
+                    newEntry.setTextContent(replacement_element[k].getTextContent());
+                    // Add a new entry
+                    propElem.appendChild(newEntry);
+                }
+            }
+
         }
 
         TransformerFactory tf = TransformerFactory.newInstance();
@@ -167,22 +187,22 @@ public class Util_Population_Remote_MetaPopulation_GenProp_Recursive {
             Util_Population_Remote_MetaPopulation_GenProp_Recursive util;
             Document commonReplaceDoc = parseXMLFile(commonReplacementPropFile);
             NodeList nList;
-            
+
             nList = commonReplaceDoc.getElementsByTagName("filepath_tar");
             String ent;
-            if(nList.getLength() > 0){
+            if (nList.getLength() > 0) {
                 ent = nList.item(0).getTextContent();
-                genDir = new File(ent);                                
+                genDir = new File(ent);
             }
             nList = commonReplaceDoc.getElementsByTagName("filepath_src");
-            if(nList.getLength() > 0){
+            if (nList.getLength() > 0) {
                 recursiveDir = new File[nList.getLength()];
-                for(int f = 0; f < recursiveDir.length; f++){
+                for (int f = 0; f < recursiveDir.length; f++) {
                     ent = nList.item(f).getTextContent();
-                    recursiveDir[f] = new File(ent);                    
-                }                                                
+                    recursiveDir[f] = new File(ent);
+                }
             }
-            
+
             for (File f : recursiveDir) {
                 util = new Util_Population_Remote_MetaPopulation_GenProp_Recursive();
                 File baseDir = new File(genDir, f.getName());

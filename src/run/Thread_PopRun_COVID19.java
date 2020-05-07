@@ -57,6 +57,7 @@ class Thread_PopRun_COVID19 implements Runnable {
     public static final int THREAD_PARAM_TRIGGERED_CONTACT_TRACE_DELAY = THREAD_PARAM_MAX_TEST_BY_LOC + 1;
     public static final int THREAD_PARAM_TRIGGERED_QUARANTINE_DELAY = THREAD_PARAM_TRIGGERED_CONTACT_TRACE_DELAY + 1;
     public static final int THREAD_PARAM_TRIGGRRED_QUARANTINE_DURATION = THREAD_PARAM_TRIGGERED_QUARANTINE_DELAY + 1;
+    public static final int THREAD_PARAM_TRIGGRRED_QUARANTINE_EFFECT = THREAD_PARAM_TRIGGRRED_QUARANTINE_DURATION + 1;
 
     public static final int TEST_STAT_ALL = 0;
     public static final int TEST_STAT_POS = 1;
@@ -154,6 +155,9 @@ class Thread_PopRun_COVID19 implements Runnable {
         // THREAD_PARAM_TRIGGRRED_QUARANTINE_DURATION
         // Format: [loc][triggerIndex]{duration_in_day}
         // Format: [loc][triggerIndex]{duration_in_day_1, cumul_prob_duration_in_day_1, ...}
+        new float[][][]{},
+        // THREAD_PARAM_TRIGGRRED_QUARANTINE_EFFECT
+        // Format: [loc][triggerIndex]{probababiliy_of_household_contact, probababiliy_of_non_household_contact}
         new float[][][]{},};
 
     public static final String FILE_REGEX_OUTPUT = "output_%d.txt";
@@ -449,7 +453,7 @@ class Thread_PopRun_COVID19 implements Runnable {
 
                 if (triggeredLockdownSetting.length > 0) {
                     for (int loc = 0; loc < popSize.length; loc++) {
-                        
+
                         int triggerIndex = testTriggerIndex_by_loc[loc];
                         // Only lockdown once
                         if (metapopStat[loc][Population_Remote_MetaPopulation_COVID19.META_POP_STAT_LOCKDOWN_START] == -1) {
@@ -567,12 +571,32 @@ class Thread_PopRun_COVID19 implements Runnable {
                         }
 
                         if (putInQuarantine != null) {
-                            HashMap<Integer, Integer> qMap
-                                    = ((HashMap<Integer, Integer>) pop.getFields()[Population_Remote_MetaPopulation_COVID19.FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_QUARANTINE]);
+                            HashMap<Integer, Number[]> qMap
+                                    = ((HashMap<Integer, Number[]>) pop.getFields()[Population_Remote_MetaPopulation_COVID19.FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_QUARANTINE]);
+
+                            float[][][] triggeredQuarantineEffect = (float[][][]) getThreadParam()[THREAD_PARAM_TRIGGRRED_QUARANTINE_EFFECT];
+                            float[] quarantineEffect = triggeredQuarantineEffect.length == 0
+                                    ? null : triggeredQuarantineEffect[loc][testTriggerIndex_by_loc[loc]];
 
                             for (Integer[] inQ : putInQuarantine) {
-                                qMap.put(inQ[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_PERSON_ID],
-                                        inQ[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_IN_QUARANTINE_UNTIL]);
+                                Number[] ent = new Number[Population_Remote_MetaPopulation_COVID19.QUARANTINE_ENTRY_LENGTH];
+                                Arrays.fill(ent, 0);
+
+                                boolean isCaseIsolation
+                                        = inQ[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_CASE_ISOLATION] > 0;
+
+                                ent[Population_Remote_MetaPopulation_COVID19.QUARANTINE_UNTIL_AGE]
+                                        = inQ[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_IN_QUARANTINE_UNTIL];
+
+                                if (!isCaseIsolation && quarantineEffect != null) {
+                                    ent[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PROB_CONTACT_HOUSEHOLD] 
+                                             = quarantineEffect[0];
+                                    ent[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PROB_CONTACT_NON_HOUSEHOLD] 
+                                             = quarantineEffect[1];
+
+                                }
+
+                                qMap.put(inQ[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_PERSON_ID], ent);
                             }
                         }
 
@@ -921,8 +945,16 @@ class Thread_PopRun_COVID19 implements Runnable {
                                 }
                             }
 
-                            inQ.add(new Integer[]{candidate.getId(), ((int) candidate.getAge()
-                                + inQuarntineDuration)});
+                            Integer[] qPipelineEnt
+                                    = new Integer[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_LENGTH];
+                            qPipelineEnt[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_PERSON_ID]
+                                    = candidate.getId();
+                            qPipelineEnt[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_IN_QUARANTINE_UNTIL]
+                                    = (int) candidate.getAge() + inQuarntineDuration;
+                            qPipelineEnt[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_CASE_ISOLATION]
+                                    = -1; // Household quarantine
+
+                            inQ.add(qPipelineEnt);
 
                         }
                     }
@@ -968,7 +1000,7 @@ class Thread_PopRun_COVID19 implements Runnable {
             default_test_resp = new double[0][];
         } else {
             int currentLoc = pop.getCurrentLocation(rmp);
-            if(currentLoc == -1){
+            if (currentLoc == -1) {
                 currentLoc = rmp.getHomeLocation();
             }
             default_test_resp = triggeredTestResponse[currentLoc][triggerIndex];
@@ -1036,7 +1068,17 @@ class Thread_PopRun_COVID19 implements Runnable {
                 inQuarntineDuration += (int) rmp.getAge();
             }
 
-            inQ.add(new Integer[]{rmp.getId(), inQuarntineDuration});
+            Integer[] qPiplineEnt
+                    = new Integer[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_LENGTH];
+
+            qPiplineEnt[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_PERSON_ID]
+                    = rmp.getId();
+            qPiplineEnt[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_IN_QUARANTINE_UNTIL]
+                    = inQuarntineDuration;
+            qPiplineEnt[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_CASE_ISOLATION]
+                    = 1; // Case isolation
+
+            inQ.add(qPiplineEnt);
 
         }
 

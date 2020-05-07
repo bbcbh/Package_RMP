@@ -44,8 +44,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         // HashMap<person_id, until_age>
         new HashMap<Integer, Integer>(),
         // FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_QUARANTINE
-        // HashMap<person_id, until_age>
-        new HashMap<Integer, Integer>(),
+        // HashMap<person_id, {QUARANTINE_UNTIL_AGE,QUARANTINE_PROB_CONTACT_CORE_HOUSHOLD,... }>
+        new HashMap<Integer, Number[]>(),
         // FIELDS_REMOTE_METAPOP_COVID19_META_POP_LOCKDOWN_SETTING
         // int[loc][k] 
         // k: 0 = META_POP_STAT_ISOLATION_START
@@ -58,6 +58,12 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
     public static final int CONTACT_OPTIONS_NON_HOUSEHOLD_CONTACT_RATE = 0;
     public static final int CONTACT_OPTIONS_CORE_HOUSEHOLD_PROB = CONTACT_OPTIONS_NON_HOUSEHOLD_CONTACT_RATE + 1;
     public static final int CONTACT_OPTIONS_CORE_HOUSEHOLD_ID = CONTACT_OPTIONS_CORE_HOUSEHOLD_PROB + 1;
+
+    // FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_QUARANTINE
+    public static final int QUARANTINE_UNTIL_AGE = 0;
+    public static final int QUARANTINE_PROB_CONTACT_HOUSEHOLD = QUARANTINE_UNTIL_AGE + 1;
+    public static final int QUARANTINE_PROB_CONTACT_NON_HOUSEHOLD = QUARANTINE_PROB_CONTACT_HOUSEHOLD + 1;
+    public static final int QUARANTINE_ENTRY_LENGTH = QUARANTINE_PROB_CONTACT_NON_HOUSEHOLD + 1;
 
     // Incident in real time
     private final transient HashMap<List<Integer>, int[]> incidence_collection = new HashMap<>();
@@ -110,6 +116,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
             = new HashMap<>(); // Key: Global time, loc
     public static final int QUARANTINE_PIPELINE_ENT_PERSON_ID = 0;
     public static final int QUARANTINE_PIPELINE_ENT_IN_QUARANTINE_UNTIL = QUARANTINE_PIPELINE_ENT_PERSON_ID + 1;
+    public static final int QUARANTINE_PIPELINE_ENT_CASE_ISOLATION = QUARANTINE_PIPELINE_ENT_IN_QUARANTINE_UNTIL + 1;
+    public static final int QUARANTINE_PIPELINE_ENT_LENGTH = QUARANTINE_PIPELINE_ENT_CASE_ISOLATION + 1;
 
     // FIELDS_REMOTE_METAPOP_COVID19_META_POP_LOCKDOWN_SETTING
     public static final int META_POP_STAT_LOCKDOWN_START = 0;
@@ -721,12 +729,10 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
                     SingleRelationship tempEdge = new SingleRelationshipTimeStamp(
                             new Integer[]{possibleHousehold, p.getId()});
 
-                    
-                    if(!householdMap.containsVertex(p.getId())){        
+                    if (!householdMap.containsVertex(p.getId())) {
                         householdMap.addVertex(p.getId());
-                    }            
+                    }
                     householdMap.addEdge(possibleHousehold, p.getId(), tempEdge);
-                    
 
                     currentlyInHousehold.put(p.getId(), possibleHousehold);
 
@@ -738,13 +744,21 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
     }
 
     public Integer inQuarantineUntil(AbstractIndividualInterface p) {
-        HashMap<Integer, Integer> quarantineMap
-                = (HashMap<Integer, Integer>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_QUARANTINE];
-        Integer inQuantineUntil = quarantineMap.get(p.getId());
-        if (inQuantineUntil != null) {
-            if (p.getAge() >= inQuantineUntil) {
+        Number[] res = inQuarantine(p);
+        return res == null ? null : (Integer) res[QUARANTINE_UNTIL_AGE];
+
+    }
+
+    public Number[] inQuarantine(AbstractIndividualInterface p) {
+        HashMap<Integer, Number[]> quarantineMap
+                = (HashMap<Integer, Number[]>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_QUARANTINE];
+        Number[] quarantineEnt = quarantineMap.get(p.getId());
+
+        if (quarantineEnt != null) {
+
+            if (p.getAge() >= (Integer) quarantineEnt[QUARANTINE_UNTIL_AGE]) {
                 quarantineMap.remove(p.getId());
-                inQuantineUntil = null;
+                quarantineEnt = null;
             } else {
                 if (getCurrentLocation(p) != ((Person_Remote_MetaPopulation) p).getHomeLocation()) {
                     movePerson(p, ((Person_Remote_MetaPopulation) p).getHomeLocation(), -1);
@@ -753,12 +767,32 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
             }
         }
 
-        return inQuantineUntil;
+        return quarantineEnt;
     }
 
     protected boolean allowContact(COVID19_Remote_Infection covid19,
             AbstractIndividualInterface infectious, int contactType) {
-        boolean hasContact = inQuarantineUntil(infectious) == null;
+
+        Number[] quarantineEnt = inQuarantine(infectious);
+
+        boolean hasContact = true;
+
+        if (quarantineEnt != null) {
+            hasContact = false;
+            int effectIndex = contactType
+                    == RESPONSE_ADJ_HOUSEHOLD_CONTACT
+                            ? Population_Remote_MetaPopulation_COVID19.QUARANTINE_PROB_CONTACT_HOUSEHOLD
+                            : Population_Remote_MetaPopulation_COVID19.QUARANTINE_PROB_CONTACT_NON_HOUSEHOLD;
+
+            if (effectIndex < quarantineEnt.length) {
+                float probContact = quarantineEnt[effectIndex].floatValue();
+                hasContact = probContact > 0;
+                if (probContact < 1) {
+                    hasContact = getRNG().nextFloat() < probContact;
+                }
+
+            }
+        }
 
         if (hasContact) {
 
@@ -853,7 +887,7 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
             double r0 = param[COVID19_Remote_Infection.PARAM_R0_INFECTED];
 
             double tranmissionProbPerContact;
-            if (r0 < 0) {                
+            if (r0 < 0) {
                 tranmissionProbPerContact = -r0;
             } else {
 
@@ -1125,11 +1159,11 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         }
 
         int[] numInQuarantine = new int[numStat[NUM_STAT_NUM_IN_LOC].length];
-        HashMap<Integer, Integer> quarantineMap
-                = (HashMap<Integer, Integer>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_QUARANTINE];
+        HashMap<Integer, Number[]> quarantineMap
+                = (HashMap<Integer, Number[]>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_QUARANTINE];
 
         for (Integer pid : quarantineMap.keySet()) {
-            Integer inQuantineUntil = quarantineMap.get(pid);
+            Integer inQuantineUntil = (Integer) quarantineMap.get(pid)[QUARANTINE_UNTIL_AGE];
             Person_Remote_MetaPopulation rmp = (Person_Remote_MetaPopulation) getLocalData().get(pid);
             if (rmp != null) {
                 if (rmp.getAge() < inQuantineUntil) {
