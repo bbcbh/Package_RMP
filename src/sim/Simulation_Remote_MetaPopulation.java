@@ -90,13 +90,13 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
     public void loadProperties(Properties prop) {
         for (int i = 0; i < PROP_NAME.length; i++) {
             String ent = prop.getProperty(PROP_NAME[i]);
-            if (ent != null) {
+            if (ent != null && ent.length() > 0) {
                 propVal[i] = PropValUtils.propStrToObject(ent, PROP_CLASS[i]);
             }
         }
         for (int i = PROP_NAME.length; i < propVal.length; i++) {
             String ent = prop.getProperty(PROP_NAME_RMP[i - PROP_NAME.length]);
-            if (ent != null) {
+            if (ent != null && ent.length() > 0) {
                 propVal[i] = PropValUtils.propStrToObject(ent, PROP_CLASS_RMP[i - PROP_NAME.length]);
             }
         }
@@ -116,7 +116,7 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
             propModelInitStr = new String[maxFieldNum + 1];
             for (int i = 0; i < propModelInitStr.length; i++) {
                 String res = prop.getProperty(POP_PROP_INIT_PREFIX + i);
-                if (res != null) {
+                if (res != null && res.length() > 0) {
                     propModelInitStr[i] = res;
                 }
             }
