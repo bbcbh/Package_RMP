@@ -212,11 +212,11 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
     protected final File baseDir;
     protected final String[] propModelInitStr;
     protected final Object[] propVal;
-    protected boolean zipCSV = true;
+    protected boolean removeAfterZip = true;
     protected boolean clearPrevResult = false;
 
-    public void setZipCSV(boolean zipCSV) {
-        this.zipCSV = zipCSV;
+    public void setRemoveAfterZip(boolean removeAfterZip) {
+        this.removeAfterZip = removeAfterZip;
     }
 
     public void setClearPrevResult(boolean clearPrevResult) {
@@ -332,7 +332,7 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
                 File testFile = new File(baseDir,
                         String.format(Thread_PopRun_COVID19.FILE_REGEX_TEST_STAT, thread.getThreadId()));
 
-                boolean runSim = !statFile.exists() || statFile.length() == 0 
+                boolean runSim = !statFile.exists() || statFile.length() == 0
                         || !testFile.exists() || testFile.length() == 0;
 
                 if (runSim) {
@@ -375,59 +375,58 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
             System.out.println(String.format("Simulation completed. Time needed = %.4f min",
                     (System.currentTimeMillis() - tic) / (1000f * 60)));
 
-            if (this.zipCSV) {
-                // Zip output files
-                String[] file_regex = new String[]{
-                    Thread_PopRun_COVID19.FILE_REGEX_OUTPUT,
-                    Thread_PopRun_COVID19.FILE_REGEX_SNAP_STAT,
-                    Thread_PopRun_COVID19.FILE_REGEX_TEST_STAT};
+            // Zip output files
+            String[] file_regex = new String[]{
+                Thread_PopRun_COVID19.FILE_REGEX_OUTPUT,
+                Thread_PopRun_COVID19.FILE_REGEX_SNAP_STAT,
+                Thread_PopRun_COVID19.FILE_REGEX_TEST_STAT};
 
-                for (String regex : file_regex) {
+            for (String regex : file_regex) {
 
-                    File[] collection = baseDir.listFiles(new FileFilter() {
-                        @Override
-                        public boolean accept(File pathname) {
-                            return pathname.getName().matches(regex.replaceAll("%d", "\\\\d+"));
+                File[] collection = baseDir.listFiles(new FileFilter() {
+                    @Override
+                    public boolean accept(File pathname) {
+                        return pathname.getName().matches(regex.replaceAll("%d", "\\\\d+"));
+                    }
+                });
+
+                if (collection.length > 0) {
+                    String zipFileName = regex.replace("%d", "All") + ".zip";
+                    File zipFile = new File(baseDir, zipFileName);
+
+                    Path p = Files.createFile(zipFile.toPath());
+
+                    try (ZipOutputStream zs = new ZipOutputStream(Files.newOutputStream(p))) {
+                        for (File srcFile : collection) {
+                            ZipEntry zipEntry = new ZipEntry(srcFile.getName());
+                            try {
+                                zs.putNextEntry(zipEntry);
+                                Files.copy(srcFile.toPath(), zs);
+                                zs.closeEntry();
+                            } catch (IOException e) {
+                                System.err.println(e);
+                            }
                         }
-                    });
+                    }
 
-                    if (collection.length > 0) {
-                        String zipFileName = regex.replace("%d", "All") + ".zip";
-                        File zipFile = new File(baseDir, zipFileName);
+                    System.out.println(String.format("Zipping %d file(s) that matches with '%s' to %s",
+                            collection.length, regex, zipFile.getAbsolutePath()));
 
-                        Path p = Files.createFile(zipFile.toPath());
-
-                        try (ZipOutputStream zs = new ZipOutputStream(Files.newOutputStream(p))) {
+                    if (this.removeAfterZip) {
+                        if (zipFile.exists() && zipFile.length() > 0) {
                             for (File srcFile : collection) {
-                                ZipEntry zipEntry = new ZipEntry(srcFile.getName());
-                                try {
-                                    zs.putNextEntry(zipEntry);
-                                    Files.copy(srcFile.toPath(), zs);
-                                    zs.closeEntry();
-                                } catch (IOException e) {
-                                    System.err.println(e);
-                                }
+                                srcFile.delete();
                             }
                         }
-
-                        System.out.println(String.format("Zipping %d file(s) that matches with '%s' to %s",
-                                collection.length, regex, zipFile.getAbsolutePath()));
-
-                        if (numProcess > 1) {
-                            if (zipFile.exists() && zipFile.length() > 0) {
-                                for (File srcFile : collection) {
-                                    srcFile.delete();
-                                }
-                            }
-                        }
-
                     }
 
                 }
+
             }
+
         }
 
-        if (popSize != null && this.zipCSV) {
+        if (popSize != null) {
             Run_Population_Remote_MetaPopulation_COVID19.decodeZipCSVByLoc(baseDir, popSize.length, numSnap * snapFreq);
         }
 

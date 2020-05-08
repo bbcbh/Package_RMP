@@ -63,9 +63,10 @@ class Thread_PopRun_COVID19 implements Runnable {
     public static final int TEST_STAT_POS = 1;
     public static final int TEST_STAT_LENGTH = 2;
 
-    public static final int LOCKDOWN_NUM_INFECTED = 0;
-    public static final int LOCKDOWN_NUM_POSITIVE = LOCKDOWN_NUM_INFECTED + 1;
-    public static final int LOCKDOWN_DURATION = LOCKDOWN_NUM_POSITIVE + 1;
+    public static final int LOCKDOWN_INTER_METAPOP = 0;
+    public static final int LOCKDOWN_WITHIN_METAPOP = LOCKDOWN_INTER_METAPOP + 1;
+    public static final int LOCKDOWN_INTER_METAPOP_DURATION = LOCKDOWN_WITHIN_METAPOP + 1;
+    public static final int LOCKDOWN_WITHIN_METAPOP_DURATION = LOCKDOWN_INTER_METAPOP_DURATION + 1;
 
     public static final int SENSITIVITY_INFECTED = 0;
     public static final int SENSITIVITY_INFECTIOUS = SENSITIVITY_INFECTED + 1;
@@ -129,8 +130,9 @@ class Thread_PopRun_COVID19 implements Runnable {
         //  stay_quarantine_until_non_core_household, stay_quarantine_until_temp_household } 
         new double[][][]{},
         // THREAD_PARAM_TRIGGERED_METAPOP_LOCKDOWN_SETTING
-        // Format:[loc][triggerIndex]{number_of_infected, number_of_postive_test, how long (or -1 if indefinite)}        
-        new int[][][]{},
+        // Format:[loc][triggerIndex]{LOCKDOWN_INTER_METAPOP ,LOCKDOWN_WITHIN_METAPOP ,
+        //                            LOCKDOWN_INTER_METAPOP_DURATION ,LOCKDOWN_WITHIN_METAPOP_DURATION)}        
+        new float[][][]{},
         // THREAD_PARAM_TRIGGERED_TESTING_RESULT_DELAY
         // Format: [loc][triggerIndex]{delay_in_days}
         // Format: [loc][triggerIndex]{delay_in days_min, delay_in_days_max}
@@ -330,7 +332,8 @@ class Thread_PopRun_COVID19 implements Runnable {
         float[][] triggers = (float[][]) getThreadParam()[THREAD_PARAM_TEST_TRIGGER];
         float[][][] triggeredTestRate = (float[][][]) getThreadParam()[THREAD_PARAM_TRIGGERED_TEST_RATE];
         double[][][][] triggeredSymResponse = (double[][][][]) getThreadParam()[THREAD_PARAM_TRIGGERED_SYM_RESPONSE];
-        int[][][] triggeredLockdownSetting = (int[][][]) getThreadParam()[THREAD_PARAM_TRIGGERED_METAPOP_LOCKDOWN_SETTING];
+
+        int[][] triggers_at_time = new int[triggers.length][triggers[0].length];
 
         StringBuilder triggerText = new StringBuilder();
 
@@ -448,30 +451,25 @@ class Thread_PopRun_COVID19 implements Runnable {
 
                 }
 
-                // Lock down
-                int[][] metapopStat = (int[][]) pop.getFields()[Population_Remote_MetaPopulation_COVID19.FIELDS_REMOTE_METAPOP_COVID19_META_POP_LOCKDOWN_SETTING];
-
-                if (triggeredLockdownSetting.length > 0) {
+                // Lock down                                               
+                if (((float[][][]) getThreadParam()[THREAD_PARAM_TRIGGERED_METAPOP_LOCKDOWN_SETTING]).length > 0) {
                     for (int loc = 0; loc < popSize.length; loc++) {
-
                         int triggerIndex = testTriggerIndex_by_loc[loc];
-                        // Only lockdown once
-                        if (metapopStat[loc][Population_Remote_MetaPopulation_COVID19.META_POP_STAT_LOCKDOWN_START] == -1) {
-                            boolean inLockdown = triggeredLockdownSetting[loc][triggerIndex][LOCKDOWN_NUM_INFECTED] >= 0
-                                    && numStat[Population_Remote_MetaPopulation_COVID19.NUM_STAT_NUM_INFECTED][loc]
-                                    >= triggeredLockdownSetting[loc][triggerIndex][LOCKDOWN_NUM_INFECTED];
 
-                            inLockdown |= triggeredLockdownSetting[loc][triggerIndex][LOCKDOWN_NUM_POSITIVE] > 0
-                                    && testing_stat_cumul[TEST_STAT_POS][loc] >= triggeredLockdownSetting[loc][triggerIndex][LOCKDOWN_NUM_POSITIVE];
+                        if (triggers_at_time[loc][triggerIndex] == pop.getGlobalTime()) {
+                            boolean inLockdownInterMetaPop
+                                    = setMetaPopLockdownSetting(loc, triggerIndex,
+                                            LOCKDOWN_INTER_METAPOP);
 
-                            if (inLockdown) {
-                                metapopStat[loc][Population_Remote_MetaPopulation_COVID19.META_POP_STAT_LOCKDOWN_START] = pop.getGlobalTime();
-                                if (triggeredLockdownSetting[loc][triggerIndex][LOCKDOWN_DURATION] > 0) {
-                                    metapopStat[loc][Population_Remote_MetaPopulation_COVID19.META_POP_STAT_LOCKDOWN_END]
-                                            = pop.getGlobalTime() + triggeredLockdownSetting[loc][triggerIndex][LOCKDOWN_DURATION];
-                                }
+                            boolean inLockdownWithinMetaPop
+                                    = setMetaPopLockdownSetting(loc, triggerIndex,
+                                            LOCKDOWN_WITHIN_METAPOP);
+
+                            if (inLockdownInterMetaPop || inLockdownWithinMetaPop) {
+                                pop.triggerLockdown(loc);
                             }
                         }
+
                     }
                 }
 
@@ -589,10 +587,10 @@ class Thread_PopRun_COVID19 implements Runnable {
                                         = inQ[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_IN_QUARANTINE_UNTIL];
 
                                 if (!isCaseIsolation && quarantineEffect != null) {
-                                    ent[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PROB_CONTACT_HOUSEHOLD] 
-                                             = quarantineEffect[0];
-                                    ent[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PROB_CONTACT_NON_HOUSEHOLD] 
-                                             = quarantineEffect[1];
+                                    ent[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PROB_CONTACT_HOUSEHOLD]
+                                            = quarantineEffect[0];
+                                    ent[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PROB_CONTACT_NON_HOUSEHOLD]
+                                            = quarantineEffect[1];
 
                                 }
 
@@ -623,8 +621,9 @@ class Thread_PopRun_COVID19 implements Runnable {
                                 test_stat_today);
 
                         if (testTriggerIndex_by_loc[loc] != testTriggerIndex_org) {
+                            triggers_at_time[loc][testTriggerIndex_by_loc[loc]] = pop.getGlobalTime()+1;
                             // New trigger
-                            triggerText.append(pop.getGlobalTime());
+                            triggerText.append(pop.getGlobalTime()+1);
                             triggerText.append(',');
                             triggerText.append(String.format("Level %d response triggered at location %d.\n",
                                     testTriggerIndex_by_loc[loc], loc));
@@ -684,6 +683,45 @@ class Thread_PopRun_COVID19 implements Runnable {
         }
 
         pri.close();
+    }
+
+    private boolean setMetaPopLockdownSetting(int loc, int triggerIndex, int lockdownType) {
+        float[][][] triggeredLockdownSetting
+                = (float[][][]) getThreadParam()[THREAD_PARAM_TRIGGERED_METAPOP_LOCKDOWN_SETTING];
+        
+        float[][] metaPopLockdownSetting
+                = (float[][]) pop.getFields()[Population_Remote_MetaPopulation_COVID19.FIELDS_REMOTE_METAPOP_COVID19_META_POP_LOCKDOWN_SETTING];
+        
+        int lockdownDur = lockdownType == LOCKDOWN_INTER_METAPOP
+                ? LOCKDOWN_INTER_METAPOP_DURATION : LOCKDOWN_WITHIN_METAPOP_DURATION;
+        int lockdown_start = lockdownType == LOCKDOWN_INTER_METAPOP
+                ? Population_Remote_MetaPopulation_COVID19.META_POP_INTER_LOCKDOWN_START
+                : Population_Remote_MetaPopulation_COVID19.META_POP_WITHIN_LOCKDOWN_START;
+        int lockdown_prob = lockdownType == LOCKDOWN_INTER_METAPOP
+                ? Population_Remote_MetaPopulation_COVID19.META_POP_INTER_LOCKDOWN_PROPORTION
+                : Population_Remote_MetaPopulation_COVID19.META_POP_WITHIN_LOCKDOWN_PROPORTION;
+        int lockdown_end = lockdownType == LOCKDOWN_INTER_METAPOP
+                ? Population_Remote_MetaPopulation_COVID19.META_POP_INTER_LOCKDOWN_END
+                : Population_Remote_MetaPopulation_COVID19.META_POP_WITHIN_LOCKDOWN_END;
+        
+        boolean inLockdown
+                = triggeredLockdownSetting[loc][triggerIndex][lockdownType] >= 0
+                && lockdownDur < triggeredLockdownSetting[loc][triggerIndex].length;
+        
+        
+        if (inLockdown) {
+            metaPopLockdownSetting[loc][lockdown_start]
+                    = pop.getGlobalTime();
+            metaPopLockdownSetting[loc][lockdown_prob]
+                    = triggeredLockdownSetting[loc][triggerIndex][lockdownType];
+            if (triggeredLockdownSetting[loc][triggerIndex][lockdownDur] > 0) {
+                metaPopLockdownSetting[loc][lockdown_end]
+                        = pop.getGlobalTime() + (int) triggeredLockdownSetting[loc][triggerIndex][lockdownDur];
+            } else {
+                metaPopLockdownSetting[loc][lockdown_end] = Float.POSITIVE_INFINITY;
+            }
+        }
+        return inLockdown;
     }
 
     private void handleExcessTest(Object[] testSchduled, int testQueueType) {

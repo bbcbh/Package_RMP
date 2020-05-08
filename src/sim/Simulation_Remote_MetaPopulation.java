@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Properties;
+import java.util.regex.Pattern;
 import opt.OptRun_Population_Remote_MetaPopulation_Infection_Intro;
 import opt.OptRun_Population_Remote_MetaPopulation_Infection_Intro_GA;
 import run.Run_Population_Remote_MetaPopulation_Pop_Analysis;
@@ -358,7 +359,7 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                 Run_Population_Remote_MetaPopulation_COVID19 run
                         = new Run_Population_Remote_MetaPopulation_COVID19(baseDir, propVal, propModelInitStr);
 
-                run.setZipCSV(!extraFlag.contains("-noZip"));
+                run.setRemoveAfterZip(!extraFlag.contains("-noZipRemove"));
 
                 if (extraFlag.contains("-clearPrevResult")) {
                     if (baseDir.getName().equals("Covid19_Test_Calibration")) {
@@ -399,6 +400,21 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                 ArrayList<File> dirList = new ArrayList<>();
                 for (int i = 1; i < arg.length; i++) {
                     if (!arg[i].startsWith("-")) {
+
+                        final Pattern regEx = Pattern.compile(arg[i]);
+
+                        File[] matchedDir = resultsDir.listFiles(new FileFilter() {
+                            @Override
+                            public boolean accept(File file) {
+                                return file.isDirectory() && regEx.matcher(file.getName()).matches()
+                                        && new File(file, Simulation_Remote_MetaPopulation.FILENAME_PROP).exists();
+                            }
+                        });
+
+                        dirList.addAll(Arrays.asList(matchedDir));
+
+                        /*
+                        
                         if (arg[i].endsWith("*")) {
 
                             final String startWith = arg[i];
@@ -415,6 +431,7 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                         } else {
                             dirList.add(new File(resultsDir, arg[i]));
                         }
+                         */
                     }
                 }
 

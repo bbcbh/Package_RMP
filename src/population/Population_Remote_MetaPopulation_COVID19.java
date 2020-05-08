@@ -47,10 +47,9 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         // HashMap<person_id, {QUARANTINE_UNTIL_AGE,QUARANTINE_PROB_CONTACT_CORE_HOUSHOLD,... }>
         new HashMap<Integer, Number[]>(),
         // FIELDS_REMOTE_METAPOP_COVID19_META_POP_LOCKDOWN_SETTING
-        // int[loc][k] 
-        // k: 0 = META_POP_STAT_ISOLATION_START
-        //    1 = META_POP_STAT_ISOLATION_END    
-        new int[][]{},};
+        // int[loc]{META_POP_INTER_LOCKDOWN_START, META_POP_INTER_LOCKDOWN_END, METAPOP_INTER_LOCKDOWN_PROPORTION,
+        //          META_POP_WITHIN_LOCKDOWN_START, META_POP_WITHIN_LOCKDOWN_END, META_POP_WITHIN_LOCKDOWN_PROPORTION}
+        new float[][]{},};
 
     public static final int RELMAP_HOUSEHOLD = 0;
     private static final int INF_COVID19 = 0;
@@ -119,10 +118,19 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
     public static final int QUARANTINE_PIPELINE_ENT_CASE_ISOLATION = QUARANTINE_PIPELINE_ENT_IN_QUARANTINE_UNTIL + 1;
     public static final int QUARANTINE_PIPELINE_ENT_LENGTH = QUARANTINE_PIPELINE_ENT_CASE_ISOLATION + 1;
 
+    private final transient HashMap<Integer, Float[]> currentlyInLockdown = new HashMap<>();
+    public static final int LOCKDOWN_INTER_META_POP_UNTIL_AGE = 0;
+    public static final int LOCKDOWN_WITHIN_META_POP_UNTIL_AGE = LOCKDOWN_INTER_META_POP_UNTIL_AGE + 1;
+    public static final int LOCKDOWN_ENT_LENGTH = LOCKDOWN_WITHIN_META_POP_UNTIL_AGE + 1;
+
     // FIELDS_REMOTE_METAPOP_COVID19_META_POP_LOCKDOWN_SETTING
-    public static final int META_POP_STAT_LOCKDOWN_START = 0;
-    public static final int META_POP_STAT_LOCKDOWN_END = META_POP_STAT_LOCKDOWN_START + 1;
-    public static final int META_POP_STAT_LENGTH = META_POP_STAT_LOCKDOWN_END + 1;
+    public static final int META_POP_INTER_LOCKDOWN_START = 0;
+    public static final int META_POP_INTER_LOCKDOWN_END = META_POP_INTER_LOCKDOWN_START + 1;
+    public static final int META_POP_INTER_LOCKDOWN_PROPORTION = META_POP_INTER_LOCKDOWN_END + 1;
+    public static final int META_POP_WITHIN_LOCKDOWN_START = META_POP_INTER_LOCKDOWN_PROPORTION + 1;
+    public static final int META_POP_WITHIN_LOCKDOWN_END = META_POP_WITHIN_LOCKDOWN_START + 1;
+    public static final int META_POP_WITHIN_LOCKDOWN_PROPORTION = META_POP_WITHIN_LOCKDOWN_END + 1;
+    public static final int META_POP_STAT_META_POP_LENGTH = META_POP_WITHIN_LOCKDOWN_PROPORTION + 1;
 
     // generateInfectionStat()
     public static final int NUM_STAT_NUM_IN_LOC = 0;
@@ -459,12 +467,11 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         boolean moving = true;
 
         if (((MoveablePersonInterface) person).getHomeLocation() != locId) {
-            int[][] metapopStat = (int[][]) getFields()[FIELDS_REMOTE_METAPOP_COVID19_META_POP_LOCKDOWN_SETTING];
 
-            moving = metapopStat[locId][META_POP_STAT_LOCKDOWN_START] != -1
-                    && metapopStat[locId][META_POP_STAT_LOCKDOWN_START] >= getGlobalTime()
-                    && (metapopStat[locId][META_POP_STAT_LOCKDOWN_END] < getGlobalTime()
-                    || metapopStat[locId][META_POP_STAT_LOCKDOWN_END] == -1);
+            Float[] lockdownUntilArr = inLockdownUntil(person);
+
+            moving = lockdownUntilArr == null
+                    || person.getAge() >= lockdownUntilArr[LOCKDOWN_INTER_META_POP_UNTIL_AGE];
 
             if (moving) {
 
@@ -525,23 +532,6 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         // Initalise incident collection (if haven't do so already
         if (cumulative_incident_by_location == null) {
             cumulative_incident_by_location = new int[numOfPop];
-        }
-
-        int[][] metapopStat = (int[][]) getFields()[FIELDS_REMOTE_METAPOP_COVID19_META_POP_LOCKDOWN_SETTING];
-
-        for (int loc = 0; loc < numOfPop; loc++) {
-            if (metapopStat[loc][META_POP_STAT_LOCKDOWN_START] != -1
-                    && metapopStat[loc][META_POP_STAT_LOCKDOWN_START] == getGlobalTime()) {
-                ((float[][]) getFields()[FIELDS_REMOTE_METAPOP_AWAY_FROM_HOME_BY_LOCATION])[loc]
-                        = new float[((float[][]) getFields()[FIELDS_REMOTE_METAPOP_AWAY_FROM_HOME_BY_LOCATION])[loc].length];
-
-            } else if (metapopStat[loc][META_POP_STAT_LOCKDOWN_START] != -1
-                    && metapopStat[loc][META_POP_STAT_LOCKDOWN_START] >= getGlobalTime()
-                    && (metapopStat[loc][META_POP_STAT_LOCKDOWN_END] >= getGlobalTime()
-                    || metapopStat[loc][META_POP_STAT_LOCKDOWN_END] != -1)) {
-                ((float[][]) getFields()[FIELDS_REMOTE_METAPOP_AWAY_FROM_HOME_BY_LOCATION])[loc]
-                        = Arrays.copyOf(DEFAULT_AWAY_FROM_HOME_PROB[loc], DEFAULT_AWAY_FROM_HOME_PROB[loc].length);
-            }
         }
 
         super.advanceTimeStep(deltaT);
@@ -671,8 +661,17 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
         Integer inQuarantine = inQuarantineUntil(p);
 
+        boolean forcedInCoreHousehold = inQuarantine != null;
+        if (!forcedInCoreHousehold) {
+            Float[] inLockdownUntil = inLockdownUntil(p);
+            if (inLockdownUntil != null) {
+                forcedInCoreHousehold &= p.getAge() >= inLockdownUntil[LOCKDOWN_WITHIN_META_POP_UNTIL_AGE];
+            }
+
+        }
+
         if (!currentlyInHousehold.containsKey(p.getId())) {
-            if (inQuarantine != null) {
+            if (forcedInCoreHousehold) {
                 movePerson(p, ((Person_Remote_MetaPopulation) p).getHomeLocation(), -1);
 
                 float[] contactOption = ((HashMap<Integer, float[]>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS]).get(p.getId());
@@ -1069,13 +1068,12 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         // Availability not used in this model
         setAvailability(null);
 
-        // MetaPopStat        
-        int[][] metaPopStat = new int[popSizes.length][META_POP_STAT_LENGTH];
+        float[][] metaPopLockdownSetting = new float[popSizes.length][META_POP_STAT_META_POP_LENGTH];
 
         for (int loc = 0; loc < popSizes.length; loc++) {
-            Arrays.fill(metaPopStat[loc], -1);
+            Arrays.fill(metaPopLockdownSetting[loc], -1);
         }
-        getFields()[FIELDS_REMOTE_METAPOP_COVID19_META_POP_LOCKDOWN_SETTING] = metaPopStat;
+        getFields()[FIELDS_REMOTE_METAPOP_COVID19_META_POP_LOCKDOWN_SETTING] = metaPopLockdownSetting;
 
         cumulative_incident_by_location = new int[popSizes.length];
 
@@ -1379,6 +1377,81 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
             wri.println();
         }
 
+    }
+
+    public void triggerLockdown(int loc) {
+        float[][] metaPopLockdownSetting
+                = (float[][]) getFields()[FIELDS_REMOTE_METAPOP_COVID19_META_POP_LOCKDOWN_SETTING];
+
+        if (loc < metaPopLockdownSetting.length) {
+
+            Integer[] unqiueHouseholdAtLoc
+                    = ((Integer[][]) getFields()[FIELDS_REMOTE_METAPOP_COVID19_UNIQUE_HOUSEHOLD])[loc];
+            float[] lockdownStat = metaPopLockdownSetting[loc];
+
+            fillCurrentlyInLockdown(
+                    Math.round(lockdownStat[META_POP_INTER_LOCKDOWN_PROPORTION] * unqiueHouseholdAtLoc.length),
+                    unqiueHouseholdAtLoc,
+                    (int) lockdownStat[META_POP_INTER_LOCKDOWN_END],
+                    LOCKDOWN_INTER_META_POP_UNTIL_AGE);
+
+            fillCurrentlyInLockdown(
+                    Math.round(lockdownStat[META_POP_WITHIN_LOCKDOWN_PROPORTION] * unqiueHouseholdAtLoc.length),
+                    unqiueHouseholdAtLoc,
+                    (int) lockdownStat[META_POP_WITHIN_LOCKDOWN_END],
+                    LOCKDOWN_WITHIN_META_POP_UNTIL_AGE);
+
+        }
+    }
+
+    public Float[] inLockdownUntil(AbstractIndividualInterface p) {
+        Float[] lockdownUntilArr = currentlyInLockdown.get(p.getId());
+        if (lockdownUntilArr != null) {
+            if (p.getAge() >= lockdownUntilArr[LOCKDOWN_INTER_META_POP_UNTIL_AGE]
+                    && p.getAge() >= lockdownUntilArr[LOCKDOWN_WITHIN_META_POP_UNTIL_AGE]) {
+                currentlyInLockdown.remove(p.getId());
+                lockdownUntilArr = null;
+            }
+        }
+        return lockdownUntilArr;
+
+    }
+
+    private void fillCurrentlyInLockdown(int numHouseholdInLockdown,
+            Integer[] unqiueHouseholdAtLoc, float lockdownUntil, int lockdownUntilIndex) {
+        Integer[] householdInLockdownArray;
+        HashMap<Integer, float[]> contactOptions
+                = (HashMap<Integer, float[]>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS];
+        if (numHouseholdInLockdown < unqiueHouseholdAtLoc.length) {
+            householdInLockdownArray = util.ArrayUtilsRandomGenerator.randomSelect(unqiueHouseholdAtLoc,
+                    numHouseholdInLockdown, getRNG());
+        } else {
+            householdInLockdownArray = unqiueHouseholdAtLoc;
+        }
+
+        for (Integer lockdownHousehold : householdInLockdownArray) {
+            Set<SingleRelationship> rels = getRelMap()[RELMAP_HOUSEHOLD].edgesOf(lockdownHousehold);
+            for (SingleRelationship rel : rels) {
+                Integer[] ent = rel.getLinks();
+                Integer candidateId = ent[0].equals(lockdownHousehold) ? ent[1] : ent[0];
+                float[] cOpt = contactOptions.get(candidateId);
+                if (lockdownHousehold.equals((int) cOpt[CONTACT_OPTIONS_CORE_HOUSEHOLD_ID])) {
+                    Float[] lockdownUntilArr = currentlyInLockdown.get(candidateId);
+                    AbstractIndividualInterface candidate = getLocalData().get(candidateId);
+                    if (candidate != null) {
+                        if (lockdownUntilArr == null) {
+                            lockdownUntilArr = new Float[LOCKDOWN_ENT_LENGTH];
+                            currentlyInLockdown.put(candidateId, lockdownUntilArr);
+                        }
+                        lockdownUntilArr[lockdownUntilIndex]
+                                = (float) getLocalData().get(candidateId).getAge() + lockdownUntil;
+                    }
+
+                }
+
+            }
+
+        }
     }
 
 }
