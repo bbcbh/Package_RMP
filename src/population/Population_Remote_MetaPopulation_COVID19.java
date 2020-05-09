@@ -798,8 +798,7 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
             Float[] inLockdown = inLockdownUntil(infectious);
             hasContact &= inLockdown == null
                     || Float.isNaN(inLockdown[LOCKDOWN_WITHIN_META_POP_UNTIL_AGE])
-                    || infectious.getAge() >= inLockdown[LOCKDOWN_WITHIN_META_POP_UNTIL_AGE];          
-            
+                    || infectious.getAge() >= inLockdown[LOCKDOWN_WITHIN_META_POP_UNTIL_AGE];
 
         }
 
@@ -1189,17 +1188,19 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
         for (Integer pid : currentlyInLockdown.keySet()) {
             Person_Remote_MetaPopulation rmp = (Person_Remote_MetaPopulation) getLocalData().get(pid);
-            Float[] inLockdownUntilEnt = inLockdownUntil(rmp);
-            if (inLockdownUntilEnt != null) {
-                if (!Float.isNaN(inLockdownUntilEnt[LOCKDOWN_INTER_META_POP_UNTIL_AGE])
-                        && rmp.getAge() < inLockdownUntilEnt[LOCKDOWN_INTER_META_POP_UNTIL_AGE]) {
-                    numInLockdown[0][rmp.getHomeLocation()]++;
-                }
-                if (!Float.isNaN(inLockdownUntilEnt[LOCKDOWN_WITHIN_META_POP_UNTIL_AGE])
-                        && rmp.getAge() < inLockdownUntilEnt[LOCKDOWN_WITHIN_META_POP_UNTIL_AGE]) {
-                    numInLockdown[1][rmp.getHomeLocation()]++;
-                }
+            if (rmp != null) {
+                Float[] inLockdownUntilEnt = inLockdownUntil(rmp);
+                if (inLockdownUntilEnt != null) {
+                    if (!Float.isNaN(inLockdownUntilEnt[LOCKDOWN_INTER_META_POP_UNTIL_AGE])
+                            && rmp.getAge() < inLockdownUntilEnt[LOCKDOWN_INTER_META_POP_UNTIL_AGE]) {
+                        numInLockdown[0][rmp.getHomeLocation()]++;
+                    }
+                    if (!Float.isNaN(inLockdownUntilEnt[LOCKDOWN_WITHIN_META_POP_UNTIL_AGE])
+                            && rmp.getAge() < inLockdownUntilEnt[LOCKDOWN_WITHIN_META_POP_UNTIL_AGE]) {
+                        numInLockdown[1][rmp.getHomeLocation()]++;
+                    }
 
+                }
             }
 
         }
