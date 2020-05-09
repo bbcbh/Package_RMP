@@ -126,11 +126,11 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
     // FIELDS_REMOTE_METAPOP_COVID19_META_POP_LOCKDOWN_SETTING
     public static final int META_POP_INTER_LOCKDOWN_START = 0;
     public static final int META_POP_INTER_LOCKDOWN_END = META_POP_INTER_LOCKDOWN_START + 1;
-    public static final int META_POP_INTER_LOCKDOWN_PROPORTION = META_POP_INTER_LOCKDOWN_END + 1;
-    public static final int META_POP_WITHIN_LOCKDOWN_START = META_POP_INTER_LOCKDOWN_PROPORTION + 1;
+    public static final int META_POP_INTER_LOCKDOWN_PROPORTION_HOUSEHOLD = META_POP_INTER_LOCKDOWN_END + 1;
+    public static final int META_POP_WITHIN_LOCKDOWN_START = META_POP_INTER_LOCKDOWN_PROPORTION_HOUSEHOLD + 1;
     public static final int META_POP_WITHIN_LOCKDOWN_END = META_POP_WITHIN_LOCKDOWN_START + 1;
-    public static final int META_POP_WITHIN_LOCKDOWN_PROPORTION = META_POP_WITHIN_LOCKDOWN_END + 1;
-    public static final int META_POP_STAT_META_POP_LENGTH = META_POP_WITHIN_LOCKDOWN_PROPORTION + 1;
+    public static final int META_POP_WITHIN_LOCKDOWN_PROPORTION_HOUSEHOLD = META_POP_WITHIN_LOCKDOWN_END + 1;
+    public static final int META_POP_STAT_META_POP_LENGTH = META_POP_WITHIN_LOCKDOWN_PROPORTION_HOUSEHOLD + 1;
 
     // generateInfectionStat()
     public static final int NUM_STAT_NUM_IN_LOC = 0;
@@ -470,7 +470,7 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
             Float[] lockdownUntilArr = inLockdownUntil(person);
 
-            moving = lockdownUntilArr == null
+            moving = lockdownUntilArr == null || Float.isNaN(lockdownUntilArr[LOCKDOWN_INTER_META_POP_UNTIL_AGE])
                     || person.getAge() >= lockdownUntilArr[LOCKDOWN_INTER_META_POP_UNTIL_AGE];
 
             if (moving) {
@@ -659,18 +659,19 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
         HashSet<SingleRelationship> tempEdges = TEMP_EDGES;
 
-        Integer inQuarantine = inQuarantineUntil(p);
+        if (!currentlyInHousehold.containsKey(p.getId())) {
 
-        boolean forcedInCoreHousehold = inQuarantine != null;
-        if (!forcedInCoreHousehold) {
-            Float[] inLockdownUntil = inLockdownUntil(p);
-            if (inLockdownUntil != null) {
-                forcedInCoreHousehold &= p.getAge() >= inLockdownUntil[LOCKDOWN_WITHIN_META_POP_UNTIL_AGE];
+            Integer inQuarantine = inQuarantineUntil(p);
+
+            boolean forcedInCoreHousehold = inQuarantine != null;
+            if (!forcedInCoreHousehold) {
+                Float[] inLockdownUntil = inLockdownUntil(p);
+                if (inLockdownUntil != null) {
+                    forcedInCoreHousehold |= (!Float.isNaN(inLockdownUntil[LOCKDOWN_WITHIN_META_POP_UNTIL_AGE])
+                            && p.getAge() < inLockdownUntil[LOCKDOWN_WITHIN_META_POP_UNTIL_AGE]);
+                }
             }
 
-        }
-
-        if (!currentlyInHousehold.containsKey(p.getId())) {
             if (forcedInCoreHousehold) {
                 movePerson(p, ((Person_Remote_MetaPopulation) p).getHomeLocation(), -1);
 
@@ -778,10 +779,9 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
         if (quarantineEnt != null) {
             hasContact = false;
-            int effectIndex = contactType
-                    == RESPONSE_ADJ_HOUSEHOLD_CONTACT
-                            ? Population_Remote_MetaPopulation_COVID19.QUARANTINE_PROB_CONTACT_HOUSEHOLD
-                            : Population_Remote_MetaPopulation_COVID19.QUARANTINE_PROB_CONTACT_NON_HOUSEHOLD;
+            int effectIndex = contactType == RESPONSE_ADJ_HOUSEHOLD_CONTACT
+                    ? Population_Remote_MetaPopulation_COVID19.QUARANTINE_PROB_CONTACT_HOUSEHOLD
+                    : Population_Remote_MetaPopulation_COVID19.QUARANTINE_PROB_CONTACT_NON_HOUSEHOLD;
 
             if (effectIndex < quarantineEnt.length) {
                 float probContact = quarantineEnt[effectIndex].floatValue();
@@ -791,6 +791,16 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
                 }
 
             }
+        }
+
+        // Check for lockdown
+        if (contactType == RESPONSE_ADJ_NON_HOUSEHOLD_CONTACT) {
+            Float[] inLockdown = inLockdownUntil(infectious);
+            hasContact &= inLockdown == null
+                    || Float.isNaN(inLockdown[LOCKDOWN_WITHIN_META_POP_UNTIL_AGE])
+                    || infectious.getAge() >= inLockdown[LOCKDOWN_WITHIN_META_POP_UNTIL_AGE];          
+            
+
         }
 
         if (hasContact) {
@@ -1175,6 +1185,32 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
             csvOutput.print(numInQuarantine[i]);
         }
 
+        int[][] numInLockdown = new int[2][numStat[NUM_STAT_NUM_IN_LOC].length]; // inter, within
+
+        for (Integer pid : currentlyInLockdown.keySet()) {
+            Person_Remote_MetaPopulation rmp = (Person_Remote_MetaPopulation) getLocalData().get(pid);
+            Float[] inLockdownUntilEnt = inLockdownUntil(rmp);
+            if (inLockdownUntilEnt != null) {
+                if (!Float.isNaN(inLockdownUntilEnt[LOCKDOWN_INTER_META_POP_UNTIL_AGE])
+                        && rmp.getAge() < inLockdownUntilEnt[LOCKDOWN_INTER_META_POP_UNTIL_AGE]) {
+                    numInLockdown[0][rmp.getHomeLocation()]++;
+                }
+                if (!Float.isNaN(inLockdownUntilEnt[LOCKDOWN_WITHIN_META_POP_UNTIL_AGE])
+                        && rmp.getAge() < inLockdownUntilEnt[LOCKDOWN_WITHIN_META_POP_UNTIL_AGE]) {
+                    numInLockdown[1][rmp.getHomeLocation()]++;
+                }
+
+            }
+
+        }
+
+        for (int i = 0; i < numInLockdown.length; i++) {
+            for (int j = 0; j < numInLockdown[i].length; j++) {
+                csvOutput.print(',');
+                csvOutput.print(numInLockdown[i][j]);
+            }
+        }
+
         for (DescriptiveStatistics des : r0_collection_stat) {
             csvOutput.print(
                     String.format(",%.2f,%.2f,%.2f", des.getMean(),
@@ -1219,6 +1255,17 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         for (int i = 1; i < popSize.length; i++) {
             csvOutput.print(',');
         }
+        csvOutput.print(',');
+        csvOutput.print("# inLockdown (inter meta pop)");
+        for (int i = 1; i < popSize.length; i++) {
+            csvOutput.print(',');
+        }
+        csvOutput.print(',');
+        csvOutput.print("# inLockdown (within meta pop)");
+        for (int i = 1; i < popSize.length; i++) {
+            csvOutput.print(',');
+        }
+
         csvOutput.print(',');
         csvOutput.print("# successful tranmission per infection (household),,");
         csvOutput.print(',');
@@ -1389,17 +1436,21 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
                     = ((Integer[][]) getFields()[FIELDS_REMOTE_METAPOP_COVID19_UNIQUE_HOUSEHOLD])[loc];
             float[] lockdownStat = metaPopLockdownSetting[loc];
 
-            fillCurrentlyInLockdown(
-                    Math.round(lockdownStat[META_POP_INTER_LOCKDOWN_PROPORTION] * unqiueHouseholdAtLoc.length),
-                    unqiueHouseholdAtLoc,
-                    (int) lockdownStat[META_POP_INTER_LOCKDOWN_END],
-                    LOCKDOWN_INTER_META_POP_UNTIL_AGE);
+            if (lockdownStat[META_POP_INTER_LOCKDOWN_PROPORTION_HOUSEHOLD] > 0) {
 
-            fillCurrentlyInLockdown(
-                    Math.round(lockdownStat[META_POP_WITHIN_LOCKDOWN_PROPORTION] * unqiueHouseholdAtLoc.length),
-                    unqiueHouseholdAtLoc,
-                    (int) lockdownStat[META_POP_WITHIN_LOCKDOWN_END],
-                    LOCKDOWN_WITHIN_META_POP_UNTIL_AGE);
+                fillCurrentlyInLockdown(Math.round(lockdownStat[META_POP_INTER_LOCKDOWN_PROPORTION_HOUSEHOLD] * unqiueHouseholdAtLoc.length),
+                        unqiueHouseholdAtLoc,
+                        lockdownStat[META_POP_INTER_LOCKDOWN_END],
+                        LOCKDOWN_INTER_META_POP_UNTIL_AGE);
+            }
+
+            if (lockdownStat[META_POP_WITHIN_LOCKDOWN_PROPORTION_HOUSEHOLD] > 0) {
+
+                fillCurrentlyInLockdown(Math.round(lockdownStat[META_POP_WITHIN_LOCKDOWN_PROPORTION_HOUSEHOLD] * unqiueHouseholdAtLoc.length),
+                        unqiueHouseholdAtLoc,
+                        lockdownStat[META_POP_WITHIN_LOCKDOWN_END],
+                        LOCKDOWN_WITHIN_META_POP_UNTIL_AGE);
+            }
 
         }
     }
@@ -1441,6 +1492,7 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
                     if (candidate != null) {
                         if (lockdownUntilArr == null) {
                             lockdownUntilArr = new Float[LOCKDOWN_ENT_LENGTH];
+                            Arrays.fill(lockdownUntilArr, Float.NaN);
                             currentlyInLockdown.put(candidateId, lockdownUntilArr);
                         }
                         lockdownUntilArr[lockdownUntilIndex]
