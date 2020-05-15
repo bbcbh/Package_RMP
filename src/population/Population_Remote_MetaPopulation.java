@@ -174,6 +174,10 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
 
         return pop;
     }
+    
+    public AbstractIndividualInterface getPersonById(int id){
+        return getLocalData().get(id);
+    }
 
     @Override
     public void initialise() {

@@ -58,6 +58,7 @@ class Thread_PopRun_COVID19 implements Runnable {
     public static final int THREAD_PARAM_TRIGGERED_QUARANTINE_DELAY = THREAD_PARAM_TRIGGERED_CONTACT_TRACE_DELAY + 1;
     public static final int THREAD_PARAM_TRIGGRRED_QUARANTINE_DURATION = THREAD_PARAM_TRIGGERED_QUARANTINE_DELAY + 1;
     public static final int THREAD_PARAM_TRIGGRRED_QUARANTINE_EFFECT = THREAD_PARAM_TRIGGRRED_QUARANTINE_DURATION + 1;
+    public static final int THREAD_PARAM_TRIGGRRED_CONTACT_HISTORY_INTERVENTIONS = THREAD_PARAM_TRIGGRRED_QUARANTINE_EFFECT + 1;
 
     public static final int TEST_RES_STAT_ALL = 0;
     public static final int TEST_RES_STAT_POS = 1;
@@ -81,6 +82,8 @@ class Thread_PopRun_COVID19 implements Runnable {
     public static final int TEST_TYPE_CONTACT_BASE = 0;
     public static final int TEST_TYPE_SYM = TEST_TYPE_CONTACT_BASE + 1;
     public static final int TEST_TYPE_SCR = TEST_TYPE_SYM + 1;
+    public static final int TEST_TYPE_EXIT_CI = TEST_TYPE_SCR + 1;
+    public static final int TEST_TYPE_EXIT_QUARANTINE = TEST_TYPE_EXIT_CI + 1;
     // =  -(n-th level of contact test) if TEST_TYPE < 0
 
     public static final int MAX_TEST_NUM = 0;
@@ -88,6 +91,20 @@ class Thread_PopRun_COVID19 implements Runnable {
     public static final int MAX_TEST_QUEUE_SETTING = MAX_TEST_PERIOD + 1;
 
     public static final int MAX_TEST_QUEUE_TYPE_NONE = -1; // Default
+
+    public static final int QUARANTINE_EFFECT_HOUSEHOLD_CONTACT_ADJ = 0;
+    public static final int QUARANTINE_EFFECT_NON_HOUSEHOLD_CONTACT_ADJ = QUARANTINE_EFFECT_HOUSEHOLD_CONTACT_ADJ + 1;
+    public static final int QUARANTINE_EFFECT_DAYS_TO_EXIT_TEST_CI = QUARANTINE_EFFECT_NON_HOUSEHOLD_CONTACT_ADJ + 1;
+    public static final int QUARANTINE_EFFECT_DAYS_TO_EXIT_TEST_QUARANTINE = QUARANTINE_EFFECT_DAYS_TO_EXIT_TEST_CI + 1;
+
+    public static final int CONTACT_HIST_HOUSEHOLD_TEST_PROB = 0;
+    public static final int CONTACT_HIST_HOUSEHOLD_TEST_WINDOW = CONTACT_HIST_HOUSEHOLD_TEST_PROB + 1;
+    public static final int CONTACT_HIST_NON_HOUSEHOLD_TEST_PROB = CONTACT_HIST_HOUSEHOLD_TEST_WINDOW + 1;
+    public static final int CONTACT_HIST_NON_HOUSEHOLD_TEST_WINDOW = CONTACT_HIST_NON_HOUSEHOLD_TEST_PROB + 1;
+    public static final int CONTACT_HIST_HOUSEHOLD_QUARANTINE_PROB = CONTACT_HIST_NON_HOUSEHOLD_TEST_WINDOW + 1;
+    public static final int CONTACT_HIST_HOUSEHOLD_QUARANTINE_WINDOW = CONTACT_HIST_HOUSEHOLD_QUARANTINE_PROB + 1;
+    public static final int CONTACT_HIST_NON_HOUSEHOLD_QUARANTINE_PROB = CONTACT_HIST_HOUSEHOLD_QUARANTINE_WINDOW + 1;
+    public static final int CONTACT_HIST_NON_HOUSEHOLD_QUARANTINE_WINDOW = CONTACT_HIST_NON_HOUSEHOLD_QUARANTINE_PROB + 1;
 
     Object[] threadParam = new Object[]{
         // THREAD_PARAM_HOSUEHOLD_SIZE_DIST        
@@ -121,7 +138,10 @@ class Thread_PopRun_COVID19 implements Runnable {
         // probability: {cumul_prob_1, response_1, cumul_prob_2, ...}
         new double[][][][]{},
         // THREAD_PARAM_TRIGGERED_HOUSEHOLD_TESTING
-        // Format: [loc][triggerIndex]{probability_current_household, probability_core_household, probility_non_core_household, prob_temp}       
+        // Format: [loc][triggerIndex]{
+        //               probability_current_household, 
+        //               probability_core_household, 
+        //               probility_non_core_household, prob_temp}       
         new double[][][]{},
         // THREAD_PARAM_TRIGGERED_HOUSEHOLD_QUARANTINE
         // Format: [loc][triggerIndex]
@@ -160,6 +180,15 @@ class Thread_PopRun_COVID19 implements Runnable {
         new float[][][]{},
         // THREAD_PARAM_TRIGGRRED_QUARANTINE_EFFECT
         // Format: [loc][triggerIndex]{probababiliy_of_household_contact, probababiliy_of_non_household_contact}
+        // Format: [loc][triggerIndex]{probababiliy_of_household_contact, probababiliy_of_non_household_contact, 
+        //                             days_to_exit_test_resp_case_isolate, days_to_exit_test_resp_quarantine}
+        new float[][][]{},
+        // THREAD_PARAM_TRIGGRRED_CONTACT_HISTORY_INTERVENTIONS
+        // Format: [loc][triggerIndex]{
+        //         probabitly_of_household_contacts_test, days_to_trace_household, 
+        //         probabitly_of_non_household_contacts_test, days_to_trace_non_household,
+        //         probabitly_of_household_contacts_quarantine, days_to_trace_household, 
+        //         probabitly_of_non_household_contacts_quarantine, days_to_trace_non_household,
         new float[][][]{},};
 
     public static final String FILE_REGEX_OUTPUT = "output_%d.txt";
@@ -394,10 +423,7 @@ class Thread_PopRun_COVID19 implements Runnable {
 
                     int testTriggerIndex = testTriggerIndex_by_loc[trigger_loc];
 
-                    Integer testNotUntilAge = pop.getMinAgeForNextTest().get(p.getId());
-
-                    boolean canBeTested = testNotUntilAge == null
-                            || p.getAge() > testNotUntilAge;
+                    boolean canBeTested = isValidTestCandidate(p);
 
                     // Setting sym response
                     if (testTriggerIndex < triggeredSymResponse[trigger_loc].length
@@ -423,8 +449,9 @@ class Thread_PopRun_COVID19 implements Runnable {
 
                             if (pop.getInfectionRNG().nextDouble() < seekTestProb) {
                                 int symTestDelay = 0;
-                                ArrayList<Object[]> testSchEnt = getTestScheuduleEnt(symTestDelay, trigger_loc);
-                                testSchEnt.add(new Object[]{rmp, rmp.getAge(), TEST_TYPE_SYM});
+                                int test_type = TEST_TYPE_SYM;
+
+                                insertTestIntoSchdule(rmp, symTestDelay, test_type);
                             }
 
                         }
@@ -443,9 +470,7 @@ class Thread_PopRun_COVID19 implements Runnable {
                                 // Only test at home
                                 if (rmp.getHomeLocation() == pop.getCurrentLocation(rmp)) {
                                     int srnTestDelay = 0;
-                                    ArrayList<Object[]> testSchEnt = getTestScheuduleEnt(srnTestDelay, trigger_loc);
-                                    testSchEnt.add(new Object[]{rmp, rmp.getAge(), TEST_TYPE_SCR});
-
+                                    insertTestIntoSchdule(rmp, srnTestDelay, TEST_TYPE_SCR);
                                 }
                             }
                         }
@@ -512,27 +537,29 @@ class Thread_PopRun_COVID19 implements Runnable {
                             // Running test schedule - first round
                             for (Object[] ent : testScheduleArr) {
 
-                                int pid = ((AbstractIndividualInterface) ent[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_PERSON_TESTED]).getId();
-                                int waitingIndex = Collections.binarySearch(testResultInWaiting, pid);
+                                AbstractIndividualInterface testPerson = ((AbstractIndividualInterface) ent[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_PERSON_TESTED]);
 
-                                if (waitingIndex < 0) {
+                                if (isValidTestCandidate(testPerson)) {
 
-                                    if (testCount >= testLimit) {
-                                        // Handle exceed test scheduled
-                                        handleExcessTest(ent, testQueueType);
-                                    } else {
-                                        testResultInWaiting.add(~waitingIndex, pid);
-                                        runTestSchedule(ent, covid19, testTriggerIndex_by_loc[loc]);
+                                    int pid = testPerson.getId();
+                                    int waitingIndex = Collections.binarySearch(testResultInWaiting, pid);
 
-                                        if (rolling_test_count_by_loc != null) {
-                                            int timeIndex = pop.getGlobalTime() % rolling_test_count_by_loc[loc].length;
-                                            rolling_test_count_by_loc[loc][timeIndex]++;
-                                            rollingSum[loc]++;
+                                    if (waitingIndex < 0) {
+                                        if (testCount >= testLimit) {
+                                            // Handle exceed test scheduled
+                                            handleExcessTest(ent, testQueueType);
+                                        } else {
+                                            testResultInWaiting.add(~waitingIndex, pid);
+                                            runTestSchedule(ent, covid19, testTriggerIndex_by_loc[loc]);
+
+                                            if (rolling_test_count_by_loc != null) {
+                                                int timeIndex = pop.getGlobalTime() % rolling_test_count_by_loc[loc].length;
+                                                rolling_test_count_by_loc[loc][timeIndex]++;
+                                                rollingSum[loc]++;
+                                            }
+                                            testCount++;
                                         }
-
-                                        testCount++;
                                     }
-
                                 }
                             }
 
@@ -552,8 +579,16 @@ class Thread_PopRun_COVID19 implements Runnable {
                                 testing_res_stat_cumul_all[TEST_RES_STAT_ALL]++;
                                 test_res_stat_today[TEST_RES_STAT_ALL]++;
 
+                                Integer[] testHist = pop.getTestResultHistory().get(rmp.getId());
+                                if (testHist == null) {
+                                    testHist = new Integer[Population_Remote_MetaPopulation_COVID19.TEST_RESULT_HISTORY_LENGTH];
+                                    Arrays.fill(testHist, 0);
+                                    pop.getTestResultHistory().put(rmp.getId(), testHist);
+                                }
+
                                 if ((Boolean) ent[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_TEST_RESULT]) {
 
+                                    // Positive test result
                                     testing_res_stat_cumul[TEST_RES_STAT_POS][loc]++;
                                     testing_res_stat_cumul_all[TEST_RES_STAT_POS]++;
                                     test_res_stat_today[TEST_RES_STAT_POS]++;
@@ -565,9 +600,29 @@ class Thread_PopRun_COVID19 implements Runnable {
 
                                     int triggerIndex = testTriggerIndex_by_loc[trigger_loc];
 
+                                    testHist[Population_Remote_MetaPopulation_COVID19.TEST_RESULT_HISTORY_AGE_OF_LAST_POSITIVE]
+                                            = (int) rmp.getAge();
+
                                     runPositiveTestResponse(rmp, covid19,
                                             (Integer) ent[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_TEST_TYPE],
                                             triggerIndex);
+                                } else {
+
+                                    // Negative test result                                        
+                                    testHist[Population_Remote_MetaPopulation_COVID19.TEST_RESULT_HISTORY_AGE_OF_LAST_NEGATIVE]
+                                            = (int) rmp.getAge();
+                                    int testType = (int) ent[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_TEST_TYPE];
+
+                                    if (testType == TEST_TYPE_EXIT_CI
+                                            || testType == TEST_TYPE_EXIT_QUARANTINE) {
+
+                                        // Leave quarantine immediately
+                                        HashMap<Integer, Number[]> qMap
+                                                = ((HashMap<Integer, Number[]>) pop.getFields()[Population_Remote_MetaPopulation_COVID19.FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_QUARANTINE]);
+
+                                        qMap.remove(rmp.getId());
+
+                                    }
 
                                 }
 
@@ -592,11 +647,27 @@ class Thread_PopRun_COVID19 implements Runnable {
                                 ent[Population_Remote_MetaPopulation_COVID19.QUARANTINE_UNTIL_AGE]
                                         = inQ[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_IN_QUARANTINE_UNTIL];
 
-                                if (!isCaseIsolation && quarantineEffect != null) {
-                                    ent[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PROB_CONTACT_HOUSEHOLD]
-                                            = quarantineEffect[0];
-                                    ent[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PROB_CONTACT_NON_HOUSEHOLD]
-                                            = quarantineEffect[1];
+                                if (quarantineEffect != null) {
+
+                                    if (!isCaseIsolation) {
+                                        ent[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PROB_CONTACT_HOUSEHOLD]
+                                                = quarantineEffect[QUARANTINE_EFFECT_HOUSEHOLD_CONTACT_ADJ];
+                                        ent[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PROB_CONTACT_NON_HOUSEHOLD]
+                                                = quarantineEffect[QUARANTINE_EFFECT_NON_HOUSEHOLD_CONTACT_ADJ];
+
+                                    }
+
+                                    if (QUARANTINE_EFFECT_DAYS_TO_EXIT_TEST_QUARANTINE < quarantineEffect.length) {
+                                        int daysToExitTest = isCaseIsolation
+                                                ? (int) quarantineEffect[QUARANTINE_EFFECT_DAYS_TO_EXIT_TEST_CI]
+                                                : (int) quarantineEffect[QUARANTINE_EFFECT_DAYS_TO_EXIT_TEST_QUARANTINE];
+                                        int exitTestType = isCaseIsolation ? TEST_TYPE_EXIT_CI : TEST_TYPE_EXIT_QUARANTINE;
+
+                                        AbstractIndividualInterface testPerson = pop.getPersonById(inQ[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_PERSON_ID]);
+
+                                        insertTestIntoSchdule((Person_Remote_MetaPopulation) testPerson, daysToExitTest, exitTestType);
+
+                                    }
 
                                 }
 
@@ -623,7 +694,7 @@ class Thread_PopRun_COVID19 implements Runnable {
                         testTriggerIndex_by_loc[loc] = detectResponseTrigger(
                                 testTriggerIndex_by_loc[loc],
                                 triggers[loc],
-                                new int[]{testing_res_stat_cumul[TEST_RES_STAT_ALL][loc], 
+                                new int[]{testing_res_stat_cumul[TEST_RES_STAT_ALL][loc],
                                     testing_res_stat_cumul[TEST_RES_STAT_POS][loc]},
                                 testing_res_stat_cumul_all);
 
@@ -667,14 +738,13 @@ class Thread_PopRun_COVID19 implements Runnable {
             printCSVTestEntry(testingCSV, testing_res_stat_cumul, responseQueueList);
 
         }
-        
+
         /*
         if (triggerText.toString().length() > 0) {
             testingCSV.println();
             testingCSV.println(triggerText.toString());
         }
-        */
-
+         */
         outputCSV.close();
         testingCSV.close();
 
@@ -692,6 +762,43 @@ class Thread_PopRun_COVID19 implements Runnable {
         }
 
         pri.close();
+    }
+
+    private void insertTestIntoSchdule(Person_Remote_MetaPopulation rmp, int testDelay, int test_type) {
+        if (rmp != null) {
+            int home_loc = pop.getCurrentLocation(rmp);
+            if (home_loc < 0) {
+                home_loc = rmp.getHomeLocation();
+            }
+            ArrayList<Object[]> testSchEnt = getTestScheuduleEnt(testDelay, home_loc);
+            Object[] testEnt = new Object[]{rmp, rmp.getAge(), test_type};
+
+            int index = Collections.binarySearch(testSchEnt, testEnt, new Comparator<Object[]>() {
+                @Override
+                public int compare(Object[] o1, Object[] o2) {
+                    AbstractIndividualInterface p1 = (AbstractIndividualInterface) o1[0];
+                    AbstractIndividualInterface p2 = (AbstractIndividualInterface) o2[0];
+                    return Integer.compare(p1.getId(), p2.getId());
+                }
+            });
+
+            if (index < 0) {
+                testSchEnt.add(~index, testEnt);
+            }
+        }
+    }
+
+    private boolean isValidTestCandidate(AbstractIndividualInterface testPerson) {
+        boolean validTestCandidate;
+        int pid = testPerson.getId();
+        Integer[] testHist = pop.getTestResultHistory().get(pid);
+        Integer minRetestAge = pop.getMinAgeForNextTest().get(pid);
+        validTestCandidate = minRetestAge == null
+                || testPerson.getAge() > minRetestAge;
+        validTestCandidate &= (testHist == null)
+                || (testHist[Population_Remote_MetaPopulation_COVID19.TEST_RESULT_HISTORY_AGE_OF_LAST_NEGATIVE]
+                > testHist[Population_Remote_MetaPopulation_COVID19.TEST_RESULT_HISTORY_AGE_OF_LAST_POSITIVE]);
+        return validTestCandidate;
     }
 
     private boolean setMetaPopLockdownSetting(int loc, int triggerIndex, int lockdownType) {
@@ -766,7 +873,7 @@ class Thread_PopRun_COVID19 implements Runnable {
         return testPositive;
     }
 
-    public ArrayList<Object[]> getTestScheuduleEnt(int testDelay, int testLoc) {
+    private ArrayList<Object[]> getTestScheuduleEnt(int testDelay, int testLoc) {
         List<Integer> testSchKey = List.of((int) (pop.getGlobalTime() + testDelay), testLoc);
         ArrayList<Object[]> testSchEnt = pop.getTestScheduelInPipeline().get(testSchKey);
         if (testSchEnt == null) {
@@ -899,6 +1006,7 @@ class Thread_PopRun_COVID19 implements Runnable {
         float[][][] triggeredContactDelay = (float[][][]) getThreadParam()[THREAD_PARAM_TRIGGERED_CONTACT_TRACE_DELAY];
         float[][][] triggeredQuarantineDelay = (float[][][]) getThreadParam()[THREAD_PARAM_TRIGGERED_QUARANTINE_DELAY];
         float[][][] triggeredQuarantineDuration = (float[][][]) getThreadParam()[THREAD_PARAM_TRIGGRRED_QUARANTINE_DURATION];
+        float[][][] triggeredContactHistoryInterventions = (float[][][]) getThreadParam()[THREAD_PARAM_TRIGGRRED_CONTACT_HISTORY_INTERVENTIONS];
 
         double[] householdTestRate = triggetedHouseholdTestRate.length == 0
                 ? new double[0] : triggetedHouseholdTestRate[trigger_loc][triggerIndex];
@@ -910,15 +1018,14 @@ class Thread_PopRun_COVID19 implements Runnable {
                 ? new float[0] : triggeredQuarantineDelay[trigger_loc][triggerIndex];
         float[] quarantineDurationOptions = triggeredQuarantineDuration.length == 0
                 ? new float[0] : triggeredQuarantineDuration[trigger_loc][triggerIndex];
+        float[] contactHistoryInterventions = triggeredContactHistoryInterventions.length == 0
+                ? new float[0] : triggeredContactHistoryInterventions[trigger_loc][triggerIndex];
 
         // Single test response
         setTriggeredIndexCaseTestResponse(rmp, covid19, triggerIndex);
 
-        // Household contract tracing 
-        if (householdTestRate.length > 0
-                || householdQuarantineRate.length > 0) {
-
-            AbstractIndividualInterface[][] fromCurrentHousehold = pop.currentlyInSameHouseholdAsByType(rmp);
+        // Contract tracing - only applied on non-exit test
+        if (srcTestType != TEST_TYPE_EXIT_QUARANTINE && srcTestType != TEST_TYPE_EXIT_CI) {
 
             int contactTraceDelay = 0;
 
@@ -926,81 +1033,112 @@ class Thread_PopRun_COVID19 implements Runnable {
                 contactTraceDelay = getDelay(contactTraceDelayOptions);
             }
 
-            // probability_current_household, probability_core_household, probility_non_core_household, prob temp            
-            for (int type = 0; type < fromCurrentHousehold.length; type++) {
-                for (AbstractIndividualInterface candidate : fromCurrentHousehold[type]) {
+            int quaratineDelay = 0;
+            if (quarantineDelayOptions.length > 0) {
+                quaratineDelay = getDelay(quarantineDelayOptions);
+            }
 
-                    // Household test
-                    if (householdTestRate.length > 0) {
+            // Household based
+            if (householdTestRate.length > 0 || householdQuarantineRate.length > 0) {
 
-                        Integer testNotUntilAge = pop.getMinAgeForNextTest().get(candidate.getId());
-                        Integer inQuarantine = pop.inQuarantineUntil(candidate);
+                AbstractIndividualInterface[][] fromCurrentHousehold = pop.currentlyInSameHouseholdAsByType(rmp);
 
-                        boolean canBeTested = (testNotUntilAge == null || candidate.getAge() > testNotUntilAge)
-                                && inQuarantine == null;
+                // probability_current_household, probability_core_household, probility_non_core_household, prob temp            
+                for (int type = 0; type < fromCurrentHousehold.length; type++) {
+                    for (AbstractIndividualInterface candidate : fromCurrentHousehold[type]) {
 
-                        if (canBeTested) {
-                            boolean contactTesting = householdTestRate[type] >= 1;
+                        // Household test
+                        if (householdTestRate.length > 0) {
+                            Integer inQuarantine = pop.inQuarantineUntil(candidate);
+                            boolean canBeTested = isValidTestCandidate(candidate)
+                                    && inQuarantine == null;
 
-                            if (!contactTesting && householdTestRate[type] > 0) {
-                                contactTesting = pop.getInfectionRNG().nextDouble()
-                                        < householdTestRate[type];
-                            }
+                            if (canBeTested) {
+                                boolean contactTesting = householdTestRate[type] >= 1;
 
-                            if (contactTesting) {
+                                if (!contactTesting && householdTestRate[type] > 0) {
+                                    contactTesting = pop.getInfectionRNG().nextDouble()
+                                            < householdTestRate[type];
+                                }
 
-                                ArrayList<Object[]> testSchEnt = getTestScheuduleEnt(contactTraceDelay, pop.getCurrentLocation(candidate));
-                                testSchEnt.add(new Object[]{candidate, candidate.getAge(), Math.min(srcTestType, 0) - 1});
-
-                            }
-                        }
-                    }
-                    // Household quaratine
-                    if (householdQuarantineRate.length > 0) {
-                        boolean putInQuarantine = householdQuarantineRate[type] >= 1;
-                        if (!putInQuarantine && householdQuarantineRate[type] > 0) {
-                            putInQuarantine = pop.getInfectionRNG().nextDouble() < householdQuarantineRate[type];
-                        }
-                        if (putInQuarantine) {
-
-                            int quaratineDelay = 0;
-                            if (quarantineDelayOptions.length > 0) {
-                                quaratineDelay = getDelay(quarantineDelayOptions);
-                            }
-
-                            ArrayList<Integer[]> inQ = getQuarantineScheduleEnt(
-                                    pop.getGlobalTime() + contactTraceDelay + quaratineDelay,
-                                    pop.getCurrentLocation(candidate));
-
-                            int inQuarntineDuration = (int) householdQuarantineRate[type + fromCurrentHousehold.length];
-
-                            if (quarantineDurationOptions.length > 0) {
-                                int index = 0;
-                                inQuarntineDuration = (int) quarantineDurationOptions[index];
-                                index += 2;
-                                if (quarantineDurationOptions.length > 0) {
-                                    float pDur = pop.getInfectionRNG().nextFloat();
-                                    while (index < quarantineDurationOptions.length
-                                            && pDur >= quarantineDurationOptions[index - 1]) {
-                                        inQuarntineDuration = (int) quarantineDurationOptions[index];
-                                        index += 2;
-                                    }
+                                if (contactTesting) {
+                                    insertTestIntoSchdule((Person_Remote_MetaPopulation) candidate,
+                                            contactTraceDelay, Math.min(srcTestType, 0) - 1);
                                 }
                             }
+                        }
+                        // Household quaratine
+                        if (householdQuarantineRate.length > 0) {
+                            boolean putInQuarantine = householdQuarantineRate[type] >= 1;
+                            if (!putInQuarantine && householdQuarantineRate[type] > 0) {
+                                putInQuarantine = pop.getInfectionRNG().nextDouble() < householdQuarantineRate[type];
+                            }
+                            if (putInQuarantine) {
+                                boolean isCaseIsolation = false;
+                                int inQuarntineDuration = (int) householdQuarantineRate[type + fromCurrentHousehold.length];
+                                inQuarntineDuration = getInQuaratineDuration(quarantineDurationOptions, inQuarntineDuration);
 
-                            Integer[] qPipelineEnt
-                                    = new Integer[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_LENGTH];
-                            qPipelineEnt[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_PERSON_ID]
-                                    = candidate.getId();
-                            qPipelineEnt[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_IN_QUARANTINE_UNTIL]
-                                    = (int) candidate.getAge() + inQuarntineDuration;
-                            qPipelineEnt[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_CASE_ISOLATION]
-                                    = -1; // Household quarantine
+                                int q_delay = contactTraceDelay + quaratineDelay;
+                                Person_Remote_MetaPopulation candidate_rmp = (Person_Remote_MetaPopulation) candidate;
 
-                            inQ.add(qPipelineEnt);
+                                insertQuaratineInSchdule(candidate_rmp, q_delay, (int) candidate_rmp.getAge() + inQuarntineDuration,
+                                        isCaseIsolation);
 
+                            }
                         }
                     }
+                }
+            }
+
+            // Contract history based
+            if (contactHistoryInterventions.length > 0) {
+                List<List<ArrayList<Integer>>> contactHistory = pop.getInfectionContactHistory().get(rmp.getId());
+
+                int inQuarantineDuration = 14;
+                inQuarantineDuration = getInQuaratineDuration(quarantineDurationOptions, inQuarantineDuration);
+
+                // Testing contact history of household and non-household
+                if (CONTACT_HIST_HOUSEHOLD_TEST_WINDOW < contactHistoryInterventions.length
+                        && contactHistoryInterventions[CONTACT_HIST_HOUSEHOLD_TEST_PROB] > 0) {
+                    int contractHistoryWindow = Math.min(Population_Remote_MetaPopulation_COVID19.INFECTION_CONTACT_HISTORY_WINDOW,
+                            (int) contactHistoryInterventions[CONTACT_HIST_HOUSEHOLD_TEST_WINDOW]);
+                    ArrayList<Integer> candidates = getContactHistoryCandidate(contractHistoryWindow,
+                            contactHistory.get(Population_Remote_MetaPopulation_COVID19.INFECTION_CONTACT_HISTORY_HOUSEHOLD));
+                    contactHistoryInterventions(candidates,
+                            contactHistoryInterventions[CONTACT_HIST_HOUSEHOLD_TEST_PROB],
+                            true, false, contactTraceDelay, inQuarantineDuration,srcTestType);
+                }
+                if (CONTACT_HIST_NON_HOUSEHOLD_TEST_WINDOW < contactHistoryInterventions.length
+                        && contactHistoryInterventions[CONTACT_HIST_NON_HOUSEHOLD_TEST_PROB] > 0) {
+                    int contractHistoryWindow = Math.min(Population_Remote_MetaPopulation_COVID19.INFECTION_CONTACT_HISTORY_WINDOW,
+                            (int) contactHistoryInterventions[CONTACT_HIST_NON_HOUSEHOLD_TEST_WINDOW]);
+                    ArrayList<Integer> candidates = getContactHistoryCandidate(contractHistoryWindow,
+                            contactHistory.get(Population_Remote_MetaPopulation_COVID19.INFECTION_CONTACT_HISTORY_NON_HOUSEHOLD));
+                    contactHistoryInterventions(candidates,
+                            contactHistoryInterventions[CONTACT_HIST_NON_HOUSEHOLD_TEST_PROB],
+                            true, false, contactTraceDelay, inQuarantineDuration, srcTestType);
+                }
+
+                // Quarantine contact history of household and non-household                
+                if (CONTACT_HIST_HOUSEHOLD_QUARANTINE_WINDOW < contactHistoryInterventions.length
+                        && contactHistoryInterventions[CONTACT_HIST_HOUSEHOLD_QUARANTINE_PROB] > 0) {
+                    int contractHistoryWindow = Math.min(Population_Remote_MetaPopulation_COVID19.INFECTION_CONTACT_HISTORY_WINDOW,
+                            (int) contactHistoryInterventions[CONTACT_HIST_HOUSEHOLD_QUARANTINE_WINDOW]);
+                    ArrayList<Integer> candidates = getContactHistoryCandidate(contractHistoryWindow,
+                            contactHistory.get(Population_Remote_MetaPopulation_COVID19.INFECTION_CONTACT_HISTORY_HOUSEHOLD));
+                    contactHistoryInterventions(candidates,
+                            contactHistoryInterventions[CONTACT_HIST_HOUSEHOLD_QUARANTINE_PROB],
+                            false, true, contactTraceDelay + quaratineDelay, inQuarantineDuration, srcTestType);
+                }
+                if (CONTACT_HIST_NON_HOUSEHOLD_QUARANTINE_WINDOW < contactHistoryInterventions.length
+                        && contactHistoryInterventions[CONTACT_HIST_NON_HOUSEHOLD_QUARANTINE_PROB] > 0) {
+                    int contractHistoryWindow = Math.min(Population_Remote_MetaPopulation_COVID19.INFECTION_CONTACT_HISTORY_WINDOW,
+                            (int) contactHistoryInterventions[CONTACT_HIST_NON_HOUSEHOLD_QUARANTINE_WINDOW]);
+                    ArrayList<Integer> candidates = getContactHistoryCandidate(contractHistoryWindow,
+                            contactHistory.get(Population_Remote_MetaPopulation_COVID19.INFECTION_CONTACT_HISTORY_NON_HOUSEHOLD));
+                    contactHistoryInterventions(candidates,
+                            contactHistoryInterventions[CONTACT_HIST_NON_HOUSEHOLD_QUARANTINE_PROB],
+                            false, true, contactTraceDelay + quaratineDelay, inQuarantineDuration, srcTestType);
                 }
 
             }
@@ -1009,7 +1147,77 @@ class Thread_PopRun_COVID19 implements Runnable {
 
     }
 
-    private ArrayList<Integer[]> getQuarantineScheduleEnt(int inQ_time, int loc) {
+    private int getInQuaratineDuration(float[] quarantineDurationOptions, int inQuarantineDuration) {
+        if (quarantineDurationOptions.length > 0) {
+            int index = 0;
+            inQuarantineDuration = (int) quarantineDurationOptions[index];
+            index += 2;
+            if (quarantineDurationOptions.length > 0) {
+                float pDur = pop.getInfectionRNG().nextFloat();
+                while (index < quarantineDurationOptions.length
+                        && pDur >= quarantineDurationOptions[index - 1]) {
+                    inQuarantineDuration = (int) quarantineDurationOptions[index];
+                    index += 2;
+                }
+            }
+        }
+        return inQuarantineDuration;
+    }
+
+    private void contactHistoryInterventions(
+            ArrayList<Integer> candidates,
+            float complianceProb,
+            boolean isContactTesting,
+            boolean isContactQuarantine,
+            int interventionDelay,
+            int quarantineDuration,
+            int srcTestType) {
+
+        for (Integer cid : candidates) {
+            boolean comply = complianceProb > 0;
+            if (complianceProb < 1) {
+                comply &= pop.getRNG().nextFloat() < complianceProb;
+            }
+            if (comply) {
+                Person_Remote_MetaPopulation targetCandidiate = (Person_Remote_MetaPopulation) pop.getPersonById(cid);
+                if (targetCandidiate != null) {
+                    if (isContactTesting) {
+                        comply &= isValidTestCandidate(targetCandidiate);
+                        if (comply) {
+                            insertTestIntoSchdule(targetCandidiate,
+                                    interventionDelay, Math.min(srcTestType, 0) - 1);
+                        }
+                    }
+                    if (isContactQuarantine) {
+                        boolean isCaseIsolation = false;
+                        int inQuarntineUntilAge = (int) targetCandidiate.getAge() + quarantineDuration;
+                        insertQuaratineInSchdule(targetCandidiate, interventionDelay,
+                                inQuarntineUntilAge, isCaseIsolation);
+
+                    }
+                }
+            }
+        }
+    }
+
+    private ArrayList<Integer> getContactHistoryCandidate(int traceBack, List<ArrayList<Integer>> contactHistoryByType) {
+        ArrayList<Integer> candidates = new ArrayList<>();
+        for (int i = 0; i < traceBack; i++) {
+            int windowIndex = (pop.getGlobalTime() - i)
+                    % Population_Remote_MetaPopulation_COVID19.INFECTION_CONTACT_HISTORY_WINDOW;
+            ArrayList<Integer> contacts = contactHistoryByType.get(windowIndex);
+            for (Integer cid : contacts) {
+                int index = Collections.binarySearch(candidates, cid);
+                if (index < 0) {
+                    candidates.add(~index, cid);
+                }
+            }
+        }
+        return candidates;
+    }
+
+    private ArrayList<Integer[]> getQuarantineScheduleEnt(int quarantineDelay, int loc) {
+        int inQ_time = pop.getGlobalTime() + quarantineDelay;
         List<Integer> quarnatineSchKey = List.of(inQ_time, loc);
         ArrayList<Integer[]> inQ = pop.getQuarantineInPipeline().get(quarnatineSchKey);
         if (inQ == null) {
@@ -1090,41 +1298,50 @@ class Thread_PopRun_COVID19 implements Runnable {
                 quaratineDelay = getDelay(quarantineDelayOptions);
             }
 
-            ArrayList<Integer[]> inQ = getQuarantineScheduleEnt(
-                    pop.getGlobalTime() + quaratineDelay, trigger_loc);
+            boolean isCaseIsolation = true;
 
-            int inQuarntineDuration = (int) minRetestAge;
+            int inQuarntineUntilAge = (int) minRetestAge;
+            
+           
 
             if (quarantineDurationOptions.length > 0) {
                 int index = 0;
-                inQuarntineDuration = (int) quarantineDurationOptions[index];
+                inQuarntineUntilAge = (int) quarantineDurationOptions[index];
                 index += 2;
                 if (quarantineDurationOptions.length > 0) {
                     float pDur = pop.getInfectionRNG().nextFloat();
                     while (index < quarantineDurationOptions.length
                             && pDur >= quarantineDurationOptions[index - 1]) {
-                        inQuarntineDuration = (int) quarantineDurationOptions[index];
+                        inQuarntineUntilAge = (int) quarantineDurationOptions[index];
                         index += 2;
                     }
                 }
 
-                inQuarntineDuration += (int) rmp.getAge();
+                inQuarntineUntilAge += (int) rmp.getAge();
             }
 
-            Integer[] qPiplineEnt
-                    = new Integer[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_LENGTH];
-
-            qPiplineEnt[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_PERSON_ID]
-                    = rmp.getId();
-            qPiplineEnt[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_IN_QUARANTINE_UNTIL]
-                    = inQuarntineDuration;
-            qPiplineEnt[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_CASE_ISOLATION]
-                    = 1; // Case isolation
-
-            inQ.add(qPiplineEnt);
+            insertQuaratineInSchdule(rmp, quaratineDelay,
+                    inQuarntineUntilAge, isCaseIsolation);
 
         }
 
+    }
+
+    private void insertQuaratineInSchdule(Person_Remote_MetaPopulation rmp,
+            int quaratineDelay, int inQuarntineUntilAge,
+            boolean isCaseIsolation) {
+        ArrayList<Integer[]> inQ = getQuarantineScheduleEnt(quaratineDelay, rmp.getHomeLocation());
+
+        Integer[] qPiplineEnt
+                = new Integer[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_LENGTH];
+        qPiplineEnt[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_PERSON_ID]
+                = rmp.getId();
+        qPiplineEnt[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_IN_QUARANTINE_UNTIL]
+                = inQuarntineUntilAge;
+        qPiplineEnt[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_CASE_ISOLATION]
+                = isCaseIsolation ? 1 : -1;
+
+        inQ.add(qPiplineEnt);
     }
 
     protected int detectResponseTrigger(int testTriggerIndex,
@@ -1142,7 +1359,7 @@ class Thread_PopRun_COVID19 implements Runnable {
                     possibleTriggerIndex = i;
                 }
             } else {
-                if (testing_stat_cumul_all[TEST_RES_STAT_POS] >= 1/triggers[i]) {
+                if (testing_stat_cumul_all[TEST_RES_STAT_POS] >= 1 / triggers[i]) {
                     possibleTriggerIndex = i;
                 }
             }

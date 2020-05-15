@@ -362,7 +362,7 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                 run.setRemoveAfterZip(!extraFlag.contains("-noZipRemove"));
 
                 if (extraFlag.contains("-clearPrevResult")) {
-                    if (baseDir.getName().equals("Covid19_Test_Calibration")) {
+                    if (baseDir.getName().equals("Covid19_Test_Default")) {
                         run.setClearPrevResult(true);
                     } else {
                         System.out.print("Clear previous result? Y to confirm: ");

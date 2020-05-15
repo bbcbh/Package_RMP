@@ -123,6 +123,18 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
     public static final int LOCKDOWN_WITHIN_META_POP_UNTIL_AGE = LOCKDOWN_INTER_META_POP_UNTIL_AGE + 1;
     public static final int LOCKDOWN_ENT_LENGTH = LOCKDOWN_WITHIN_META_POP_UNTIL_AGE + 1;
 
+    private final transient HashMap<Integer, List<List<ArrayList<Integer>>>> infectionContactHistory
+            = new HashMap<>(); // Key: Id
+    public static final int INFECTION_CONTACT_HISTORY_WINDOW = 14;
+    public static final int INFECTION_CONTACT_HISTORY_HOUSEHOLD = 0;
+    public static final int INFECTION_CONTACT_HISTORY_NON_HOUSEHOLD = INFECTION_CONTACT_HISTORY_HOUSEHOLD + 1;
+    public static final int INFECTION_CONTACT_HISTORY_LENGTH = INFECTION_CONTACT_HISTORY_NON_HOUSEHOLD + 1;
+
+    private final transient HashMap<Integer, Integer[]> testResultHistory = new HashMap<>();
+    public static final int TEST_RESULT_HISTORY_AGE_OF_LAST_POSITIVE = 0;
+    public static final int TEST_RESULT_HISTORY_AGE_OF_LAST_NEGATIVE = TEST_RESULT_HISTORY_AGE_OF_LAST_POSITIVE + 1;
+    public static final int TEST_RESULT_HISTORY_LENGTH = TEST_RESULT_HISTORY_AGE_OF_LAST_NEGATIVE + 1;
+
     // FIELDS_REMOTE_METAPOP_COVID19_META_POP_LOCKDOWN_SETTING
     public static final int META_POP_INTER_LOCKDOWN_START = 0;
     public static final int META_POP_INTER_LOCKDOWN_END = META_POP_INTER_LOCKDOWN_START + 1;
@@ -158,6 +170,14 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
         // To disable sexual behaviour / partner forming code
         super.setAvailability(null);
+    }
+
+    public HashMap<Integer, List<List<ArrayList<Integer>>>> getInfectionContactHistory() {
+        return infectionContactHistory;
+    }
+
+    public HashMap<Integer, Integer[]> getTestResultHistory() {
+        return testResultHistory;
     }
 
     public HashMap<List<Integer>, ArrayList<Object[]>> getTestOutcomeInPipeline() {
@@ -581,6 +601,29 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
             assignCurrentlyAtHousehold(infectious);
 
+            List<List<ArrayList<Integer>>> contactHistoryById = infectionContactHistory.get(infectious.getId());
+
+            if (contactHistoryById == null) {
+                contactHistoryById = List.of(
+                        new ArrayList<>(INFECTION_CONTACT_HISTORY_WINDOW),
+                        new ArrayList<>(INFECTION_CONTACT_HISTORY_WINDOW)
+                );
+                for (int householdType = 0; householdType < contactHistoryById.size(); householdType++) {
+                    for (int d = 0; d < INFECTION_CONTACT_HISTORY_WINDOW; d++) {
+                        contactHistoryById.get(householdType).add(new ArrayList<>());
+                    }
+                }
+                infectionContactHistory.put(infectious.getId(), contactHistoryById);
+
+            }
+
+            int contactDayIndex = getGlobalTime() % INFECTION_CONTACT_HISTORY_WINDOW;
+            ArrayList<Integer> contactHistoryHousehold = contactHistoryById.get(INFECTION_CONTACT_HISTORY_HOUSEHOLD).get(contactDayIndex);
+            ArrayList<Integer> contactHistoryNonHousehold = contactHistoryById.get(INFECTION_CONTACT_HISTORY_NON_HOUSEHOLD).get(contactDayIndex);           
+            
+            contactHistoryHousehold.clear();
+            contactHistoryNonHousehold.clear();
+
             boolean hasHouseholdContact = allowContact(covid19, infectious, RESPONSE_ADJ_HOUSEHOLD_CONTACT);
             boolean hasNonHouseholdContact = allowContact(covid19, infectious, RESPONSE_ADJ_NON_HOUSEHOLD_CONTACT);
 
@@ -594,6 +637,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
                         AbstractIndividualInterface target = getLocalData().get(pid);
                         if (infectiousLoc == getCurrentLocation(target)
                                 && allowContact(covid19, target, RESPONSE_ADJ_HOUSEHOLD_CONTACT)) {
+
+                            contactHistoryHousehold.add(target.getId());
 
                             if (covid19.couldTransmissInfection(infectious, target)) {
                                 ent[INCIDENCE_COLLECTION_NUM_TRANMISSION_HOUSHOLD_ATTEMPT]++;
@@ -633,6 +678,7 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
                     while (numContact > 0 && possibleNonHouseholdCandidate.size() > 0) {
                         int possIndex = getRNG().nextInt(possibleNonHouseholdCandidate.size());
                         AbstractIndividualInterface target = possibleNonHouseholdCandidate.get(possIndex);
+                        contactHistoryNonHousehold.add(target.getId());
                         if (covid19.couldTransmissInfection(infectious, target)) {
                             ent[INCIDENCE_COLLECTION_NUM_TRANMISSION_NON_HOUSEHOLD_ATTEMPT]++;
 
