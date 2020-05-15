@@ -1254,12 +1254,33 @@ class Thread_PopRun_COVID19 implements Runnable {
             testExclusion = (int) testDelayOptions[testDelayOptions.length - 1];
         }
 
+        int trigger_loc = pop.getCurrentLocation(rmp);
+        float[][][] triggeredQuarantineDelay = (float[][][]) getThreadParam()[THREAD_PARAM_TRIGGERED_QUARANTINE_DELAY];
+        float[][][] triggeredQuarantineDuration = (float[][][]) getThreadParam()[THREAD_PARAM_TRIGGRRED_QUARANTINE_DURATION];
+
+        float[] quarantineDelayOptions = triggeredQuarantineDelay.length == 0
+                ? new float[0] : triggeredQuarantineDelay[trigger_loc][triggerIndex];
+        float[] quarantineDurationOptions = triggeredQuarantineDuration.length == 0
+                ? new float[0] : triggeredQuarantineDuration[trigger_loc][triggerIndex];
+
+        int quaratineDelay = 0;
+        if (quarantineDelayOptions.length > 0) {
+            quaratineDelay = getDelay(quarantineDelayOptions);
+        }
+
         // Assume will not be tested again until symptom disspates or until previous test response is back
         int minRetestAge = (int) Math.max(rmp.getAge() + testExclusion,
                 covid19.getCurrentlyInfected().get(rmp.getId())[COVID19_Remote_Infection.PARAM_SYMPTOM_END_AGE]);
 
+        int inQuarntineUntilAge = (int) minRetestAge;
+
+        if (quarantineDurationOptions.length > 0) {
+            inQuarntineUntilAge = Math.max(inQuarntineUntilAge,
+                    (int) rmp.getAge() + getInQuaratineDuration(quarantineDurationOptions));
+        }
+
         test_resp[Population_Remote_MetaPopulation_COVID19.POS_TEST_RESPONSE_VALID_UNTIL_AGE]
-                = minRetestAge;
+                = inQuarntineUntilAge;
 
         double[][][][] triggeredTestResponse = (double[][][][]) getThreadParam()[THREAD_PARAM_TRIGGERED_TEST_RESPONSE];
         double[][] default_test_resp;
@@ -1294,28 +1315,7 @@ class Thread_PopRun_COVID19 implements Runnable {
         if (test_resp[Population_Remote_MetaPopulation_COVID19.RESPONSE_ADJ_HOUSEHOLD_CONTACT] == 0
                 && test_resp[Population_Remote_MetaPopulation_COVID19.RESPONSE_ADJ_NON_HOUSEHOLD_CONTACT] == 0) {
 
-            int trigger_loc = pop.getCurrentLocation(rmp);
-            float[][][] triggeredQuarantineDelay = (float[][][]) getThreadParam()[THREAD_PARAM_TRIGGERED_QUARANTINE_DELAY];
-            float[][][] triggeredQuarantineDuration = (float[][][]) getThreadParam()[THREAD_PARAM_TRIGGRRED_QUARANTINE_DURATION];
-
-            float[] quarantineDelayOptions = triggeredQuarantineDelay.length == 0
-                    ? new float[0] : triggeredQuarantineDelay[trigger_loc][triggerIndex];
-            float[] quarantineDurationOptions = triggeredQuarantineDuration.length == 0
-                    ? new float[0] : triggeredQuarantineDuration[trigger_loc][triggerIndex];
-
-            int quaratineDelay = 0;
-            if (quarantineDelayOptions.length > 0) {
-                quaratineDelay = getDelay(quarantineDelayOptions);
-            }
-
             boolean isCaseIsolation = true;
-
-            int inQuarntineUntilAge = (int) minRetestAge;
-
-            if (quarantineDurationOptions.length > 0) {
-                inQuarntineUntilAge = Math.max(inQuarntineUntilAge,
-                        (int) rmp.getAge() + getInQuaratineDuration(quarantineDurationOptions));
-            }
 
             insertQuarantineInSchedule(rmp, quaratineDelay, inQuarntineUntilAge, isCaseIsolation);
 
