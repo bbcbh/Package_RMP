@@ -126,9 +126,9 @@ class Thread_PopRun_COVID19 implements Runnable {
         // Format: [loc][triggerIndex][test_rate_at_location]          
         new float[][][]{},
         // THREAD_PARAM_TRIGGERED_TEST_RESPONSE
-        // Format: [loc][triggerIndex]{ {valid_for_days}, {probability_for_k=0}, {probability_for_k=1} ...}
+        // Format: [loc][triggerIndex]{ {valid_for}, {probability_for_k=0}, {probability_for_k=1} ...}
         // k: 0 = adjustment to non-household contact, 1 = adjustment to household contact, 2 = adjustment to movement
-        // valid_for: how long the response valid for
+        // valid_for: how long the response valid for - Not used
         // probability: {cumul_prob_1, response_1, cumul_prob_2, ...}
         new double[][][][]{},
         // THREAD_PARAM_TRIGGERED_SYM_RESPONSE
@@ -449,9 +449,7 @@ class Thread_PopRun_COVID19 implements Runnable {
 
                             if (pop.getInfectionRNG().nextDouble() < seekTestProb) {
                                 int symTestDelay = 0;
-                                int test_type = TEST_TYPE_SYM;
-
-                                insertTestIntoSchdule(rmp, symTestDelay, test_type);
+                                insertTestInSchedule(rmp, symTestDelay, TEST_TYPE_SYM);
                             }
 
                         }
@@ -470,7 +468,7 @@ class Thread_PopRun_COVID19 implements Runnable {
                                 // Only test at home
                                 if (rmp.getHomeLocation() == pop.getCurrentLocation(rmp)) {
                                     int srnTestDelay = 0;
-                                    insertTestIntoSchdule(rmp, srnTestDelay, TEST_TYPE_SCR);
+                                    insertTestInSchedule(rmp, srnTestDelay, TEST_TYPE_SCR);
                                 }
                             }
                         }
@@ -603,7 +601,7 @@ class Thread_PopRun_COVID19 implements Runnable {
                                     testHist[Population_Remote_MetaPopulation_COVID19.TEST_RESULT_HISTORY_AGE_OF_LAST_POSITIVE]
                                             = (int) rmp.getAge();
 
-                                    runPositiveTestResponse(rmp, covid19,
+                                    setPositiveTestResponse(rmp, covid19,
                                             (Integer) ent[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_TEST_TYPE],
                                             triggerIndex);
                                 } else {
@@ -613,14 +611,14 @@ class Thread_PopRun_COVID19 implements Runnable {
                                             = (int) rmp.getAge();
                                     int testType = (int) ent[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_TEST_TYPE];
 
-                                    if (testType == TEST_TYPE_EXIT_CI
-                                            || testType == TEST_TYPE_EXIT_QUARANTINE) {
+                                    if (testType == TEST_TYPE_EXIT_CI || testType == TEST_TYPE_EXIT_QUARANTINE) {
 
                                         // Leave quarantine immediately
                                         HashMap<Integer, Number[]> qMap
                                                 = ((HashMap<Integer, Number[]>) pop.getFields()[Population_Remote_MetaPopulation_COVID19.FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_QUARANTINE]);
 
                                         qMap.remove(rmp.getId());
+                                        pop.getPositiveTestResponse().remove(rmp.getId());
 
                                     }
 
@@ -664,8 +662,7 @@ class Thread_PopRun_COVID19 implements Runnable {
                                         int exitTestType = isCaseIsolation ? TEST_TYPE_EXIT_CI : TEST_TYPE_EXIT_QUARANTINE;
 
                                         AbstractIndividualInterface testPerson = pop.getPersonById(inQ[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_PERSON_ID]);
-
-                                        insertTestIntoSchdule((Person_Remote_MetaPopulation) testPerson, daysToExitTest, exitTestType);
+                                        insertTestInSchedule((Person_Remote_MetaPopulation) testPerson, daysToExitTest, exitTestType);
 
                                     }
 
@@ -764,7 +761,7 @@ class Thread_PopRun_COVID19 implements Runnable {
         pri.close();
     }
 
-    private void insertTestIntoSchdule(Person_Remote_MetaPopulation rmp, int testDelay, int test_type) {
+    private void insertTestInSchedule(Person_Remote_MetaPopulation rmp, int testDelay, int test_type) {
         if (rmp != null) {
             int home_loc = pop.getCurrentLocation(rmp);
             if (home_loc < 0) {
@@ -796,7 +793,7 @@ class Thread_PopRun_COVID19 implements Runnable {
         validTestCandidate = minRetestAge == null
                 || testPerson.getAge() > minRetestAge;
         validTestCandidate &= (testHist == null)
-                || (testHist[Population_Remote_MetaPopulation_COVID19.TEST_RESULT_HISTORY_AGE_OF_LAST_NEGATIVE]
+                || !(testHist[Population_Remote_MetaPopulation_COVID19.TEST_RESULT_HISTORY_AGE_OF_LAST_NEGATIVE]
                 > testHist[Population_Remote_MetaPopulation_COVID19.TEST_RESULT_HISTORY_AGE_OF_LAST_POSITIVE]);
         return validTestCandidate;
     }
@@ -865,7 +862,7 @@ class Thread_PopRun_COVID19 implements Runnable {
         if (delayOption.length == 0) { // Special case for instant test and results for all test
             testPositive = covid19.isInfected(rmp);
             if (testPositive) {
-                setTriggeredIndexCaseTestResponse(rmp, covid19, triggerIndex);
+                setPositiveTestResponseIndexCase(rmp, covid19, triggerIndex);
             }
         } else {
             testPositive = insertTestingResult(rmp, covid19, testType, delayOption);
@@ -991,7 +988,7 @@ class Thread_PopRun_COVID19 implements Runnable {
         return hasPositiveTest;
     }
 
-    protected void runPositiveTestResponse(Person_Remote_MetaPopulation rmp,
+    protected void setPositiveTestResponse(Person_Remote_MetaPopulation rmp,
             COVID19_Remote_Infection covid19,
             int srcTestType,
             int triggerIndex) {
@@ -1022,7 +1019,7 @@ class Thread_PopRun_COVID19 implements Runnable {
                 ? new float[0] : triggeredContactHistoryInterventions[trigger_loc][triggerIndex];
 
         // Single test response
-        setTriggeredIndexCaseTestResponse(rmp, covid19, triggerIndex);
+        setPositiveTestResponseIndexCase(rmp, covid19, triggerIndex);
 
         // Contract tracing - only applied on non-exit test
         if (srcTestType != TEST_TYPE_EXIT_QUARANTINE && srcTestType != TEST_TYPE_EXIT_CI) {
@@ -1062,8 +1059,7 @@ class Thread_PopRun_COVID19 implements Runnable {
                                 }
 
                                 if (contactTesting) {
-                                    insertTestIntoSchdule((Person_Remote_MetaPopulation) candidate,
-                                            contactTraceDelay, Math.min(srcTestType, 0) - 1);
+                                    insertTestInSchedule((Person_Remote_MetaPopulation) candidate, contactTraceDelay, Math.min(srcTestType, 0) - 1);
                                 }
                             }
                         }
@@ -1076,13 +1072,15 @@ class Thread_PopRun_COVID19 implements Runnable {
                             if (putInQuarantine) {
                                 boolean isCaseIsolation = false;
                                 int inQuarntineDuration = (int) householdQuarantineRate[type + fromCurrentHousehold.length];
-                                inQuarntineDuration = getInQuaratineDuration(quarantineDurationOptions, inQuarntineDuration);
+
+                                if (quarantineDurationOptions.length > 0) {
+                                    inQuarntineDuration = getInQuaratineDuration(quarantineDurationOptions);
+                                }
 
                                 int q_delay = contactTraceDelay + quaratineDelay;
                                 Person_Remote_MetaPopulation candidate_rmp = (Person_Remote_MetaPopulation) candidate;
 
-                                insertQuaratineInSchdule(candidate_rmp, q_delay, (int) candidate_rmp.getAge() + inQuarntineDuration,
-                                        isCaseIsolation);
+                                insertQuarantineInSchedule(candidate_rmp, q_delay, (int) candidate_rmp.getAge() + inQuarntineDuration, isCaseIsolation);
 
                             }
                         }
@@ -1095,7 +1093,10 @@ class Thread_PopRun_COVID19 implements Runnable {
                 List<List<ArrayList<Integer>>> contactHistory = pop.getInfectionContactHistory().get(rmp.getId());
 
                 int inQuarantineDuration = 14;
-                inQuarantineDuration = getInQuaratineDuration(quarantineDurationOptions, inQuarantineDuration);
+
+                if (quarantineDelayOptions.length > 0) {
+                    inQuarantineDuration = getInQuaratineDuration(quarantineDurationOptions);
+                }
 
                 // Testing contact history of household and non-household
                 if (CONTACT_HIST_HOUSEHOLD_TEST_WINDOW < contactHistoryInterventions.length
@@ -1106,7 +1107,7 @@ class Thread_PopRun_COVID19 implements Runnable {
                             contactHistory.get(Population_Remote_MetaPopulation_COVID19.INFECTION_CONTACT_HISTORY_HOUSEHOLD));
                     contactHistoryInterventions(candidates,
                             contactHistoryInterventions[CONTACT_HIST_HOUSEHOLD_TEST_PROB],
-                            true, false, contactTraceDelay, inQuarantineDuration,srcTestType);
+                            true, false, contactTraceDelay, inQuarantineDuration, srcTestType);
                 }
                 if (CONTACT_HIST_NON_HOUSEHOLD_TEST_WINDOW < contactHistoryInterventions.length
                         && contactHistoryInterventions[CONTACT_HIST_NON_HOUSEHOLD_TEST_PROB] > 0) {
@@ -1147,18 +1148,16 @@ class Thread_PopRun_COVID19 implements Runnable {
 
     }
 
-    private int getInQuaratineDuration(float[] quarantineDurationOptions, int inQuarantineDuration) {
+    private int getInQuaratineDuration(float[] quarantineDurationOptions) {
+        int index = 0;
+        int inQuarantineDuration = (int) quarantineDurationOptions[index];
+        index += 2;
         if (quarantineDurationOptions.length > 0) {
-            int index = 0;
-            inQuarantineDuration = (int) quarantineDurationOptions[index];
-            index += 2;
-            if (quarantineDurationOptions.length > 0) {
-                float pDur = pop.getInfectionRNG().nextFloat();
-                while (index < quarantineDurationOptions.length
-                        && pDur >= quarantineDurationOptions[index - 1]) {
-                    inQuarantineDuration = (int) quarantineDurationOptions[index];
-                    index += 2;
-                }
+            float pDur = pop.getInfectionRNG().nextFloat();
+            while (index < quarantineDurationOptions.length
+                    && pDur >= quarantineDurationOptions[index - 1]) {
+                inQuarantineDuration = (int) quarantineDurationOptions[index];
+                index += 2;
             }
         }
         return inQuarantineDuration;
@@ -1184,15 +1183,13 @@ class Thread_PopRun_COVID19 implements Runnable {
                     if (isContactTesting) {
                         comply &= isValidTestCandidate(targetCandidiate);
                         if (comply) {
-                            insertTestIntoSchdule(targetCandidiate,
-                                    interventionDelay, Math.min(srcTestType, 0) - 1);
+                            insertTestInSchedule(targetCandidiate, interventionDelay, Math.min(srcTestType, 0) - 1);
                         }
                     }
                     if (isContactQuarantine) {
                         boolean isCaseIsolation = false;
                         int inQuarntineUntilAge = (int) targetCandidiate.getAge() + quarantineDuration;
-                        insertQuaratineInSchdule(targetCandidiate, interventionDelay,
-                                inQuarntineUntilAge, isCaseIsolation);
+                        insertQuarantineInSchedule(targetCandidiate, interventionDelay, inQuarntineUntilAge, isCaseIsolation);
 
                     }
                 }
@@ -1203,13 +1200,15 @@ class Thread_PopRun_COVID19 implements Runnable {
     private ArrayList<Integer> getContactHistoryCandidate(int traceBack, List<ArrayList<Integer>> contactHistoryByType) {
         ArrayList<Integer> candidates = new ArrayList<>();
         for (int i = 0; i < traceBack; i++) {
-            int windowIndex = (pop.getGlobalTime() - i)
-                    % Population_Remote_MetaPopulation_COVID19.INFECTION_CONTACT_HISTORY_WINDOW;
-            ArrayList<Integer> contacts = contactHistoryByType.get(windowIndex);
-            for (Integer cid : contacts) {
-                int index = Collections.binarySearch(candidates, cid);
-                if (index < 0) {
-                    candidates.add(~index, cid);
+            if (pop.getGlobalTime() >= i) {
+                int windowIndex = (pop.getGlobalTime() - i)
+                        % Population_Remote_MetaPopulation_COVID19.INFECTION_CONTACT_HISTORY_WINDOW;
+                ArrayList<Integer> contacts = contactHistoryByType.get(windowIndex);
+                for (Integer cid : contacts) {
+                    int index = Collections.binarySearch(candidates, cid);
+                    if (index < 0) {
+                        candidates.add(~index, cid);
+                    }
                 }
             }
         }
@@ -1235,18 +1234,36 @@ class Thread_PopRun_COVID19 implements Runnable {
         return delay;
     }
 
-    protected void setTriggeredIndexCaseTestResponse(Person_Remote_MetaPopulation rmp,
+    protected void setPositiveTestResponseIndexCase(Person_Remote_MetaPopulation rmp,
             COVID19_Remote_Infection covid19, int triggerIndex) {
 
-        double[] test_resp = pop.getTestResponse().get(rmp.getId());
+        double[] test_resp = pop.getPositiveTestResponse().get(rmp.getId());
 
         if (test_resp == null) {
-            test_resp = new double[Population_Remote_MetaPopulation_COVID19.TEST_RESPONSE_TOTAL];
+            test_resp = new double[Population_Remote_MetaPopulation_COVID19.POS_TEST_RESPONSE_TOTAL];
         }
 
-        // Special resposne for null delay
+        int testExclusion = 0; // i.e. when can the next test occurs
+
+        float[][][] triggeredTestResultDelay = (float[][][]) getThreadParam()[THREAD_PARAM_TRIGGERED_TESTING_RESULT_DELAY];
+
+        float[] testDelayOptions = triggeredTestResultDelay.length > 0
+                ? triggeredTestResultDelay[pop.getCurrentLocation(rmp)][triggerIndex] : new float[]{};
+
+        if (testDelayOptions.length != 0) {
+            testExclusion = (int) testDelayOptions[testDelayOptions.length - 1];
+        }
+
+        // Assume will not be tested again until symptom disspates or until previous test response is back
+        int minRetestAge = (int) Math.max(rmp.getAge() + testExclusion,
+                covid19.getCurrentlyInfected().get(rmp.getId())[COVID19_Remote_Infection.PARAM_SYMPTOM_END_AGE]);
+
+        test_resp[Population_Remote_MetaPopulation_COVID19.POS_TEST_RESPONSE_VALID_UNTIL_AGE]
+                = minRetestAge;
+
         double[][][][] triggeredTestResponse = (double[][][][]) getThreadParam()[THREAD_PARAM_TRIGGERED_TEST_RESPONSE];
         double[][] default_test_resp;
+
         if (triggeredTestResponse.length == 0) {
             default_test_resp = new double[0][];
         } else {
@@ -1256,13 +1273,6 @@ class Thread_PopRun_COVID19 implements Runnable {
             }
             default_test_resp = triggeredTestResponse[currentLoc][triggerIndex];
         }
-
-        // Assume will not be tested again until symptom disspates or within the 14 days period
-        int minRetestAge = (int) Math.max(rmp.getAge() + default_test_resp[0][0],
-                covid19.getCurrentlyInfected().get(rmp.getId())[COVID19_Remote_Infection.PARAM_SYMPTOM_END_AGE]);
-
-        test_resp[Population_Remote_MetaPopulation_COVID19.TEST_RESPONSE_VALID_UNTIL_AGE]
-                = minRetestAge;
 
         for (int k = 1; k < default_test_resp.length; k++) {
             test_resp[k - 1] = 1; // No response
@@ -1278,7 +1288,7 @@ class Thread_PopRun_COVID19 implements Runnable {
             }
         }
 
-        pop.getTestResponse().put(rmp.getId(), test_resp);
+        pop.getPositiveTestResponse().put(rmp.getId(), test_resp);
         pop.getMinAgeForNextTest().put(rmp.getId(), minRetestAge);
 
         if (test_resp[Population_Remote_MetaPopulation_COVID19.RESPONSE_ADJ_HOUSEHOLD_CONTACT] == 0
@@ -1301,47 +1311,44 @@ class Thread_PopRun_COVID19 implements Runnable {
             boolean isCaseIsolation = true;
 
             int inQuarntineUntilAge = (int) minRetestAge;
-            
-           
 
             if (quarantineDurationOptions.length > 0) {
-                int index = 0;
-                inQuarntineUntilAge = (int) quarantineDurationOptions[index];
-                index += 2;
-                if (quarantineDurationOptions.length > 0) {
-                    float pDur = pop.getInfectionRNG().nextFloat();
-                    while (index < quarantineDurationOptions.length
-                            && pDur >= quarantineDurationOptions[index - 1]) {
-                        inQuarntineUntilAge = (int) quarantineDurationOptions[index];
-                        index += 2;
-                    }
-                }
-
-                inQuarntineUntilAge += (int) rmp.getAge();
+                inQuarntineUntilAge = Math.max(inQuarntineUntilAge,
+                        (int) rmp.getAge() + getInQuaratineDuration(quarantineDurationOptions));
             }
 
-            insertQuaratineInSchdule(rmp, quaratineDelay,
-                    inQuarntineUntilAge, isCaseIsolation);
+            insertQuarantineInSchedule(rmp, quaratineDelay, inQuarntineUntilAge, isCaseIsolation);
 
         }
 
     }
 
-    private void insertQuaratineInSchdule(Person_Remote_MetaPopulation rmp,
-            int quaratineDelay, int inQuarntineUntilAge,
+    private void insertQuarantineInSchedule(Person_Remote_MetaPopulation rmp,
+            int quarantineDelay, int inQuarantineUntilAge,
             boolean isCaseIsolation) {
-        ArrayList<Integer[]> inQ = getQuarantineScheduleEnt(quaratineDelay, rmp.getHomeLocation());
+        if (rmp != null) {
+            ArrayList<Integer[]> inQ = getQuarantineScheduleEnt(quarantineDelay, rmp.getHomeLocation());
 
-        Integer[] qPiplineEnt
-                = new Integer[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_LENGTH];
-        qPiplineEnt[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_PERSON_ID]
-                = rmp.getId();
-        qPiplineEnt[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_IN_QUARANTINE_UNTIL]
-                = inQuarntineUntilAge;
-        qPiplineEnt[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_CASE_ISOLATION]
-                = isCaseIsolation ? 1 : -1;
+            Integer[] qPiplineEnt
+                    = new Integer[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_LENGTH];
+            qPiplineEnt[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_PERSON_ID]
+                    = rmp.getId();
+            qPiplineEnt[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_IN_QUARANTINE_UNTIL]
+                    = inQuarantineUntilAge;
+            qPiplineEnt[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_CASE_ISOLATION]
+                    = isCaseIsolation ? 1 : -1;
 
-        inQ.add(qPiplineEnt);
+            int index = Collections.binarySearch(inQ, qPiplineEnt, new Comparator<Integer[]>() {
+                @Override
+                public int compare(Integer[] o1, Integer[] o2) {
+                    return Integer.compare(o1[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_PERSON_ID],
+                            o2[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_PERSON_ID]);
+                }
+            });
+            if (index < 0) {
+                inQ.add(~index, qPiplineEnt);
+            }
+        }
     }
 
     protected int detectResponseTrigger(int testTriggerIndex,
