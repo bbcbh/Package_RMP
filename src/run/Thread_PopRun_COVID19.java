@@ -579,8 +579,9 @@ class Thread_PopRun_COVID19 implements Runnable {
 
                                 Integer[] testHist = pop.getTestResultHistory().get(rmp.getId());
                                 if (testHist == null) {
-                                    testHist = new Integer[Population_Remote_MetaPopulation_COVID19.TEST_RESULT_HISTORY_LENGTH];
-                                    Arrays.fill(testHist, 0);
+                                    testHist = new Integer[Population_Remote_MetaPopulation_COVID19.TEST_RESULT_HISTORY_LENGTH];                                   
+                                    testHist[Population_Remote_MetaPopulation_COVID19.TEST_RESULT_HISTORY_AGE_OF_LAST_POSITIVE] = Integer.MAX_VALUE;
+                                    testHist[Population_Remote_MetaPopulation_COVID19.TEST_RESULT_HISTORY_AGE_OF_LAST_NEGATIVE] = 0;
                                     pop.getTestResultHistory().put(rmp.getId(), testHist);
                                 }
 
