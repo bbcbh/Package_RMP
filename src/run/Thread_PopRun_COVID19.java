@@ -853,6 +853,9 @@ class Thread_PopRun_COVID19 implements Runnable {
                 = (Person_Remote_MetaPopulation) testSchduled[Population_Remote_MetaPopulation_COVID19.TEST_SCHEDULE_PIPELINE_ENT_PERSON_TESTED];
         int testType = (Integer) testSchduled[Population_Remote_MetaPopulation_COVID19.TEST_SCHEDULE_PIPELINE_ENT_TEST_TYPE];
         int loc = pop.getCurrentLocation(rmp);
+        if(loc < 0){
+            loc = rmp.getHomeLocation();
+        }
 
         float[][][] triggeredTestResultDelay = (float[][][]) getThreadParam()[THREAD_PARAM_TRIGGERED_TESTING_RESULT_DELAY];
 
