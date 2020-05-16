@@ -1163,6 +1163,16 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
     }
 
+    @Override
+    public int getCurrentLocation(AbstractIndividualInterface person) {
+        int cLoc = super.getCurrentLocation(person);
+        if(cLoc < 0){
+            cLoc = ((Person_Remote_MetaPopulation) person).getHomeLocation();
+            
+        }
+        return cLoc;
+    }
+
     public void printCSVOutputEntry(PrintWriter csvOutput,
             int[][] numStat) {
 
