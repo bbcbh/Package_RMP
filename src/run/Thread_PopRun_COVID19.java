@@ -194,7 +194,7 @@ class Thread_PopRun_COVID19 implements Runnable {
     public static final String FILE_REGEX_OUTPUT = "output_%d.txt";
     public static final String FILE_REGEX_TEST_STAT = "testStat_%d.csv";
     public static final String FILE_REGEX_SNAP_STAT = "snapStat_%d.csv";
-    public static final String FILE_REGEX_POP_SNAP = null; //"popSnap_%d_%d.csv";
+    public static final String FILE_REGEX_POP_SNAP = "popSnap_%d.csv";
 
     public Thread_PopRun_COVID19(int threadId, File baseDir, int numSnap, int snapFreq) throws FileNotFoundException {
         this(threadId, baseDir, numSnap, snapFreq, false);
@@ -346,6 +346,22 @@ class Thread_PopRun_COVID19 implements Runnable {
             ex.printStackTrace(System.err);
             testingCSV = pri;
             priClose = false;
+        }
+
+        if (FILE_REGEX_POP_SNAP != null) {
+            try {
+                popStatCSV = new PrintWriter(new File(baseDir, String.format(FILE_REGEX_POP_SNAP,
+                        this.threadId)));
+
+            } catch (FileNotFoundException ex) {
+                ex.printStackTrace(System.err);
+                popStatCSV = pri;
+                priClose = false;
+            }
+
+            pop.printPopulationSnapHeader(popStatCSV);
+        } else {
+            popStatCSV = null;
         }
 
         if (priClose) {
@@ -579,7 +595,7 @@ class Thread_PopRun_COVID19 implements Runnable {
 
                                 Integer[] testHist = pop.getTestResultHistory().get(rmp.getId());
                                 if (testHist == null) {
-                                    testHist = new Integer[Population_Remote_MetaPopulation_COVID19.TEST_RESULT_HISTORY_LENGTH];                                   
+                                    testHist = new Integer[Population_Remote_MetaPopulation_COVID19.TEST_RESULT_HISTORY_LENGTH];
                                     testHist[Population_Remote_MetaPopulation_COVID19.TEST_RESULT_HISTORY_AGE_OF_LAST_POSITIVE] = Integer.MAX_VALUE;
                                     testHist[Population_Remote_MetaPopulation_COVID19.TEST_RESULT_HISTORY_AGE_OF_LAST_NEGATIVE] = 0;
                                     pop.getTestResultHistory().put(rmp.getId(), testHist);
@@ -734,6 +750,9 @@ class Thread_PopRun_COVID19 implements Runnable {
 
             pop.printCSVOutputEntry(outputCSV, pop.generateInfectionStat());
             printCSVTestEntry(testingCSV, testing_res_stat_cumul, responseQueueList);
+            if (popStatCSV != null) {
+                pop.printPopulationSnapCSV(popStatCSV);
+            }
 
         }
 
@@ -746,17 +765,9 @@ class Thread_PopRun_COVID19 implements Runnable {
         outputCSV.close();
         testingCSV.close();
 
-        try {
-            // Printing end pop_stat file
-            if (FILE_REGEX_POP_SNAP != null) {
-                popStatCSV = new PrintWriter(new File(baseDir, String.format(FILE_REGEX_POP_SNAP,
-                        this.threadId, getPop().getGlobalTime())));
-                pop.printPopulationSnapCSV(popStatCSV);
-                popStatCSV.close();
-            }
-
-        } catch (IOException ex) {
-            ex.printStackTrace(System.err);
+        // Printing end pop_stat file
+        if (popStatCSV != null) {
+            popStatCSV.close();
         }
 
         pri.close();
@@ -806,32 +817,32 @@ class Thread_PopRun_COVID19 implements Runnable {
         float[][] metaPopLockdownSetting
                 = (float[][]) pop.getFields()[Population_Remote_MetaPopulation_COVID19.FIELDS_REMOTE_METAPOP_COVID19_META_POP_LOCKDOWN_SETTING];
 
-        int lockdownDur = lockdownType == LOCKDOWN_INTER_METAPOP
+        int lockdown_index_dur = lockdownType == LOCKDOWN_INTER_METAPOP
                 ? LOCKDOWN_INTER_METAPOP_DURATION : LOCKDOWN_WITHIN_METAPOP_DURATION;
-        int lockdown_start = lockdownType == LOCKDOWN_INTER_METAPOP
+        int lockdown_index_start = lockdownType == LOCKDOWN_INTER_METAPOP
                 ? Population_Remote_MetaPopulation_COVID19.META_POP_INTER_LOCKDOWN_START
                 : Population_Remote_MetaPopulation_COVID19.META_POP_WITHIN_LOCKDOWN_START;
-        int lockdown_prob = lockdownType == LOCKDOWN_INTER_METAPOP
+        int lockdown_index_prob = lockdownType == LOCKDOWN_INTER_METAPOP
                 ? Population_Remote_MetaPopulation_COVID19.META_POP_INTER_LOCKDOWN_PROPORTION_HOUSEHOLD
                 : Population_Remote_MetaPopulation_COVID19.META_POP_WITHIN_LOCKDOWN_PROPORTION_HOUSEHOLD;
-        int lockdown_end = lockdownType == LOCKDOWN_INTER_METAPOP
+        int lockdown_index_end = lockdownType == LOCKDOWN_INTER_METAPOP
                 ? Population_Remote_MetaPopulation_COVID19.META_POP_INTER_LOCKDOWN_END
                 : Population_Remote_MetaPopulation_COVID19.META_POP_WITHIN_LOCKDOWN_END;
 
         boolean inLockdown
                 = triggeredLockdownSetting[loc][triggerIndex][lockdownType] > 0
-                && lockdownDur < triggeredLockdownSetting[loc][triggerIndex].length;
+                && lockdown_index_dur < triggeredLockdownSetting[loc][triggerIndex].length;
 
         if (inLockdown) {
-            metaPopLockdownSetting[loc][lockdown_start]
+            metaPopLockdownSetting[loc][lockdown_index_start]
                     = pop.getGlobalTime();
-            metaPopLockdownSetting[loc][lockdown_prob]
+            metaPopLockdownSetting[loc][lockdown_index_prob]
                     = triggeredLockdownSetting[loc][triggerIndex][lockdownType];
-            if (triggeredLockdownSetting[loc][triggerIndex][lockdownDur] > 0) {
-                metaPopLockdownSetting[loc][lockdown_end]
-                        = pop.getGlobalTime() + (int) triggeredLockdownSetting[loc][triggerIndex][lockdownDur];
+            if (triggeredLockdownSetting[loc][triggerIndex][lockdown_index_dur] > 0) {
+                metaPopLockdownSetting[loc][lockdown_index_end]
+                        = pop.getGlobalTime() + (int) triggeredLockdownSetting[loc][triggerIndex][lockdown_index_dur];
             } else {
-                metaPopLockdownSetting[loc][lockdown_end] = Float.POSITIVE_INFINITY;
+                metaPopLockdownSetting[loc][lockdown_index_end] = Float.POSITIVE_INFINITY;
             }
         }
         return inLockdown;
@@ -853,7 +864,7 @@ class Thread_PopRun_COVID19 implements Runnable {
                 = (Person_Remote_MetaPopulation) testSchduled[Population_Remote_MetaPopulation_COVID19.TEST_SCHEDULE_PIPELINE_ENT_PERSON_TESTED];
         int testType = (Integer) testSchduled[Population_Remote_MetaPopulation_COVID19.TEST_SCHEDULE_PIPELINE_ENT_TEST_TYPE];
         int loc = pop.getCurrentLocation(rmp);
-        if(loc < 0){
+        if (loc < 0) {
             loc = rmp.getHomeLocation();
         }
 

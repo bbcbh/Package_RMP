@@ -409,7 +409,9 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
             String[] file_regex = new String[]{
                 Thread_PopRun_COVID19.FILE_REGEX_OUTPUT,
                 Thread_PopRun_COVID19.FILE_REGEX_SNAP_STAT,
-                Thread_PopRun_COVID19.FILE_REGEX_TEST_STAT};
+                Thread_PopRun_COVID19.FILE_REGEX_TEST_STAT,
+                Thread_PopRun_COVID19.FILE_REGEX_POP_SNAP,
+            };
 
             for (String regex : file_regex) {
 

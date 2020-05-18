@@ -483,7 +483,6 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
     @Override
     public void movePerson(AbstractIndividualInterface person, int locId, int utilAge) {
-
         boolean moving = true;
 
         if (((MoveablePersonInterface) person).getHomeLocation() != locId) {
@@ -567,7 +566,7 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
             if (covid19.isInfected(p)) {
 
                 double[] infStat = covid19.getCurrentlyInfected().get(p.getId());
-                currentlyInfected.add(p);               
+                currentlyInfected.add(p);
 
                 if (p.getAge() == infStat[COVID19_Remote_Infection.PARAM_INFECTIOUS_END_AGE]) {
                     // Just stop being infections 
@@ -1013,6 +1012,26 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         contactOptions.put(newPerson.getId(), contactOptions.get(removedPerson.getId()));
         //contactOptions.remove(removedPerson.getId());
 
+        Float[] lockDownOrginal = inLockdownUntil(removedPerson);
+
+        if (lockDownOrginal != null) {
+
+            boolean hasInf = false;
+
+            Float[] lockdownUntilArr = new Float[LOCKDOWN_ENT_LENGTH];
+            Arrays.fill(lockdownUntilArr, Float.NaN);
+
+            for (int f = 0; f < lockdownUntilArr.length; f++) {
+                lockdownUntilArr[f] = lockDownOrginal[f] - (float) removedPerson.getAge();
+                
+                hasInf |= Float.isInfinite(lockdownUntilArr[f]);
+            }
+
+            if (hasInf) {
+                currentlyInLockdown.put(newPerson.getId(), lockdownUntilArr);
+            }
+        }
+
         return newPerson;
     }
 
@@ -1166,9 +1185,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
     @Override
     public int getCurrentLocation(AbstractIndividualInterface person) {
         int cLoc = super.getCurrentLocation(person);
-        if(cLoc < 0){
+        if (cLoc < 0) {
             cLoc = ((Person_Remote_MetaPopulation) person).getHomeLocation();
-            
         }
         return cLoc;
     }
@@ -1399,84 +1417,117 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
     }
 
+    public void printPopulationSnapHeader(PrintWriter wri) {
+        int[] popSize = (int[]) getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_POP_SIZE];
+        wri.print("Time");
+
+        for (int loc = 0; loc < popSize.length; loc++) {
+            // 0
+            wri.print(',');
+            wri.print(String.format("PopSize_%d", loc));
+            // 1
+            wri.print(',');
+            wri.print(String.format("At_home_%d", loc));
+            // 2
+            wri.print(',');
+            wri.print(String.format("Suscepible_%d", loc));
+            // 3
+            wri.print(',');
+            wri.print(String.format("Infected_%d", loc));
+            // 4
+            wri.print(',');
+            wri.print(String.format("Infectious_%d", loc));
+            // 5
+            wri.print(',');
+            wri.print(String.format("Immune_%d", loc));
+            // 6
+            wri.print(',');
+            wri.print(String.format("hasSym_%d", loc));
+            // 7            
+            wri.print(',');
+            wri.print(String.format("In_quarantine_%d", loc));
+            // 8            
+            wri.print(',');
+            wri.print(String.format("In_lockdown_between_%d", loc));
+            // 9
+            wri.print(',');
+            wri.print(String.format("In_lockdown_within_%d", loc));
+
+        }
+        wri.println();
+
+    }
+
+    public static final int POPSNAP_POPSIZE = 0;
+    public static final int POPSNAP_AT_HOME = POPSNAP_POPSIZE + 1;
+    public static final int POPSNAP_SUS = POPSNAP_AT_HOME + 1;
+    public static final int POPSNAP_INF = POPSNAP_SUS + 1;
+    public static final int POPSNAP_INFECTIOUS = POPSNAP_INF + 1;
+    public static final int POPSNAP_IMM = POPSNAP_INFECTIOUS + 1;
+    public static final int POPSNAP_SYM = POPSNAP_IMM + 1;
+    public static final int POPSNAP_INQ = POPSNAP_SYM + 1;
+    public static final int POPSNAP_IN_LOCKDOWN_BETWEEN = POPSNAP_INQ + 1;
+    public static final int POPSNAP_IN_LOCKDOWN_WITHIN = POPSNAP_IN_LOCKDOWN_BETWEEN + 1;
+    public static final int POPSNAP_LENGTH = POPSNAP_IN_LOCKDOWN_WITHIN + 1;
+
     public void printPopulationSnapCSV(PrintWriter wri) {
-
         COVID19_Remote_Infection covid19 = (COVID19_Remote_Infection) getInfList()[INF_COVID19];
-        HashMap<Integer, Integer> currentlyAtHouseholdMap
-                = (HashMap<Integer, Integer>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_HOUSEHOLD];
-        HashMap<Integer, float[]> contactOptions
-                = (HashMap<Integer, float[]>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS];
+        int[] popSize = (int[]) getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_POP_SIZE];
+        wri.print(getGlobalTime());
 
-        wri.println("Id,Age,Gender,HomeLoc,Inf_Stat,isInfectious,hasSymptom,"
-                + "CurrentLoc,CurrentHouseholdIsSet,CurrentHousehold,NonHouseholdContactRate,HouseholdOptions");
+        int[][] statAll = new int[popSize.length][POPSNAP_LENGTH];
 
         for (AbstractIndividualInterface p : getPop()) {
             Person_Remote_MetaPopulation rmp = (Person_Remote_MetaPopulation) p;
+            int homeLoc = rmp.getHomeLocation();
 
-            // Id
-            wri.print(rmp.getId());
-
-            // Age 
-            wri.print(',');
-            wri.print(rmp.getAge());
-
-            // Gender
-            wri.print(',');
-            wri.print(rmp.isMale() ? "M" : "F");
-
-            // HomeLoc
-            wri.print(',');
-            wri.print(rmp.getHomeLocation());
-
-            // Inf_Stat
-            wri.print(',');
-            wri.print(rmp.getInfectionStatus()[INF_COVID19]);
-
-            // isInfectious
-            wri.print(',');
-            wri.print(covid19.isInfectious(rmp));
-
-            // hasSymptom
-            wri.print(',');
-            wri.print(covid19.hasSymptoms(rmp));
-
-            // CurrentLoc
-            wri.print(',');
-            wri.print(getCurrentLocation(rmp));
-
-            // CurrentHouseholdIsSet
-            boolean currentHouseholdIsSet = currentlyAtHouseholdMap.containsKey(rmp.getId());
-
-            wri.print(',');
-            wri.print(currentHouseholdIsSet);
-
-            if (!currentHouseholdIsSet) {
-                assignCurrentlyAtHousehold(p);
+            statAll[homeLoc][POPSNAP_POPSIZE]++;
+            if (homeLoc == getCurrentLocation(p)) {
+                statAll[homeLoc][POPSNAP_AT_HOME]++;
+            }
+            int infStat = rmp.getInfectionStatus()[INF_COVID19];
+            switch (infStat) {
+                case AbstractIndividualInterface.INFECT_S:
+                    statAll[homeLoc][POPSNAP_SUS]++;
+                    break;
+                case COVID19_Remote_Infection.STATUS_IMMUNED:
+                    statAll[homeLoc][POPSNAP_IMM]++;
+                    break;
+                default:
+                    statAll[homeLoc][POPSNAP_INF]++;
+            }
+            if (covid19.isInfectious(p)) {
+                statAll[homeLoc][POPSNAP_INFECTIOUS]++;
+            }
+            if (covid19.hasSymptoms(p)) {
+                statAll[homeLoc][POPSNAP_SYM]++;
+            }
+            Number[] inQuarantine = inQuarantine(p);
+            if (inQuarantine != null) {
+                statAll[homeLoc][POPSNAP_INQ]++;
             }
 
-            // CurrentHousehold
-            wri.print(',');
-            wri.print(currentlyAtHouseholdMap.get(rmp.getId()));
-
-            float[] cont_option_ent = contactOptions.get(rmp.getId());
-
-            // NonHouseholdContactRate 
-            wri.print(',');
-            wri.print(cont_option_ent[CONTACT_OPTIONS_NON_HOUSEHOLD_CONTACT_RATE]);
-
-            // HouseholdOptions
-            for (int cI = CONTACT_OPTIONS_NON_HOUSEHOLD_CONTACT_RATE + 1;
-                    cI < cont_option_ent.length; cI++) {
-                wri.print(',');
-                if (cI % 2 == 1) {
-                    wri.print(cont_option_ent[cI]);
-                } else {
-                    wri.print((int) cont_option_ent[cI]);
+            Float[] inLockdown = inLockdownUntil(p);
+            if (inLockdown != null) {
+                if (p.getAge() < inLockdown[LOCKDOWN_INTER_META_POP_UNTIL_AGE]) {
+                    statAll[homeLoc][POPSNAP_IN_LOCKDOWN_BETWEEN]++;
                 }
+                if (p.getAge() < inLockdown[LOCKDOWN_WITHIN_META_POP_UNTIL_AGE]) {
+                    statAll[homeLoc][POPSNAP_IN_LOCKDOWN_WITHIN]++;
+                }
+
             }
 
-            wri.println();
         }
+
+        for (int loc = 0; loc < popSize.length; loc++) {
+            for (int stat = 0; stat < statAll[loc].length; stat++) {
+                wri.print(',');
+                wri.print(statAll[loc][stat]);
+            }
+        }
+
+        wri.println();
 
     }
 
