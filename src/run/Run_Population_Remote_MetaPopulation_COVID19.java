@@ -37,10 +37,10 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
     public static final String DECODE_FILE_REGEX_PREVALENCE_BY_LOC = "Prevalence_loc_%d.csv";
     public static final String DECODE_FILE_REGEX_TEST_BY_LOC = "Cumul_test_loc_%d.csv";
     public static final String DECODE_FILE_REGEX_POSITIVE_TEST_BY_LOC = "Cumul_pos_test_loc_%d.csv";
-    public static final String DECODE_FILE_REGEX_IN_QUARANTINE_BY_LOC = "In_quarantine_loc_%d.csv";
-    public static final String DECODE_FILE_REGEX_RESPONSE_QUEUE_BY_LOC = "Resposnse_queue_loc_%d.csv";
-    public static final String DECODE_FILE_REGEX_LOCKDOWN_INTER_BY_LOC = "lockdown_inter_meta_pop_loc_%d.csv";
-    public static final String DECODE_FILE_REGEX_LOCKDOWN_WITHIN_BY_LOC = "lockdown_within_meta_pop_loc_%d.csv";
+    public static final String DECODE_FILE_REGEX_IN_QUARANTINE_BY_LOC = null; //"In_quarantine_loc_%d.csv";
+    public static final String DECODE_FILE_REGEX_RESPONSE_QUEUE_BY_LOC = null;// "Resposnse_queue_loc_%d.csv";
+    public static final String DECODE_FILE_REGEX_LOCKDOWN_INTER_BY_LOC = null; //"lockdown_inter_meta_pop_loc_%d.csv";
+    public static final String DECODE_FILE_REGEX_LOCKDOWN_WITHIN_BY_LOC = null; //lockdown_within_meta_pop_loc_%d.csv";
 
     public static void decodeZipCSVByLoc(File basedir,
             int numPop, int timeSteps) throws FileNotFoundException, IOException, NumberFormatException {
@@ -120,41 +120,49 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
                 }
                 pri[p].close();
 
-                pri[p] = new PrintWriter(new File(basedir, String.format(DECODE_FILE_REGEX_IN_QUARANTINE_BY_LOC, p)));
-                pri[p].println("Time, In quarantine by sim");
-                for (int t = 0; t < inQuarantineEnt[p].length; t++) {
-                    pri[p].print(t);
-                    for (int s = 0; s < inQuarantineEnt[p][t].length; s++) {
-                        pri[p].print(',');
-                        pri[p].print(inQuarantineEnt[p][t][s]);
+                if (DECODE_FILE_REGEX_IN_QUARANTINE_BY_LOC != null) {
+                    pri[p] = new PrintWriter(new File(basedir, String.format(DECODE_FILE_REGEX_IN_QUARANTINE_BY_LOC, p)));
+                    pri[p].println("Time, In quarantine by sim");
+                    for (int t = 0; t < inQuarantineEnt[p].length; t++) {
+                        pri[p].print(t);
+                        for (int s = 0; s < inQuarantineEnt[p][t].length; s++) {
+                            pri[p].print(',');
+                            pri[p].print(inQuarantineEnt[p][t][s]);
+                        }
+                        pri[p].println();
                     }
-                    pri[p].println();
+                    pri[p].close();
                 }
-                pri[p].close();
 
-                pri[p] = new PrintWriter(new File(basedir, String.format(DECODE_FILE_REGEX_LOCKDOWN_INTER_BY_LOC, p)));
-                pri[p].println("Time, In lockdown (inter) by sim");
-                for (int t = 0; t < inlockdown_inter[p].length; t++) {
-                    pri[p].print(t);
-                    for (int s = 0; s < inlockdown_inter[p][t].length; s++) {
-                        pri[p].print(',');
-                        pri[p].print(inlockdown_inter[p][t][s]);
-                    }
-                    pri[p].println();
-                }
-                pri[p].close();
+                if (DECODE_FILE_REGEX_LOCKDOWN_INTER_BY_LOC != null) {
 
-                pri[p] = new PrintWriter(new File(basedir, String.format(DECODE_FILE_REGEX_LOCKDOWN_WITHIN_BY_LOC, p)));
-                pri[p].println("Time, In lockdown (within) by sim");
-                for (int t = 0; t < inlockdown_within[p].length; t++) {
-                    pri[p].print(t);
-                    for (int s = 0; s < inlockdown_within[p][t].length; s++) {
-                        pri[p].print(',');
-                        pri[p].print(inlockdown_within[p][t][s]);
+                    pri[p] = new PrintWriter(new File(basedir, String.format(DECODE_FILE_REGEX_LOCKDOWN_INTER_BY_LOC, p)));
+                    pri[p].println("Time, In lockdown (inter) by sim");
+                    for (int t = 0; t < inlockdown_inter[p].length; t++) {
+                        pri[p].print(t);
+                        for (int s = 0; s < inlockdown_inter[p][t].length; s++) {
+                            pri[p].print(',');
+                            pri[p].print(inlockdown_inter[p][t][s]);
+                        }
+                        pri[p].println();
                     }
-                    pri[p].println();
+                    pri[p].close();
                 }
-                pri[p].close();
+
+                if (DECODE_FILE_REGEX_LOCKDOWN_WITHIN_BY_LOC != null) {
+
+                    pri[p] = new PrintWriter(new File(basedir, String.format(DECODE_FILE_REGEX_LOCKDOWN_WITHIN_BY_LOC, p)));
+                    pri[p].println("Time, In lockdown (within) by sim");
+                    for (int t = 0; t < inlockdown_within[p].length; t++) {
+                        pri[p].print(t);
+                        for (int s = 0; s < inlockdown_within[p][t].length; s++) {
+                            pri[p].print(',');
+                            pri[p].print(inlockdown_within[p][t][s]);
+                        }
+                        pri[p].println();
+                    }
+                    pri[p].close();
+                }
 
             }
         }
@@ -221,17 +229,19 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
                 }
                 pri[p].close();
 
-                pri[p] = new PrintWriter(new File(basedir, String.format(DECODE_FILE_REGEX_RESPONSE_QUEUE_BY_LOC, p)));
-                pri[p].println("Time, Number in response queue by sim");
-                for (int t = 0; t < inResponseQueue[p].length; t++) {
-                    pri[p].print(t);
-                    for (int s = 0; s < inResponseQueue[p][t].length; s++) {
-                        pri[p].print(',');
-                        pri[p].print(inResponseQueue[p][t][s]);
+                if (DECODE_FILE_REGEX_RESPONSE_QUEUE_BY_LOC != null) {
+                    pri[p] = new PrintWriter(new File(basedir, String.format(DECODE_FILE_REGEX_RESPONSE_QUEUE_BY_LOC, p)));
+                    pri[p].println("Time, Number in response queue by sim");
+                    for (int t = 0; t < inResponseQueue[p].length; t++) {
+                        pri[p].print(t);
+                        for (int s = 0; s < inResponseQueue[p][t].length; s++) {
+                            pri[p].print(',');
+                            pri[p].print(inResponseQueue[p][t][s]);
+                        }
+                        pri[p].println();
                     }
-                    pri[p].println();
+                    pri[p].close();
                 }
-                pri[p].close();
 
             }
 
@@ -410,8 +420,7 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
                 Thread_PopRun_COVID19.FILE_REGEX_OUTPUT,
                 Thread_PopRun_COVID19.FILE_REGEX_SNAP_STAT,
                 Thread_PopRun_COVID19.FILE_REGEX_TEST_STAT,
-                Thread_PopRun_COVID19.FILE_REGEX_POP_SNAP,
-            };
+                Thread_PopRun_COVID19.FILE_REGEX_POP_SNAP,};
 
             for (String regex : file_regex) {
 

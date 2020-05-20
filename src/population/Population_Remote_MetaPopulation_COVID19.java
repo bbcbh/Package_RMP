@@ -138,11 +138,11 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
     // FIELDS_REMOTE_METAPOP_COVID19_META_POP_LOCKDOWN_SETTING
     public static final int META_POP_INTER_LOCKDOWN_START = 0;
     public static final int META_POP_INTER_LOCKDOWN_END = META_POP_INTER_LOCKDOWN_START + 1;
-    public static final int META_POP_INTER_LOCKDOWN_PROPORTION_HOUSEHOLD = META_POP_INTER_LOCKDOWN_END + 1;
-    public static final int META_POP_WITHIN_LOCKDOWN_START = META_POP_INTER_LOCKDOWN_PROPORTION_HOUSEHOLD + 1;
+    public static final int META_POP_INTER_LOCKDOWN_PROPORTION = META_POP_INTER_LOCKDOWN_END + 1;
+    public static final int META_POP_WITHIN_LOCKDOWN_START = META_POP_INTER_LOCKDOWN_PROPORTION + 1;
     public static final int META_POP_WITHIN_LOCKDOWN_END = META_POP_WITHIN_LOCKDOWN_START + 1;
-    public static final int META_POP_WITHIN_LOCKDOWN_PROPORTION_HOUSEHOLD = META_POP_WITHIN_LOCKDOWN_END + 1;
-    public static final int META_POP_STAT_META_POP_LENGTH = META_POP_WITHIN_LOCKDOWN_PROPORTION_HOUSEHOLD + 1;
+    public static final int META_POP_WITHIN_LOCKDOWN_PROPORTION = META_POP_WITHIN_LOCKDOWN_END + 1;
+    public static final int META_POP_STAT_META_POP_LENGTH = META_POP_WITHIN_LOCKDOWN_PROPORTION + 1;
 
     // generateInfectionStat()
     public static final int NUM_STAT_NUM_IN_LOC = 0;
@@ -1023,7 +1023,7 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
             for (int f = 0; f < lockdownUntilArr.length; f++) {
                 lockdownUntilArr[f] = lockDownOrginal[f] - (float) removedPerson.getAge();
-                
+
                 hasInf |= Float.isInfinite(lockdownUntilArr[f]);
             }
 
@@ -1531,33 +1531,37 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
     }
 
-    public void triggerLockdown(int loc) {
+    public List<ArrayList<AbstractIndividualInterface>> triggerLockdown(int loc) {
         float[][] metaPopLockdownSetting
                 = (float[][]) getFields()[FIELDS_REMOTE_METAPOP_COVID19_META_POP_LOCKDOWN_SETTING];
 
+        List<ArrayList<AbstractIndividualInterface>> res = List.of(null,null);
+
         if (loc < metaPopLockdownSetting.length) {
 
-            Integer[] unqiueHouseholdAtLoc
-                    = ((Integer[][]) getFields()[FIELDS_REMOTE_METAPOP_COVID19_UNIQUE_HOUSEHOLD])[loc];
+            int[] popSize = (int[]) getFields()[FIELDS_REMOTE_METAPOP_POP_SIZE];
+
+            //Integer[] unqiueHouseholdAtLoc = ((Integer[][]) getFields()[FIELDS_REMOTE_METAPOP_COVID19_UNIQUE_HOUSEHOLD])[loc];
             float[] lockdownStat = metaPopLockdownSetting[loc];
 
-            if (lockdownStat[META_POP_INTER_LOCKDOWN_PROPORTION_HOUSEHOLD] > 0) {
+            if (lockdownStat[META_POP_INTER_LOCKDOWN_PROPORTION] > 0) {
 
-                fillCurrentlyInLockdown(Math.round(lockdownStat[META_POP_INTER_LOCKDOWN_PROPORTION_HOUSEHOLD] * unqiueHouseholdAtLoc.length),
-                        unqiueHouseholdAtLoc,
+                res.set(0,fillCurrentlyInLockdown(Math.round(lockdownStat[META_POP_INTER_LOCKDOWN_PROPORTION] * popSize[loc]),
+                        home_loc_age_gender_collection[loc],
                         lockdownStat[META_POP_INTER_LOCKDOWN_END],
-                        LOCKDOWN_INTER_META_POP_UNTIL_AGE);
+                        LOCKDOWN_INTER_META_POP_UNTIL_AGE));
             }
 
-            if (lockdownStat[META_POP_WITHIN_LOCKDOWN_PROPORTION_HOUSEHOLD] > 0) {
-
-                fillCurrentlyInLockdown(Math.round(lockdownStat[META_POP_WITHIN_LOCKDOWN_PROPORTION_HOUSEHOLD] * unqiueHouseholdAtLoc.length),
-                        unqiueHouseholdAtLoc,
+            if (lockdownStat[META_POP_WITHIN_LOCKDOWN_PROPORTION] > 0) {
+                res.set(1, fillCurrentlyInLockdown(Math.round(lockdownStat[META_POP_WITHIN_LOCKDOWN_PROPORTION] * popSize[loc]),
+                        home_loc_age_gender_collection[loc],
                         lockdownStat[META_POP_WITHIN_LOCKDOWN_END],
-                        LOCKDOWN_WITHIN_META_POP_UNTIL_AGE);
+                        LOCKDOWN_WITHIN_META_POP_UNTIL_AGE));
             }
 
         }
+        
+        return res;
     }
 
     public Float[] inLockdownUntil(AbstractIndividualInterface p) {
@@ -1573,42 +1577,56 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
     }
 
-    private void fillCurrentlyInLockdown(int numHouseholdInLockdown,
-            Integer[] unqiueHouseholdAtLoc, float lockdownUntil, int lockdownUntilIndex) {
-        Integer[] householdInLockdownArray;
-        HashMap<Integer, float[]> contactOptions
-                = (HashMap<Integer, float[]>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS];
-        if (numHouseholdInLockdown < unqiueHouseholdAtLoc.length) {
-            householdInLockdownArray = util.ArrayUtilsRandomGenerator.randomSelect(unqiueHouseholdAtLoc,
-                    numHouseholdInLockdown, getRNG());
-        } else {
-            householdInLockdownArray = unqiueHouseholdAtLoc;
+    private ArrayList<AbstractIndividualInterface> fillCurrentlyInLockdown(int numIndivudalToLockDown,
+            ArrayList<AbstractIndividualInterface>[] atLocByGenderAge,
+            float lockdownUntil, int lockdownUntilIndex) {
+
+        int totalAtHome = 0;
+        for (ArrayList<AbstractIndividualInterface> byGenderAge : atLocByGenderAge) {
+            totalAtHome += byGenderAge.size();
         }
 
-        for (Integer lockdownHousehold : householdInLockdownArray) {
-            Set<SingleRelationship> rels = getRelMap()[RELMAP_HOUSEHOLD].edgesOf(lockdownHousehold);
-            for (SingleRelationship rel : rels) {
-                Integer[] ent = rel.getLinks();
-                Integer candidateId = ent[0].equals(lockdownHousehold) ? ent[1] : ent[0];
-                float[] cOpt = contactOptions.get(candidateId);
-                if (lockdownHousehold.equals((int) cOpt[CONTACT_OPTIONS_CORE_HOUSEHOLD_ID])) {
-                    Float[] lockdownUntilArr = currentlyInLockdown.get(candidateId);
-                    AbstractIndividualInterface candidate = getLocalData().get(candidateId);
-                    if (candidate != null) {
+        ArrayList<AbstractIndividualInterface> inLockDown = new ArrayList<>();
+
+        int numToLockdown = Math.min(numIndivudalToLockDown, totalAtHome);
+
+        int personIndex = 0;
+        while (numToLockdown > 0 || personIndex >= totalAtHome) {
+            for (ArrayList<AbstractIndividualInterface> byGenderAge : atLocByGenderAge) {
+                for (AbstractIndividualInterface candidate : byGenderAge) {
+                    int numLeft = totalAtHome - personIndex;
+
+                    boolean inLockdown = numLeft == numToLockdown;
+
+                    if (numLeft > numToLockdown) {
+                        inLockdown = getRNG().nextInt(numLeft) < numToLockdown;
+                    }
+
+                    if (inLockdown) {
+
+                        Float[] lockdownUntilArr = currentlyInLockdown.get(candidate.getId());
+
                         if (lockdownUntilArr == null) {
                             lockdownUntilArr = new Float[LOCKDOWN_ENT_LENGTH];
                             Arrays.fill(lockdownUntilArr, Float.NaN);
-                            currentlyInLockdown.put(candidateId, lockdownUntilArr);
+                            currentlyInLockdown.put(candidate.getId(), lockdownUntilArr);
                         }
                         lockdownUntilArr[lockdownUntilIndex]
-                                = (float) getLocalData().get(candidateId).getAge() + lockdownUntil;
+                                = (float) candidate.getAge() + lockdownUntil;
+
+                        inLockDown.add(candidate);
+
+                        numToLockdown--;
                     }
 
+                    personIndex++;
                 }
 
             }
-
         }
+
+        return inLockDown;
+
     }
 
 }
