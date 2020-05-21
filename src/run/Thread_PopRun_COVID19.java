@@ -74,7 +74,7 @@ class Thread_PopRun_COVID19 implements Runnable {
     public static final int LOCKDOWN_INTER_METAPOP_EXIT_CRITERIA = LOCKDOWN_WITHIN_METAPOP_EXIT_TEST_PROB + 1;
     public static final int LOCKDOWN_WITHIN_METAPOP_EXIT_TEST_CRITERIA = LOCKDOWN_INTER_METAPOP_EXIT_CRITERIA + 1;
     public static final int LOCKDOWN_INTER_METAPOP_EXIT_TRIGGER_INDEX = LOCKDOWN_WITHIN_METAPOP_EXIT_TEST_CRITERIA + 1;
-    public static final int LOCKDOWN_WITHIN_METAPOP_EXIT_TRIGGER_INDEX = LOCKDOWN_INTER_METAPOP_EXIT_TRIGGER_INDEX;
+    public static final int LOCKDOWN_WITHIN_METAPOP_EXIT_TRIGGER_INDEX = LOCKDOWN_INTER_METAPOP_EXIT_TRIGGER_INDEX + 1;
 
     public static final int SENSITIVITY_INFECTED = 0;
     public static final int SENSITIVITY_INFECTIOUS = SENSITIVITY_INFECTED + 1;
@@ -321,6 +321,7 @@ class Thread_PopRun_COVID19 implements Runnable {
         pri.println("\"R0\" = " + Arrays.toString(r0));
 
         AbstractIndividualInterface[] patientZeroByLoc = new AbstractIndividualInterface[popSize.length];
+        AbstractIndividualInterface[] firstPosByLoc = new AbstractIndividualInterface[popSize.length];
         int[] pop_remaining = Arrays.copyOf(popSize, popSize.length);
 
         // Setting patient zero
@@ -562,7 +563,7 @@ class Thread_PopRun_COVID19 implements Runnable {
                                     }
 
                                 } else {
-                                    lockdown_exit_test_stat[LOCKDOWN_INTER_METAPOP] = null;
+                                    lockdown_exit_test_stat[LOCKDOWN_INTER_METAPOP][loc] = null;
                                 }
 
                                 if (inLockdownWithinMetaPop && lockdownSetting[LOCKDOWN_WITHIN_METAPOP_DURATION] > 0
@@ -583,7 +584,7 @@ class Thread_PopRun_COVID19 implements Runnable {
                                     }
 
                                 } else {
-                                    lockdown_exit_test_stat[LOCKDOWN_WITHIN_METAPOP] = null;
+                                    lockdown_exit_test_stat[LOCKDOWN_WITHIN_METAPOP][loc] = null;
                                 }
 
                             }
@@ -630,18 +631,26 @@ class Thread_PopRun_COVID19 implements Runnable {
                             for (Object[] ent : testScheduleArr) {
 
                                 AbstractIndividualInterface testPerson = ((AbstractIndividualInterface) ent[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_PERSON_TESTED]);
+                                int testType = (Integer) ent[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_TEST_TYPE];
 
-                                if (isValidTestCandidate(testPerson)) {
+                                if (testType == TEST_TYPE_EXIT_LOCKDOWN || isValidTestCandidate(testPerson)) {
 
                                     int pid = testPerson.getId();
                                     int waitingIndex = Collections.binarySearch(testResultInWaiting, pid);
 
-                                    if (waitingIndex < 0) {
+                                    if (waitingIndex < 0 || testType == TEST_TYPE_EXIT_LOCKDOWN) {
                                         if (testCount >= testLimit) {
                                             // Handle exceed test scheduled
                                             handleExcessTest(ent, testQueueType);
                                         } else {
-                                            testResultInWaiting.add(~waitingIndex, pid);
+
+                                            int insertIndex = ~waitingIndex;
+
+                                            if (waitingIndex >= 0 && testType == TEST_TYPE_EXIT_LOCKDOWN) {
+                                                insertIndex = waitingIndex;
+                                            }
+
+                                            testResultInWaiting.add(insertIndex, pid);
                                             runTestSchedule(ent, covid19, testTriggerIndex_by_loc[loc]);
 
                                             if (rolling_test_count_by_loc != null) {
@@ -701,6 +710,10 @@ class Thread_PopRun_COVID19 implements Runnable {
 
                                     setPositiveTestResponse(rmp, covid19, testType, triggerIndex);
 
+                                    if (firstPosByLoc[loc] == null) {
+                                        firstPosByLoc[loc] = rmp;
+                                    }
+
                                 } else {
                                     // Negative test result                                        
                                     testHist[Population_Remote_MetaPopulation_COVID19.TEST_RESULT_HISTORY_AGE_OF_LAST_NEGATIVE]
@@ -720,7 +733,7 @@ class Thread_PopRun_COVID19 implements Runnable {
 
                                 if (testType == TEST_TYPE_EXIT_LOCKDOWN) {
                                     for (int lockType = 0; lockType < lockdown_exit_test_stat.length; lockType++) {
-                                        if (lockdown_exit_test_stat[lockType] != null) {
+                                        if (lockdown_exit_test_stat[lockType][loc] != null) {
                                             int exitIndex = lockType == LOCKDOWN_INTER_METAPOP
                                                     ? LOCKDOWN_INTER_METAPOP_EXIT_CRITERIA : LOCKDOWN_WITHIN_METAPOP_EXIT_TEST_CRITERIA;
                                             int exitTriggerIndex = lockType == LOCKDOWN_INTER_METAPOP
@@ -864,6 +877,25 @@ class Thread_PopRun_COVID19 implements Runnable {
                                 covid19.isInfectious(patientZero),
                                 covid19.hasSymptoms(patientZero),
                                 ageExp));
+
+                        AbstractIndividualInterface firstPos = firstPosByLoc[loc];
+                        if (firstPos != null) {
+                            stat = covid19.getCurrentlyInfected().get(firstPos.getId());
+                            ageExp = -1;
+                            if (stat != null) {
+                                ageExp = (int) stat[COVID19_Remote_Infection.PARAM_AGE_OF_EXPOSURE];
+                            }
+
+                            System.out.println(String.format("%d: FirstDx at Loc #%d Inf_Stat =(%b, %b, %b). Age of exp = %d",
+                                    pop.getGlobalTime(),
+                                    loc,
+                                    covid19.isInfected(firstPos),
+                                    covid19.isInfectious(firstPos),
+                                    covid19.hasSymptoms(firstPos),
+                                    ageExp));
+
+                        }
+
                     }
                 }
 
@@ -898,20 +930,18 @@ class Thread_PopRun_COVID19 implements Runnable {
 
     private int setLockDownExitTest(int lockdown_dur, float[] delayOption, ArrayList<AbstractIndividualInterface> inLockDown, int exitTestPerWave, int testFreq) {
         int dateOfLastExitTest = pop.getGlobalTime() + lockdown_dur - (int) delayOption[DELAY_OPTIONS_MAX];
-        int numExitTest = 0;
-        int dateOfExitTest = pop.getGlobalTime();
-        while (dateOfExitTest + (int) delayOption[DELAY_OPTIONS_MAX] <= dateOfLastExitTest) {
+        int numExitTestWave = 0;
+        int dateOfExitTest = pop.getGlobalTime() + testFreq;
+        while (dateOfExitTest <= dateOfLastExitTest) {
             AbstractIndividualInterface[] candidateArr = inLockDown.toArray(new AbstractIndividualInterface[inLockDown.size()]);
             if (exitTestPerWave < candidateArr.length) {
                 candidateArr = util.ArrayUtilsRandomGenerator.randomSelect(candidateArr, exitTestPerWave, pop.getRNG());
             }
             for (AbstractIndividualInterface candidate : candidateArr) {
                 insertTestIntoSchedule((Person_Remote_MetaPopulation) candidate,
-                        getDelay(delayOption), TEST_TYPE_EXIT_LOCKDOWN);
+                        dateOfExitTest - pop.getGlobalTime(), TEST_TYPE_EXIT_LOCKDOWN);
             }
-
-            numExitTest++;
-
+            numExitTestWave++;
             if (dateOfExitTest == dateOfLastExitTest) {
                 break;
             } else {
@@ -920,12 +950,12 @@ class Thread_PopRun_COVID19 implements Runnable {
                     dateOfExitTest = dateOfLastExitTest;
                 }
             }
-
         }
-        return numExitTest;
+        return numExitTestWave;
     }
 
-    private void insertTestIntoSchedule(Person_Remote_MetaPopulation rmp, int testDelay, int test_type) {
+    private boolean insertTestIntoSchedule(Person_Remote_MetaPopulation rmp, int testDelay, int test_type) {
+        boolean testInserted = false;
         if (rmp != null) {
             int home_loc = pop.getCurrentLocation(rmp);
             if (home_loc < 0) {
@@ -944,9 +974,12 @@ class Thread_PopRun_COVID19 implements Runnable {
             });
 
             if (index < 0) {
+                testInserted = true;
                 testSchEnt.add(~index, testEnt);
             }
         }
+
+        return testInserted;
     }
 
     private boolean isValidTestCandidate(AbstractIndividualInterface testPerson) {
