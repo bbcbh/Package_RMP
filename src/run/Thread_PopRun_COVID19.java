@@ -557,6 +557,12 @@ class Thread_PopRun_COVID19 implements Runnable {
                                     lockdown_exit_test_stat[LOCKDOWN_INTER_METAPOP][loc]
                                             = new int[numExitTest][LOCKDOWN_EXIT_TEST_STAT_LENGTH];
 
+                                    for (int n = 0; n < numExitTest; n++) {
+                                        lockdown_exit_test_stat[LOCKDOWN_INTER_METAPOP][loc][n][LOCKDOWN_EXIT_TEST_STAT_TOTAL] = exitTestPerWave;
+                                    }
+
+                                } else {
+                                    lockdown_exit_test_stat[LOCKDOWN_INTER_METAPOP] = null;
                                 }
 
                                 if (inLockdownWithinMetaPop && lockdownSetting[LOCKDOWN_WITHIN_METAPOP_DURATION] > 0
@@ -572,6 +578,12 @@ class Thread_PopRun_COVID19 implements Runnable {
                                     lockdown_exit_test_stat[LOCKDOWN_WITHIN_METAPOP][loc]
                                             = new int[numExitTest][LOCKDOWN_EXIT_TEST_STAT_LENGTH];
 
+                                    for (int n = 0; n < numExitTest; n++) {
+                                        lockdown_exit_test_stat[LOCKDOWN_WITHIN_METAPOP][loc][n][LOCKDOWN_EXIT_TEST_STAT_TOTAL] = exitTestPerWave;
+                                    }
+
+                                } else {
+                                    lockdown_exit_test_stat[LOCKDOWN_WITHIN_METAPOP] = null;
                                 }
 
                             }
@@ -668,8 +680,9 @@ class Thread_PopRun_COVID19 implements Runnable {
                                 }
 
                                 int testType = (int) ent[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_TEST_TYPE];
+                                boolean positiveTest = (Boolean) ent[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_TEST_RESULT];
 
-                                if ((Boolean) ent[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_TEST_RESULT]) {
+                                if (positiveTest) {
 
                                     // Positive test result
                                     testing_res_stat_cumul[TEST_RES_STAT_POS][loc]++;
@@ -687,15 +700,8 @@ class Thread_PopRun_COVID19 implements Runnable {
                                             = (int) rmp.getAge();
 
                                     setPositiveTestResponse(rmp, covid19, testType, triggerIndex);
-                                    
-                                    if(testType == TEST_TYPE_EXIT_LOCKDOWN){
-                                        throw new UnsupportedOperationException("To be implmented");
-                                    }
-                                    
-                                    
 
                                 } else {
-
                                     // Negative test result                                        
                                     testHist[Population_Remote_MetaPopulation_COVID19.TEST_RESULT_HISTORY_AGE_OF_LAST_NEGATIVE]
                                             = (int) rmp.getAge();
@@ -709,8 +715,51 @@ class Thread_PopRun_COVID19 implements Runnable {
                                         qMap.remove(rmp.getId());
                                         pop.getPositiveTestResponse().remove(rmp.getId());
 
-                                    }else if (testType == TEST_TYPE_EXIT_LOCKDOWN){
-                                        throw new UnsupportedOperationException("To be implmented");
+                                    }
+                                }
+
+                                if (testType == TEST_TYPE_EXIT_LOCKDOWN) {
+                                    for (int lockType = 0; lockType < lockdown_exit_test_stat.length; lockType++) {
+                                        if (lockdown_exit_test_stat[lockType] != null) {
+                                            int exitIndex = lockType == LOCKDOWN_INTER_METAPOP
+                                                    ? LOCKDOWN_INTER_METAPOP_EXIT_CRITERIA : LOCKDOWN_WITHIN_METAPOP_EXIT_TEST_CRITERIA;
+                                            int exitTriggerIndex = lockType == LOCKDOWN_INTER_METAPOP
+                                                    ? LOCKDOWN_INTER_METAPOP_EXIT_TRIGGER_INDEX : LOCKDOWN_WITHIN_METAPOP_EXIT_TRIGGER_INDEX;
+
+                                            float exitCritera = ((float[][][]) getThreadParam()[THREAD_PARAM_TRIGGERED_METAPOP_LOCKDOWN_SETTING])[loc][testTriggerIndex_by_loc[loc]][exitIndex];
+                                            int exitTrigger = (int) ((float[][][]) getThreadParam()[THREAD_PARAM_TRIGGERED_METAPOP_LOCKDOWN_SETTING])[loc][testTriggerIndex_by_loc[loc]][exitTriggerIndex];
+                                            int testPoint = lockdown_exit_test_pt[lockType][loc];
+                                            lockdown_exit_test_stat[lockType][loc][testPoint][LOCKDOWN_EXIT_TEST_STAT_NUM_SO_FAR]++;
+                                            if (positiveTest) {
+                                                lockdown_exit_test_stat[lockType][loc][testPoint][LOCKDOWN_EXIT_TEST_STAT_NUM_POS_SO_FAR]++;
+                                            }
+
+                                            if (lockdown_exit_test_stat[lockType][loc][testPoint][LOCKDOWN_EXIT_TEST_STAT_NUM_SO_FAR]
+                                                    == lockdown_exit_test_stat[lockType][loc][testPoint][LOCKDOWN_EXIT_TEST_STAT_TOTAL]) {
+
+                                                float probPositive = (float) lockdown_exit_test_stat[lockType][loc][testPoint][LOCKDOWN_EXIT_TEST_STAT_NUM_POS_SO_FAR]
+                                                        / lockdown_exit_test_stat[lockType][loc][testPoint][LOCKDOWN_EXIT_TEST_STAT_NUM_SO_FAR];
+                                                if (probPositive >= exitCritera) {
+                                                    // Reset lockdown
+                                                    for (int testPt = 0; testPt <= lockdown_exit_test_pt[lockType][loc]; testPt++) {
+                                                        lockdown_exit_test_stat[lockType][loc][testPt][LOCKDOWN_EXIT_TEST_STAT_NUM_SO_FAR] = 0;
+                                                        lockdown_exit_test_stat[lockType][loc][testPt][LOCKDOWN_EXIT_TEST_STAT_NUM_POS_SO_FAR] = 0;
+                                                    }
+
+                                                    triggers_at_time[loc][testTriggerIndex_by_loc[loc]] = pop.getGlobalTime() + 1;
+                                                    lockdown_exit_test_pt[lockType][loc] = 0;
+                                                } else {
+                                                    lockdown_exit_test_pt[lockType][loc]++;
+                                                    if (lockdown_exit_test_pt[lockType][loc] >= lockdown_exit_test_stat[lockType][loc].length) {
+                                                        // Lockdown end 
+                                                        testTriggerIndex_by_loc[loc] = exitTrigger;
+
+                                                    }
+                                                }
+
+                                            }
+
+                                        }
                                     }
 
                                 }
