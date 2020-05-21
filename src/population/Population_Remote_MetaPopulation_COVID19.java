@@ -1552,7 +1552,7 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
                 fillCurrentlyInLockdown(res.get(0),
                         Math.round(lockdownStat[META_POP_INTER_LOCKDOWN_PROPORTION] * popSize[loc]),
                         home_loc_age_gender_collection[loc],
-                        lockdownStat[META_POP_INTER_LOCKDOWN_END],
+                        lockdownStat[META_POP_INTER_LOCKDOWN_END]- lockdownStat[META_POP_INTER_LOCKDOWN_START],
                         LOCKDOWN_INTER_META_POP_UNTIL_AGE);
             }
 
@@ -1560,7 +1560,7 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
                 fillCurrentlyInLockdown(res.get(1),
                         Math.round(lockdownStat[META_POP_WITHIN_LOCKDOWN_PROPORTION] * popSize[loc]),
                         home_loc_age_gender_collection[loc],
-                        lockdownStat[META_POP_WITHIN_LOCKDOWN_END],
+                        lockdownStat[META_POP_WITHIN_LOCKDOWN_END] - lockdownStat[META_POP_WITHIN_LOCKDOWN_START],
                         LOCKDOWN_WITHIN_META_POP_UNTIL_AGE);
             }
 

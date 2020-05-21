@@ -393,6 +393,7 @@ class Thread_PopRun_COVID19 implements Runnable {
         // Testing and response 
         int[] testTriggerIndex_by_loc = new int[popSize.length];
 
+        int[][] test_res_stat_today = new int[TEST_RES_STAT_LENGTH][popSize.length];
         int[][] testing_res_stat_cumul = new int[TEST_RES_STAT_LENGTH][popSize.length]; // By location
         int[] testing_res_stat_cumul_all = new int[TEST_RES_STAT_LENGTH];
 
@@ -456,9 +457,9 @@ class Thread_PopRun_COVID19 implements Runnable {
 
         for (int sn = 0; sn < numSnap; sn++) {
             for (int sf = 0; sf < snapFreq; sf++) {
-
-                int[] test_res_stat_today = new int[2];
-
+                for (int[] testResToday : test_res_stat_today) {
+                    Arrays.fill(testResToday, 0);
+                }
                 for (AbstractIndividualInterface p : pop.getPop()) {
                     Person_Remote_MetaPopulation rmp = (Person_Remote_MetaPopulation) p;
                     int trigger_loc = pop.getCurrentLocation(p);
@@ -633,23 +634,51 @@ class Thread_PopRun_COVID19 implements Runnable {
                                 AbstractIndividualInterface testPerson = ((AbstractIndividualInterface) ent[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_PERSON_TESTED]);
                                 int testType = (Integer) ent[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_TEST_TYPE];
 
-                                if (testType == TEST_TYPE_EXIT_LOCKDOWN || isValidTestCandidate(testPerson)) {
+                                boolean isExitTest = testType == TEST_TYPE_EXIT_CI
+                                        || testType == TEST_TYPE_EXIT_QUARANTINE || testType == TEST_TYPE_EXIT_LOCKDOWN;
+
+                                if (isExitTest || isValidTestCandidate(testPerson)) {
 
                                     int pid = testPerson.getId();
                                     int waitingIndex = Collections.binarySearch(testResultInWaiting, pid);
 
-                                    if (waitingIndex < 0 || testType == TEST_TYPE_EXIT_LOCKDOWN) {
+                                    int insertIndex = ~waitingIndex;
+
+                                    if (waitingIndex >= 0 && isExitTest) {
+                                        insertIndex = waitingIndex;
+
+                                        // Replace existing test to exit test
+                                        float[][][] triggeredTestResultDelay = (float[][][]) getThreadParam()[THREAD_PARAM_TRIGGERED_TESTING_RESULT_DELAY];
+                                        float[] delayOption = triggeredTestResultDelay.length > 0
+                                                ? triggeredTestResultDelay[loc][testTriggerIndex_by_loc[loc]] : new float[]{0};
+
+                                        boolean findReplacement = false;
+
+                                        for (int i = 0; i < delayOption.length; i++) {
+                                            List<Integer> testOutcomeKey = List.of(pop.getGlobalTime() + (int) delayOption[i], loc);
+                                            ArrayList<Object[]> testResultAt = pop.getTestOutcomeInPipeline().get(testOutcomeKey);
+                                            if (testResultAt != null) {
+                                                for (Object[] resInPipe : testResultAt) {
+                                                    int resPersonId = ((AbstractIndividualInterface) resInPipe[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_PERSON_TESTED]).getId();
+                                                    double ageTested = (double) resInPipe[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_AGE_TESTED];
+                                                    if (resPersonId == pid && ageTested == testPerson.getAge()) {
+                                                        resInPipe[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_TEST_TYPE] = testType;
+                                                        findReplacement = true;
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        if (findReplacement) {
+                                            insertIndex = -1;
+                                        }
+                                    }
+
+                                    if (insertIndex >= 0) {
                                         if (testCount >= testLimit) {
                                             // Handle exceed test scheduled
                                             handleExcessTest(ent, testQueueType);
                                         } else {
-
-                                            int insertIndex = ~waitingIndex;
-
-                                            if (waitingIndex >= 0 && testType == TEST_TYPE_EXIT_LOCKDOWN) {
-                                                insertIndex = waitingIndex;
-                                            }
-
                                             testResultInWaiting.add(insertIndex, pid);
                                             runTestSchedule(ent, covid19, testTriggerIndex_by_loc[loc]);
 
@@ -660,6 +689,7 @@ class Thread_PopRun_COVID19 implements Runnable {
                                             }
                                             testCount++;
                                         }
+
                                     }
                                 }
                             }
@@ -678,7 +708,7 @@ class Thread_PopRun_COVID19 implements Runnable {
 
                                 testing_res_stat_cumul[TEST_RES_STAT_ALL][loc]++;
                                 testing_res_stat_cumul_all[TEST_RES_STAT_ALL]++;
-                                test_res_stat_today[TEST_RES_STAT_ALL]++;
+                                test_res_stat_today[TEST_RES_STAT_ALL][loc]++;
 
                                 Integer[] testHist = pop.getTestResultHistory().get(rmp.getId());
                                 if (testHist == null) {
@@ -696,7 +726,7 @@ class Thread_PopRun_COVID19 implements Runnable {
                                     // Positive test result
                                     testing_res_stat_cumul[TEST_RES_STAT_POS][loc]++;
                                     testing_res_stat_cumul_all[TEST_RES_STAT_POS]++;
-                                    test_res_stat_today[TEST_RES_STAT_POS]++;
+                                    test_res_stat_today[TEST_RES_STAT_POS][loc]++;
 
                                     int trigger_loc = pop.getCurrentLocation(rmp);
                                     if (trigger_loc < 0) {
@@ -752,7 +782,7 @@ class Thread_PopRun_COVID19 implements Runnable {
 
                                                 float probPositive = (float) lockdown_exit_test_stat[lockType][loc][testPoint][LOCKDOWN_EXIT_TEST_STAT_NUM_POS_SO_FAR]
                                                         / lockdown_exit_test_stat[lockType][loc][testPoint][LOCKDOWN_EXIT_TEST_STAT_NUM_SO_FAR];
-                                                if (probPositive >= exitCritera) {
+                                                if (probPositive > exitCritera) {
                                                     // Reset lockdown
                                                     for (int testPt = 0; testPt <= lockdown_exit_test_pt[lockType][loc]; testPt++) {
                                                         lockdown_exit_test_stat[lockType][loc][testPt][LOCKDOWN_EXIT_TEST_STAT_NUM_SO_FAR] = 0;
@@ -766,6 +796,8 @@ class Thread_PopRun_COVID19 implements Runnable {
                                                     if (lockdown_exit_test_pt[lockType][loc] >= lockdown_exit_test_stat[lockType][loc].length) {
                                                         // Lockdown end 
                                                         testTriggerIndex_by_loc[loc] = exitTrigger;
+                                                        lockdown_exit_test_stat[lockType][loc] = null;
+                                                        lockdown_exit_test_pt[lockType][loc] = 0;
 
                                                     }
                                                 }
@@ -844,9 +876,8 @@ class Thread_PopRun_COVID19 implements Runnable {
                         testTriggerIndex_by_loc[loc] = detectResponseTrigger(
                                 testTriggerIndex_by_loc[loc],
                                 triggers[loc],
-                                new int[]{testing_res_stat_cumul[TEST_RES_STAT_ALL][loc],
-                                    testing_res_stat_cumul[TEST_RES_STAT_POS][loc]},
-                                testing_res_stat_cumul_all);
+                                new int[]{test_res_stat_today[TEST_RES_STAT_ALL][loc],
+                                    test_res_stat_today[TEST_RES_STAT_POS][loc]});
 
                         if (testTriggerIndex_by_loc[loc] != testTriggerIndex_org) {
                             triggers_at_time[loc][testTriggerIndex_by_loc[loc]] = pop.getGlobalTime() + 1;
@@ -1554,8 +1585,7 @@ class Thread_PopRun_COVID19 implements Runnable {
 
     protected int detectResponseTrigger(int testTriggerIndex,
             float[] triggers,
-            int[] testing_stat_cumul_location,
-            int[] testing_stat_cumul_all) {
+            int[] testing_stat_today_location) {
         int possibleTriggerIndex = testTriggerIndex;
         for (int i = possibleTriggerIndex + 1; i < triggers.length; i++) {
             if (triggers[i] <= 0) {
@@ -1563,11 +1593,12 @@ class Thread_PopRun_COVID19 implements Runnable {
                     possibleTriggerIndex = i;
                 }
             } else if (triggers[i] >= 1) {
-                if (testing_stat_cumul_location[TEST_RES_STAT_POS] >= triggers[i]) {
+                if (testing_stat_today_location[TEST_RES_STAT_POS] >= triggers[i]) {
                     possibleTriggerIndex = i;
                 }
             } else {
-                if (testing_stat_cumul_all[TEST_RES_STAT_POS] >= 1 / triggers[i]) {
+                if (((float) testing_stat_today_location[TEST_RES_STAT_POS]) / testing_stat_today_location[TEST_RES_STAT_ALL]
+                        >= triggers[i]) {
                     possibleTriggerIndex = i;
                 }
             }
