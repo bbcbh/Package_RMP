@@ -176,6 +176,9 @@ class Thread_PopRun_COVID19 implements Runnable {
         // Format: {sensitivity_all stage}
         // Format: {sensitivity_infected, sensitivity_infectious, sensitivity_symptomatic, 
         //          sensitivity_latant, sensitivity_incubation, sensitivity_post_infectious}
+        // Format: {-asy_infect_offset, 
+        //          sensitivity at exposure, sensitivity_at_start_of_symptoms, days_post_sym_1, ..., sensitivity_post_sym_1, ... 
+        //          sensitivity at exposure, sensitivity_at_start_of_infectious, days_post_infectous_1, ..., sensitivity_post_infect_1}
         new double[]{},
         // THREAD_PARAM_MAX_TEST_BY_LOC
         // Format: [loc][max_num_test, period]
@@ -985,7 +988,8 @@ class Thread_PopRun_COVID19 implements Runnable {
         return numExitTestWave;
     }
 
-    private boolean insertTestIntoSchedule(Person_Remote_MetaPopulation rmp, int testDelay, int test_type) {
+    private boolean insertTestIntoSchedule(Person_Remote_MetaPopulation rmp, int testDelay, int test_type) {       
+         
         boolean testInserted = false;
         if (rmp != null) {
             int home_loc = pop.getCurrentLocation(rmp);
@@ -1143,28 +1147,75 @@ class Thread_PopRun_COVID19 implements Runnable {
 
             if (test_sensitivity != null
                     && test_sensitivity.length > 0) {
+
                 double pTest;
-                pTest = test_sensitivity[SENSITIVITY_INFECTED];
 
-                if (test_sensitivity.length > 1) {
-                    pTest = 0;
+                if (test_sensitivity[0] < 0) {
                     double[] inf_param = covid19.getCurrentlyInfected().get(rmp.getId());
+                    double switchAge;
+                    int expose_index, end_index;
+                    if (inf_param[COVID19_Remote_Infection.PARAM_SYMPTOM_START_AGE] > 0) {
+                        // Symptomatic infection
+                        expose_index = 1;
+                        end_index = (int) -test_sensitivity[0];
+                        switchAge = inf_param[COVID19_Remote_Infection.PARAM_SYMPTOM_START_AGE];
+                    } else {
+                        // Asy infection
+                        expose_index = (int) -test_sensitivity[0];
+                        end_index = test_sensitivity.length;
+                        switchAge = inf_param[COVID19_Remote_Infection.PARAM_INFECTIOUS_START_AGE];
+                    }
+                    if (rmp.getAge() <= switchAge) {
+                        pTest = test_sensitivity[expose_index];
+                        pTest += (test_sensitivity[expose_index + 1] - test_sensitivity[expose_index])
+                                * (rmp.getAge() - inf_param[COVID19_Remote_Infection.PARAM_AGE_OF_EXPOSURE])
+                                / (switchAge - inf_param[COVID19_Remote_Infection.PARAM_AGE_OF_EXPOSURE]);
 
-                    // For all infection 
-                    if (rmp.getAge() < inf_param[COVID19_Remote_Infection.PARAM_INFECTIOUS_START_AGE]) {
-                        pTest = Math.max(pTest, test_sensitivity[SENSITIVITY_LATANT]);
-                    } else if (rmp.getAge() < inf_param[COVID19_Remote_Infection.PARAM_INFECTIOUS_END_AGE]) {
-                        pTest = Math.max(pTest, test_sensitivity[SENSITIVITY_INFECTIOUS]);
-                    } else if (rmp.getAge() < inf_param[COVID19_Remote_Infection.PARAM_INFECTED_UNTIL_AGE]) {
-                        pTest = Math.max(pTest, test_sensitivity[SENSITIVITY_POST_INFECTIOUS]);
+                    } else {
+                        int daysAfterSwitch = (int) (rmp.getAge() - switchAge);
+                        int startBinary = expose_index + 2;
+                        int endBinary = (expose_index + end_index + 2) / 2;
+                        int key = Arrays.binarySearch(test_sensitivity,
+                                startBinary, endBinary, daysAfterSwitch);
+                        int sen_offset = (end_index - expose_index - 2) / 2;
+                        if (key >= 0) {
+                            pTest = test_sensitivity[key + sen_offset];
+                        } else {
+                            double pUpper = (~key + sen_offset) < end_index ? test_sensitivity[~key + sen_offset] : 0;
+                            double pLower = (~key + sen_offset - 1) < endBinary ? test_sensitivity[expose_index + 1] : test_sensitivity[~key + sen_offset - 1];
+                            double dayPrevStage = (~key - 1) < startBinary ? 0 : test_sensitivity[~key - 1];
+                            pTest = pLower;
+                            pTest += (pUpper - pLower)
+                                    * (daysAfterSwitch - dayPrevStage) / (test_sensitivity[~key] - test_sensitivity[~key - 1]);
+
+                        }
+
                     }
 
-                    // For symptomatic infection 
-                    if (inf_param[COVID19_Remote_Infection.PARAM_SYMPTOM_START_AGE] > 0) {
-                        if (rmp.getAge() < inf_param[COVID19_Remote_Infection.PARAM_SYMPTOM_START_AGE]) {
-                            pTest = Math.max(pTest, test_sensitivity[SENSITIVITY_INCUBRATION]);
-                        } else if (covid19.hasSymptoms(rmp)) {
-                            pTest = Math.max(pTest, test_sensitivity[SENSITIVITY_SYMPTOMATIC]);
+                } else {
+
+                    pTest = test_sensitivity[SENSITIVITY_INFECTED];
+
+                    if (test_sensitivity.length > 1) {
+                        pTest = 0;
+                        double[] inf_param = covid19.getCurrentlyInfected().get(rmp.getId());
+
+                        // For all infection 
+                        if (rmp.getAge() < inf_param[COVID19_Remote_Infection.PARAM_INFECTIOUS_START_AGE]) {
+                            pTest = Math.max(pTest, test_sensitivity[SENSITIVITY_LATANT]);
+                        } else if (rmp.getAge() < inf_param[COVID19_Remote_Infection.PARAM_INFECTIOUS_END_AGE]) {
+                            pTest = Math.max(pTest, test_sensitivity[SENSITIVITY_INFECTIOUS]);
+                        } else if (rmp.getAge() < inf_param[COVID19_Remote_Infection.PARAM_INFECTED_UNTIL_AGE]) {
+                            pTest = Math.max(pTest, test_sensitivity[SENSITIVITY_POST_INFECTIOUS]);
+                        }
+
+                        // For symptomatic infection 
+                        if (inf_param[COVID19_Remote_Infection.PARAM_SYMPTOM_START_AGE] > 0) {
+                            if (rmp.getAge() < inf_param[COVID19_Remote_Infection.PARAM_SYMPTOM_START_AGE]) {
+                                pTest = Math.max(pTest, test_sensitivity[SENSITIVITY_INCUBRATION]);
+                            } else if (covid19.hasSymptoms(rmp)) {
+                                pTest = Math.max(pTest, test_sensitivity[SENSITIVITY_SYMPTOMATIC]);
+                            }
                         }
                     }
                 }
