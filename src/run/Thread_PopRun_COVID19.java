@@ -1222,7 +1222,7 @@ class Thread_PopRun_COVID19 implements Runnable {
 
                 hasPositiveTest &= pTest >= 1;
                 if (!hasPositiveTest && pTest > 0) {
-                    hasPositiveTest &= pop.getInfectionRNG().nextDouble() < pTest;
+                    hasPositiveTest = pop.getInfectionRNG().nextDouble() < pTest;
                 }
 
             }
