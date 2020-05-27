@@ -71,9 +71,7 @@ class Thread_PopRun_COVID19 implements Runnable {
     public static final int LOCKDOWN_WITHIN_METAPOP_EXIT_TEST_FREQ = LOCKDOWN_INTER_METAPOP_EXIT_TEST_FREQ + 1;
     public static final int LOCKDOWN_INTER_METAPOP_EXIT_TEST_PROB = LOCKDOWN_WITHIN_METAPOP_EXIT_TEST_FREQ + 1;
     public static final int LOCKDOWN_WITHIN_METAPOP_EXIT_TEST_PROB = LOCKDOWN_INTER_METAPOP_EXIT_TEST_PROB + 1;
-    public static final int LOCKDOWN_INTER_METAPOP_EXIT_CRITERIA = LOCKDOWN_WITHIN_METAPOP_EXIT_TEST_PROB + 1;
-    public static final int LOCKDOWN_WITHIN_METAPOP_EXIT_TEST_CRITERIA = LOCKDOWN_INTER_METAPOP_EXIT_CRITERIA + 1;
-    public static final int LOCKDOWN_INTER_METAPOP_EXIT_TRIGGER_INDEX = LOCKDOWN_WITHIN_METAPOP_EXIT_TEST_CRITERIA + 1;
+    public static final int LOCKDOWN_INTER_METAPOP_EXIT_TRIGGER_INDEX = LOCKDOWN_WITHIN_METAPOP_EXIT_TEST_PROB + 1;
     public static final int LOCKDOWN_WITHIN_METAPOP_EXIT_TRIGGER_INDEX = LOCKDOWN_INTER_METAPOP_EXIT_TRIGGER_INDEX + 1;
 
     public static final int SENSITIVITY_INFECTED = 0;
@@ -92,6 +90,7 @@ class Thread_PopRun_COVID19 implements Runnable {
     public static final int TEST_TYPE_EXIT_CI = TEST_TYPE_SCR + 1;
     public static final int TEST_TYPE_EXIT_QUARANTINE = TEST_TYPE_EXIT_CI + 1;
     public static final int TEST_TYPE_EXIT_LOCKDOWN = TEST_TYPE_EXIT_QUARANTINE + 1;
+    public static final int TEST_TYPE_TOTAL = TEST_TYPE_EXIT_LOCKDOWN + 1;
     // =  -(n-th level of contact test) if TEST_TYPE < 0
 
     public static final int MAX_TEST_NUM = 0;
@@ -136,7 +135,7 @@ class Thread_PopRun_COVID19 implements Runnable {
         // THREAD_PARAM_TRIGGERED_TEST_RESPONSE
         // Format: [loc][triggerIndex]{ {valid_for}, {probability_for_k=0}, {probability_for_k=1} ...}
         // k: 0 = adjustment to non-household contact, 1 = adjustment to household contact, 2 = adjustment to movement
-        // valid_for: how long the response valid for - Not used
+        // valid_for: how long the response valid for
         // probability: {cumul_prob_1, response_1, cumul_prob_2, ...}
         new double[][][][]{},
         // THREAD_PARAM_TRIGGERED_SYM_RESPONSE
@@ -163,8 +162,7 @@ class Thread_PopRun_COVID19 implements Runnable {
         // Format:[loc][triggerIndex]{LOCKDOWN_INTER_METAPOP,LOCKDOWN_WITHIN_METAPOP ,
         //                            LOCKDOWN_INTER_METAPOP_DURATION,LOCKDOWN_WITHIN_METAPOP_DURATION,
         //                            LOCKDOWN_INTER_METAPOP_EXIT_TEST_FREQ,LOCKDOWN_WITHIN_METAPOP_EXIT_TEST_FREQ,
-        //                            LOCKDOWN_INTER_METAPOP_EXIT_TEST_PROB,LOCKDOWN_WITHIN_METAPOP_EXIT_TEST_PROB,
-        //                            LOCKDOWN_INTER_METAPOP_EXIT_CRITERIA, LOCKDOWN_WITHIN_METAPOP_EXIT_TEST_CRITERIA,
+        //                            LOCKDOWN_INTER_METAPOP_EXIT_TEST_PROB,LOCKDOWN_WITHIN_METAPOP_EXIT_TEST_PROB,                            
         //                            LOCKDOWN_INTER_METAPOP_EXIT_TRIGGER_INDEX, LOCKDOWN_WITHIN_METAPOP_EXIT_TRIGGER_INDEX,
         //                            )}   
         new float[][][]{},
@@ -355,22 +353,20 @@ class Thread_PopRun_COVID19 implements Runnable {
 
         }
 
-        boolean priClose = true;
-
         PrintWriter outputCSV, testingCSV, popStatCSV;
         try {
             outputCSV = new PrintWriter(new File(baseDir, String.format(FILE_REGEX_SNAP_STAT, this.threadId)));
         } catch (FileNotFoundException ex) {
             ex.printStackTrace(System.err);
             outputCSV = pri;
-            priClose = false;
+
         }
         try {
             testingCSV = new PrintWriter(new File(baseDir, String.format(FILE_REGEX_TEST_STAT, this.threadId)));
         } catch (FileNotFoundException ex) {
             ex.printStackTrace(System.err);
             testingCSV = pri;
-            priClose = false;
+
         }
 
         if (FILE_REGEX_POP_SNAP != null) {
@@ -381,7 +377,7 @@ class Thread_PopRun_COVID19 implements Runnable {
             } catch (FileNotFoundException ex) {
                 ex.printStackTrace(System.err);
                 popStatCSV = pri;
-                priClose = false;
+
             }
 
             pop.printPopulationSnapHeader(popStatCSV);
@@ -389,9 +385,7 @@ class Thread_PopRun_COVID19 implements Runnable {
             popStatCSV = null;
         }
 
-        if (priClose) {
-            pri.close();
-        }
+        pri.flush();
 
         // Testing and response 
         int[] testTriggerIndex_by_loc = new int[popSize.length];
@@ -399,6 +393,7 @@ class Thread_PopRun_COVID19 implements Runnable {
         int[][] test_res_stat_today = new int[TEST_RES_STAT_LENGTH][popSize.length];
         int[][] testing_res_stat_cumul = new int[TEST_RES_STAT_LENGTH][popSize.length]; // By location
         int[] testing_res_stat_cumul_all = new int[TEST_RES_STAT_LENGTH];
+        int[][] testing_res_type_cumul = new int[TEST_TYPE_TOTAL][popSize.length];
 
         float[][] triggers = (float[][]) getThreadParam()[THREAD_PARAM_TRIGGERS];
         float[][][] triggeredTestRate = (float[][][]) getThreadParam()[THREAD_PARAM_TRIGGERED_TEST_RATE];
@@ -416,24 +411,7 @@ class Thread_PopRun_COVID19 implements Runnable {
         int[][] numStat = pop.generateInfectionStat();
         pop.printCSVOutputEntry(outputCSV, numStat);
 
-        // Print testingCSV header 
-        testingCSV.print("Time");
-        for (int p = 0; p < TEST_RES_STAT_LENGTH; p++) {
-            for (int i = 0; i < popSize.length; i++) {
-                testingCSV.print(',');
-                testingCSV.print("Loc_");
-                testingCSV.print(i);
-            }
-        }
-
-        // Response in queue
-        for (int i = 0; i < popSize.length; i++) {
-            testingCSV.print(',');
-            testingCSV.print("Resp queue Loc_");
-            testingCSV.print(i);
-        }
-
-        testingCSV.println();
+        printCSVTestHeader(testingCSV, popSize);
 
         // Resposne queue 
         int[][] rolling_test_count_by_loc = null;
@@ -454,7 +432,7 @@ class Thread_PopRun_COVID19 implements Runnable {
             }
         }
 
-        printCSVTestEntry(testingCSV, testing_res_stat_cumul, responseQueueList);
+        printCSVTestEntry(testingCSV, testing_res_stat_cumul, testing_res_type_cumul, responseQueueList);
 
         ArrayList<Integer> testResultInWaiting = new ArrayList<>(); // id
 
@@ -577,13 +555,13 @@ class Thread_PopRun_COVID19 implements Runnable {
                                     ArrayList<AbstractIndividualInterface> inLockDown = lockDownCandidates.get(LOCKDOWN_WITHIN_METAPOP);
                                     int exitTestPerWave = Math.round(inLockDown.size() * lockdownSetting[LOCKDOWN_WITHIN_METAPOP_EXIT_TEST_PROB]);
 
-                                    int numExitTest = setLockDownExitTest(lockdown_dur,
+                                    int numExitTestWave = setLockDownExitTest(lockdown_dur,
                                             delayOption, inLockDown, exitTestPerWave, testFreq);
 
                                     lockdown_exit_test_stat[LOCKDOWN_WITHIN_METAPOP][loc]
-                                            = new int[numExitTest][LOCKDOWN_EXIT_TEST_STAT_LENGTH];
+                                            = new int[numExitTestWave][LOCKDOWN_EXIT_TEST_STAT_LENGTH];
 
-                                    for (int n = 0; n < numExitTest; n++) {
+                                    for (int n = 0; n < numExitTestWave; n++) {
                                         lockdown_exit_test_stat[LOCKDOWN_WITHIN_METAPOP][loc][n][LOCKDOWN_EXIT_TEST_STAT_TOTAL] = exitTestPerWave;
                                     }
 
@@ -709,9 +687,13 @@ class Thread_PopRun_COVID19 implements Runnable {
                                 int remIndex = Collections.binarySearch(testResultInWaiting, rmp.getId());
                                 testResultInWaiting.remove(remIndex);
 
+                                int testType = (int) ent[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_TEST_TYPE];
+                                boolean positiveTest = (Boolean) ent[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_TEST_RESULT];
+
                                 testing_res_stat_cumul[TEST_RES_STAT_ALL][loc]++;
                                 testing_res_stat_cumul_all[TEST_RES_STAT_ALL]++;
                                 test_res_stat_today[TEST_RES_STAT_ALL][loc]++;
+                                testing_res_type_cumul[Math.max(testType, TEST_TYPE_CONTACT_BASE)][loc]++;
 
                                 Integer[] testHist = pop.getTestResultHistory().get(rmp.getId());
                                 if (testHist == null) {
@@ -720,9 +702,6 @@ class Thread_PopRun_COVID19 implements Runnable {
                                     testHist[Population_Remote_MetaPopulation_COVID19.TEST_RESULT_HISTORY_AGE_OF_LAST_NEGATIVE] = 0;
                                     pop.getTestResultHistory().put(rmp.getId(), testHist);
                                 }
-
-                                int testType = (int) ent[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_TEST_TYPE];
-                                boolean positiveTest = (Boolean) ent[Population_Remote_MetaPopulation_COVID19.TEST_OUTCOME_PIPELINE_ENT_TEST_RESULT];
 
                                 if (positiveTest) {
 
@@ -752,7 +731,8 @@ class Thread_PopRun_COVID19 implements Runnable {
                                     testHist[Population_Remote_MetaPopulation_COVID19.TEST_RESULT_HISTORY_AGE_OF_LAST_NEGATIVE]
                                             = (int) rmp.getAge();
 
-                                    if (testType == TEST_TYPE_EXIT_CI || testType == TEST_TYPE_EXIT_QUARANTINE) {
+                                    if (testType == TEST_TYPE_EXIT_CI || testType == TEST_TYPE_EXIT_QUARANTINE 
+                                            || testType == TEST_TYPE_EXIT_LOCKDOWN) {
 
                                         // Leave quarantine immediately
                                         HashMap<Integer, Number[]> qMap
@@ -767,42 +747,22 @@ class Thread_PopRun_COVID19 implements Runnable {
                                 if (testType == TEST_TYPE_EXIT_LOCKDOWN) {
                                     for (int lockType = 0; lockType < lockdown_exit_test_stat.length; lockType++) {
                                         if (lockdown_exit_test_stat[lockType][loc] != null) {
-                                            int exitIndex = lockType == LOCKDOWN_INTER_METAPOP
-                                                    ? LOCKDOWN_INTER_METAPOP_EXIT_CRITERIA : LOCKDOWN_WITHIN_METAPOP_EXIT_TEST_CRITERIA;
                                             int exitTriggerIndex = lockType == LOCKDOWN_INTER_METAPOP
                                                     ? LOCKDOWN_INTER_METAPOP_EXIT_TRIGGER_INDEX : LOCKDOWN_WITHIN_METAPOP_EXIT_TRIGGER_INDEX;
-
-                                            float exitCritera = ((float[][][]) getThreadParam()[THREAD_PARAM_TRIGGERED_METAPOP_LOCKDOWN_SETTING])[loc][testTriggerIndex_by_loc[loc]][exitIndex];
                                             int exitTrigger = (int) ((float[][][]) getThreadParam()[THREAD_PARAM_TRIGGERED_METAPOP_LOCKDOWN_SETTING])[loc][testTriggerIndex_by_loc[loc]][exitTriggerIndex];
                                             int testPoint = lockdown_exit_test_pt[lockType][loc];
                                             lockdown_exit_test_stat[lockType][loc][testPoint][LOCKDOWN_EXIT_TEST_STAT_NUM_SO_FAR]++;
                                             if (positiveTest) {
                                                 lockdown_exit_test_stat[lockType][loc][testPoint][LOCKDOWN_EXIT_TEST_STAT_NUM_POS_SO_FAR]++;
-                                            }
-
+                                            }                                           
                                             if (lockdown_exit_test_stat[lockType][loc][testPoint][LOCKDOWN_EXIT_TEST_STAT_NUM_SO_FAR]
                                                     == lockdown_exit_test_stat[lockType][loc][testPoint][LOCKDOWN_EXIT_TEST_STAT_TOTAL]) {
-
-                                                float probPositive = (float) lockdown_exit_test_stat[lockType][loc][testPoint][LOCKDOWN_EXIT_TEST_STAT_NUM_POS_SO_FAR]
-                                                        / lockdown_exit_test_stat[lockType][loc][testPoint][LOCKDOWN_EXIT_TEST_STAT_NUM_SO_FAR];
-                                                if (probPositive > exitCritera) {
-                                                    // Reset lockdown
-                                                    for (int testPt = 0; testPt <= lockdown_exit_test_pt[lockType][loc]; testPt++) {
-                                                        lockdown_exit_test_stat[lockType][loc][testPt][LOCKDOWN_EXIT_TEST_STAT_NUM_SO_FAR] = 0;
-                                                        lockdown_exit_test_stat[lockType][loc][testPt][LOCKDOWN_EXIT_TEST_STAT_NUM_POS_SO_FAR] = 0;
-                                                    }
-
-                                                    triggers_at_time[loc][testTriggerIndex_by_loc[loc]] = pop.getGlobalTime() + 1;
+                                                lockdown_exit_test_pt[lockType][loc]++;
+                                                if (lockdown_exit_test_pt[lockType][loc] >= lockdown_exit_test_stat[lockType][loc].length) {
+                                                    // Lockdown end 
+                                                    testTriggerIndex_by_loc[loc] = exitTrigger;
+                                                    lockdown_exit_test_stat[lockType][loc] = null;
                                                     lockdown_exit_test_pt[lockType][loc] = 0;
-                                                } else {
-                                                    lockdown_exit_test_pt[lockType][loc]++;
-                                                    if (lockdown_exit_test_pt[lockType][loc] >= lockdown_exit_test_stat[lockType][loc].length) {
-                                                        // Lockdown end 
-                                                        testTriggerIndex_by_loc[loc] = exitTrigger;
-                                                        lockdown_exit_test_stat[lockType][loc] = null;
-                                                        lockdown_exit_test_pt[lockType][loc] = 0;
-
-                                                    }
                                                 }
 
                                             }
@@ -832,6 +792,9 @@ class Thread_PopRun_COVID19 implements Runnable {
 
                                 ent[Population_Remote_MetaPopulation_COVID19.QUARANTINE_UNTIL_AGE]
                                         = inQ[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_IN_QUARANTINE_UNTIL];
+
+                                ent[Population_Remote_MetaPopulation_COVID19.QUARANTINE_ISOLATION]
+                                        = inQ[Population_Remote_MetaPopulation_COVID19.QUARANTINE_PIPELINE_ENT_CASE_ISOLATION];
 
                                 if (quarantineEffect != null) {
 
@@ -884,11 +847,11 @@ class Thread_PopRun_COVID19 implements Runnable {
 
                         if (testTriggerIndex_by_loc[loc] != testTriggerIndex_org) {
                             triggers_at_time[loc][testTriggerIndex_by_loc[loc]] = pop.getGlobalTime() + 1;
-                            // New trigger
-                            triggerText.append(pop.getGlobalTime() + 1);
-                            triggerText.append(',');
-                            triggerText.append(String.format("Level %d response triggered at location %d.\n",
+                            // New trigger                           
+                            triggerText.append(String.format("%d, Level %d response triggered at location %d.\n",
+                                    pop.getGlobalTime() + 1,
                                     testTriggerIndex_by_loc[loc], loc));
+
                         }
 
                     }
@@ -938,7 +901,7 @@ class Thread_PopRun_COVID19 implements Runnable {
             }
 
             pop.printCSVOutputEntry(outputCSV, pop.generateInfectionStat());
-            printCSVTestEntry(testingCSV, testing_res_stat_cumul, responseQueueList);
+            printCSVTestEntry(testingCSV, testing_res_stat_cumul, testing_res_type_cumul, responseQueueList);
             if (popStatCSV != null) {
                 pop.printPopulationSnapCSV(popStatCSV);
             }
@@ -959,13 +922,39 @@ class Thread_PopRun_COVID19 implements Runnable {
             popStatCSV.close();
         }
 
+        if (triggerText.length() > 0) {
+            pri.println(triggerText);
+        }
+
         pri.close();
+    }
+
+    private void printCSVTestHeader(PrintWriter testingCSV, int[] popSize) {
+        // Print testingCSV header
+        testingCSV.print("Time");
+        for (int p = 0; p < TEST_RES_STAT_LENGTH; p++) {
+            for (int i = 0; i < popSize.length; i++) {
+                testingCSV.print(String.format(",Outcome_%d_Loc_%d", p, i));
+            }
+        }
+
+        for (int p = 0; p < TEST_TYPE_TOTAL; p++) {
+            for (int i = 0; i < popSize.length; i++) {
+                testingCSV.print(String.format(",Test_Type_%d_Loc_%d", p, i));
+            }
+        }
+        // Response in queue
+        for (int i = 0; i < popSize.length; i++) {
+            testingCSV.print(String.format(",Resp queue Loc_%d", i));
+        }
+
+        testingCSV.println();
     }
 
     private int setLockDownExitTest(int lockdown_dur, float[] delayOption, ArrayList<AbstractIndividualInterface> inLockDown, int exitTestPerWave, int testFreq) {
         int dateOfLastExitTest = pop.getGlobalTime() + lockdown_dur - (int) delayOption[DELAY_OPTIONS_MAX];
         int numExitTestWave = 0;
-        int dateOfExitTest = pop.getGlobalTime() + testFreq;
+        int dateOfExitTest = pop.getGlobalTime();
         while (dateOfExitTest <= dateOfLastExitTest) {
             AbstractIndividualInterface[] candidateArr = inLockDown.toArray(new AbstractIndividualInterface[inLockDown.size()]);
             if (exitTestPerWave < candidateArr.length) {
@@ -988,8 +977,8 @@ class Thread_PopRun_COVID19 implements Runnable {
         return numExitTestWave;
     }
 
-    private boolean insertTestIntoSchedule(Person_Remote_MetaPopulation rmp, int testDelay, int test_type) {       
-         
+    private boolean insertTestIntoSchedule(Person_Remote_MetaPopulation rmp, int testDelay, int test_type) {
+
         boolean testInserted = false;
         if (rmp != null) {
             int home_loc = pop.getCurrentLocation(rmp);
@@ -1011,6 +1000,9 @@ class Thread_PopRun_COVID19 implements Runnable {
             if (index < 0) {
                 testInserted = true;
                 testSchEnt.add(~index, testEnt);
+            }else if(test_type == TEST_TYPE_EXIT_LOCKDOWN){
+                // Replace test entry if it is an exit test
+                testSchEnt.set(index, testEnt);
             }
         }
 
@@ -1090,9 +1082,15 @@ class Thread_PopRun_COVID19 implements Runnable {
         }
 
         float[][][] triggeredTestResultDelay = (float[][][]) getThreadParam()[THREAD_PARAM_TRIGGERED_TESTING_RESULT_DELAY];
+        double[][][][] triggeredTestResponse = (double[][][][]) getThreadParam()[THREAD_PARAM_TRIGGERED_TEST_RESPONSE];
 
         float[] delayOption = triggeredTestResultDelay.length > 0
                 ? triggeredTestResultDelay[loc][triggerIndex] : new float[]{};
+        double[][] testResp = triggeredTestResponse.length>0 
+                ? triggeredTestResponse[loc][triggerIndex]: new double[][]{};
+        
+        
+        pop.getMinAgeForNextTest().put(rmp.getId(), (int) (rmp.getAge() + Math.max(delayOption[1],testResp[0][0])));
 
         boolean testPositive;
         if (delayOption.length == 0) { // Special case for instant test and results for all test
@@ -1116,16 +1114,23 @@ class Thread_PopRun_COVID19 implements Runnable {
         return testSchEnt;
     }
 
-    protected void printCSVTestEntry(PrintWriter testingCSV, int[][] testing_stat_cumul,
+    protected void printCSVTestEntry(PrintWriter testingCSV,
+            int[][] testing_res_stat_cumul,
+            int[][] testing_res_type_cumul,
             List<LinkedList<Object[]>> responseQueueList) {
         testingCSV.print(pop.getGlobalTime());
-        for (int[] testing_stat_cumul_type : testing_stat_cumul) {
-            for (int loc = 0; loc < testing_stat_cumul_type.length; loc++) {
+        for (int[] testing_res_stat_cumul_outcome : testing_res_stat_cumul) {
+            for (int loc = 0; loc < testing_res_stat_cumul_outcome.length; loc++) {
                 testingCSV.print(',');
-                testingCSV.print(testing_stat_cumul_type[loc]);
+                testingCSV.print(testing_res_stat_cumul_outcome[loc]);
             }
         }
-
+        for (int[] testing_res_type_cumul_testType : testing_res_type_cumul) {
+            for (int loc = 0; loc < testing_res_type_cumul_testType.length; loc++) {
+                testingCSV.print(',');
+                testingCSV.print(testing_res_type_cumul_testType[loc]);
+            }
+        }
         for (int loc = 0; loc < responseQueueList.size(); loc++) {
             testingCSV.print(',');
             testingCSV.print(responseQueueList.get(loc).size());
@@ -1305,7 +1310,9 @@ class Thread_PopRun_COVID19 implements Runnable {
         setPositiveTestResponseIndexCase(rmp, covid19, triggerIndex);
 
         // Contract tracing - only applied on non-exit test
-        if (srcTestType != TEST_TYPE_EXIT_QUARANTINE && srcTestType != TEST_TYPE_EXIT_CI) {
+        if (srcTestType != TEST_TYPE_EXIT_QUARANTINE 
+                && srcTestType != TEST_TYPE_EXIT_CI 
+                && srcTestType != TEST_TYPE_EXIT_LOCKDOWN) {
 
             int contactTraceDelay = 0;
 
@@ -1329,7 +1336,7 @@ class Thread_PopRun_COVID19 implements Runnable {
 
                         // Household test
                         if (householdTestRate.length > 0) {
-                            Integer inQuarantine = pop.inQuarantineUntil(candidate);
+                            Integer inQuarantine = pop.inQuarantineUntil(candidate);                            
                             boolean canBeTested = isValidTestCandidate(candidate)
                                     && inQuarantine == null;
 

@@ -60,7 +60,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
     // FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_QUARANTINE
     public static final int QUARANTINE_UNTIL_AGE = 0;
-    public static final int QUARANTINE_PROB_CONTACT_HOUSEHOLD = QUARANTINE_UNTIL_AGE + 1;
+    public static final int QUARANTINE_ISOLATION = QUARANTINE_UNTIL_AGE + 1;
+    public static final int QUARANTINE_PROB_CONTACT_HOUSEHOLD = QUARANTINE_ISOLATION + 1;
     public static final int QUARANTINE_PROB_CONTACT_NON_HOUSEHOLD = QUARANTINE_PROB_CONTACT_HOUSEHOLD + 1;
     public static final int QUARANTINE_ENTRY_LENGTH = QUARANTINE_PROB_CONTACT_NON_HOUSEHOLD + 1;
 
@@ -1237,17 +1238,29 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         }
 
         int[] numInQuarantine = new int[numStat[NUM_STAT_NUM_IN_LOC].length];
+        int[] numInIsolation = new int[numStat[NUM_STAT_NUM_IN_LOC].length];
         HashMap<Integer, Number[]> quarantineMap
                 = (HashMap<Integer, Number[]>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_QUARANTINE];
 
         for (Integer pid : quarantineMap.keySet()) {
-            Integer inQuantineUntil = (Integer) quarantineMap.get(pid)[QUARANTINE_UNTIL_AGE];
+            Number[] quarantineEnt = quarantineMap.get(pid);
+            Integer inQuantineUntil = (Integer) quarantineEnt[QUARANTINE_UNTIL_AGE];
+            boolean isCaseIsolation = (Integer) quarantineEnt[QUARANTINE_ISOLATION] > 0;
             Person_Remote_MetaPopulation rmp = (Person_Remote_MetaPopulation) getLocalData().get(pid);
             if (rmp != null) {
                 if (rmp.getAge() < inQuantineUntil) {
-                    numInQuarantine[rmp.getHomeLocation()]++;
+                    if (isCaseIsolation) {
+                        numInIsolation[rmp.getHomeLocation()]++;
+                    } else {
+                        numInQuarantine[rmp.getHomeLocation()]++;
+                    }
                 }
             }
+        }
+
+        for (int i = 0; i < numInQuarantine.length; i++) {
+            csvOutput.print(',');
+            csvOutput.print(numInIsolation[i]);
         }
 
         for (int i = 0; i < numInQuarantine.length; i++) {
@@ -1323,17 +1336,22 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
             csvOutput.print(',');
         }
         csvOutput.print(',');
-        csvOutput.print("# inQuarantine");
+        csvOutput.print("# in Isolation");
         for (int i = 1; i < popSize.length; i++) {
             csvOutput.print(',');
         }
         csvOutput.print(',');
-        csvOutput.print("# inLockdown (inter meta pop)");
+        csvOutput.print("# in Quarantine");
         for (int i = 1; i < popSize.length; i++) {
             csvOutput.print(',');
         }
         csvOutput.print(',');
-        csvOutput.print("# inLockdown (within meta pop)");
+        csvOutput.print("# in Lockdown (inter meta pop)");
+        for (int i = 1; i < popSize.length; i++) {
+            csvOutput.print(',');
+        }
+        csvOutput.print(',');
+        csvOutput.print("# in Lockdown (within meta pop)");
         for (int i = 1; i < popSize.length; i++) {
             csvOutput.print(',');
         }
@@ -1552,7 +1570,7 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
                 fillCurrentlyInLockdown(res.get(0),
                         Math.round(lockdownStat[META_POP_INTER_LOCKDOWN_PROPORTION] * popSize[loc]),
                         home_loc_age_gender_collection[loc],
-                        lockdownStat[META_POP_INTER_LOCKDOWN_END]- lockdownStat[META_POP_INTER_LOCKDOWN_START],
+                        lockdownStat[META_POP_INTER_LOCKDOWN_END] - lockdownStat[META_POP_INTER_LOCKDOWN_START],
                         LOCKDOWN_INTER_META_POP_UNTIL_AGE);
             }
 
