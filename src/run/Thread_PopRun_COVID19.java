@@ -731,7 +731,7 @@ class Thread_PopRun_COVID19 implements Runnable {
                                     testHist[Population_Remote_MetaPopulation_COVID19.TEST_RESULT_HISTORY_AGE_OF_LAST_NEGATIVE]
                                             = (int) rmp.getAge();
 
-                                    if (testType == TEST_TYPE_EXIT_CI || testType == TEST_TYPE_EXIT_QUARANTINE 
+                                    if (testType == TEST_TYPE_EXIT_CI || testType == TEST_TYPE_EXIT_QUARANTINE
                                             || testType == TEST_TYPE_EXIT_LOCKDOWN) {
 
                                         // Leave quarantine immediately
@@ -754,13 +754,16 @@ class Thread_PopRun_COVID19 implements Runnable {
                                             lockdown_exit_test_stat[lockType][loc][testPoint][LOCKDOWN_EXIT_TEST_STAT_NUM_SO_FAR]++;
                                             if (positiveTest) {
                                                 lockdown_exit_test_stat[lockType][loc][testPoint][LOCKDOWN_EXIT_TEST_STAT_NUM_POS_SO_FAR]++;
-                                            }                                           
+                                            }
                                             if (lockdown_exit_test_stat[lockType][loc][testPoint][LOCKDOWN_EXIT_TEST_STAT_NUM_SO_FAR]
                                                     == lockdown_exit_test_stat[lockType][loc][testPoint][LOCKDOWN_EXIT_TEST_STAT_TOTAL]) {
                                                 lockdown_exit_test_pt[lockType][loc]++;
                                                 if (lockdown_exit_test_pt[lockType][loc] >= lockdown_exit_test_stat[lockType][loc].length) {
-                                                    // Lockdown end 
-                                                    testTriggerIndex_by_loc[loc] = exitTrigger;
+                                                    // Lockdown end
+                                                    if (exitTrigger >= 0) {
+                                                        //Reset to next trigger if necessary
+                                                        testTriggerIndex_by_loc[loc] = exitTrigger;
+                                                    }
                                                     lockdown_exit_test_stat[lockType][loc] = null;
                                                     lockdown_exit_test_pt[lockType][loc] = 0;
                                                 }
@@ -934,7 +937,7 @@ class Thread_PopRun_COVID19 implements Runnable {
         testingCSV.print("Time");
         for (int p = 0; p < TEST_RES_STAT_LENGTH; p++) {
             for (int i = 0; i < popSize.length; i++) {
-                testingCSV.print(String.format(",Outcome_%d_Loc_%d", p, i));
+                testingCSV.print(String.format(",%s Loc_%d", p==0?"# Test":"# Positive" , i));
             }
         }
 
@@ -962,9 +965,13 @@ class Thread_PopRun_COVID19 implements Runnable {
             }
             for (AbstractIndividualInterface candidate : candidateArr) {
                 insertTestIntoSchedule((Person_Remote_MetaPopulation) candidate,
-                        dateOfExitTest - pop.getGlobalTime(), TEST_TYPE_EXIT_LOCKDOWN);
+                        dateOfExitTest - pop.getGlobalTime(),
+                        dateOfExitTest == pop.getGlobalTime()
+                        ? TEST_TYPE_CONTACT_BASE : TEST_TYPE_EXIT_LOCKDOWN);
             }
-            numExitTestWave++;
+            if (dateOfExitTest != pop.getGlobalTime()) {
+                numExitTestWave++;
+            }
             if (dateOfExitTest == dateOfLastExitTest) {
                 break;
             } else {
@@ -1000,7 +1007,7 @@ class Thread_PopRun_COVID19 implements Runnable {
             if (index < 0) {
                 testInserted = true;
                 testSchEnt.add(~index, testEnt);
-            }else if(test_type == TEST_TYPE_EXIT_LOCKDOWN){
+            } else if (test_type == TEST_TYPE_EXIT_LOCKDOWN) {
                 // Replace test entry if it is an exit test
                 testSchEnt.set(index, testEnt);
             }
@@ -1086,11 +1093,10 @@ class Thread_PopRun_COVID19 implements Runnable {
 
         float[] delayOption = triggeredTestResultDelay.length > 0
                 ? triggeredTestResultDelay[loc][triggerIndex] : new float[]{};
-        double[][] testResp = triggeredTestResponse.length>0 
-                ? triggeredTestResponse[loc][triggerIndex]: new double[][]{};
-        
-        
-        pop.getMinAgeForNextTest().put(rmp.getId(), (int) (rmp.getAge() + Math.max(delayOption[1],testResp[0][0])));
+        double[][] testResp = triggeredTestResponse.length > 0
+                ? triggeredTestResponse[loc][triggerIndex] : new double[][]{};
+
+        pop.getMinAgeForNextTest().put(rmp.getId(), (int) (rmp.getAge() + Math.max(delayOption[1], testResp[0][0])));
 
         boolean testPositive;
         if (delayOption.length == 0) { // Special case for instant test and results for all test
@@ -1310,8 +1316,8 @@ class Thread_PopRun_COVID19 implements Runnable {
         setPositiveTestResponseIndexCase(rmp, covid19, triggerIndex);
 
         // Contract tracing - only applied on non-exit test
-        if (srcTestType != TEST_TYPE_EXIT_QUARANTINE 
-                && srcTestType != TEST_TYPE_EXIT_CI 
+        if (srcTestType != TEST_TYPE_EXIT_QUARANTINE
+                && srcTestType != TEST_TYPE_EXIT_CI
                 && srcTestType != TEST_TYPE_EXIT_LOCKDOWN) {
 
             int contactTraceDelay = 0;
@@ -1336,7 +1342,7 @@ class Thread_PopRun_COVID19 implements Runnable {
 
                         // Household test
                         if (householdTestRate.length > 0) {
-                            Integer inQuarantine = pop.inQuarantineUntil(candidate);                            
+                            Integer inQuarantine = pop.inQuarantineUntil(candidate);
                             boolean canBeTested = isValidTestCandidate(candidate)
                                     && inQuarantine == null;
 
