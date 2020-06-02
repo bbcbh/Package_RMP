@@ -489,8 +489,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         if (((MoveablePersonInterface) person).getHomeLocation() != locId) {
 
             Float[] lockdownUntilArr = inLockdownUntil(person);
-
-            moving = lockdownUntilArr == null || Float.isNaN(lockdownUntilArr[LOCKDOWN_INTER_META_POP_UNTIL_AGE])
+            moving = inQuarantineUntil(person) != null;
+            moving &= lockdownUntilArr == null || Float.isNaN(lockdownUntilArr[LOCKDOWN_INTER_META_POP_UNTIL_AGE])
                     || person.getAge() >= lockdownUntilArr[LOCKDOWN_INTER_META_POP_UNTIL_AGE];
 
             if (moving) {
@@ -707,6 +707,7 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
             Integer inQuarantine = inQuarantineUntil(p);
 
             boolean forcedInCoreHousehold = inQuarantine != null;
+            
             if (!forcedInCoreHousehold) {
                 Float[] inLockdownUntil = inLockdownUntil(p);
                 if (inLockdownUntil != null) {
