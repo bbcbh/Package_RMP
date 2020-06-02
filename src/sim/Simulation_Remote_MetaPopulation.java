@@ -381,9 +381,9 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
             }
             break;
             default:
-                System.err.println("Error: Illegal arg[0]. Set 0 for NG/CT Run, "
-                        + "1 for Syphilis, 2 for Optimisation, 3 for population file generation, "
-                        + "4 for Optimisaiton using GA, 5 for COVID19");
+                System.err.println("Error: Illegal arg[0]. Set 0 for modelling for NG/CT, "
+                        + "1 for modellign for syphilis, 2 for optimisation, 3 for population file generation, "
+                        + "4 for optimisaiton using GA, 5 for COVID19");
 
         }
     }
