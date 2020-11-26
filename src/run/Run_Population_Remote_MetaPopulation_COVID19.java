@@ -292,7 +292,7 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
 
         if (zipSnapFilename.exists()) {
             System.out.println("Simulation not run at " + baseDir.getAbsolutePath()
-                    + "as results already exist at " + zipSnapFilename.getAbsolutePath());
+                    + " as results already exist at " + zipSnapFilename.getAbsolutePath());
 
             popSize = (int[]) util.PropValUtils.propStrToObject(
                     propModelInitStr[Population_Remote_MetaPopulation_COVID19.FIELDS_REMOTE_METAPOP_POP_SIZE], int[].class);

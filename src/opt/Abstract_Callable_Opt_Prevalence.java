@@ -34,11 +34,11 @@ public abstract class Abstract_Callable_Opt_Prevalence implements Callable<doubl
 
     protected double[] target_weight;
     protected double[] target_preval;
-    
+
     protected int[] pop_type_incl_for_residue = null;
-    
+
     // Addtional fields
-    protected String[] propModelInitStr;            
+    protected String[] propModelInitStr;
 
     public Abstract_Callable_Opt_Prevalence() {
     }
@@ -67,7 +67,11 @@ public abstract class Abstract_Callable_Opt_Prevalence implements Callable<doubl
         for (int i = 0; i < propModelInitStr.length; i++) {
             if (propModelInitStr[i] != null && !propModelInitStr[i].isEmpty()) {
                 if (i < Callable_Opt_Prevalence.OPT_PARAM_TOTAL) {
-                    param[i] = Float.parseFloat(propModelInitStr[i]);
+                    try {
+                        param[i] = Float.parseFloat(propModelInitStr[i]);
+                    } catch (NumberFormatException ex) {                        
+                        param[i] = Float.NaN;
+                    }
                 } else if (i - Callable_Opt_Prevalence.OPT_PARAM_TOTAL < Thread_PopRun.PARAM_TOTAL) {
                     thread.getInputParam()[i - Callable_Opt_Prevalence.OPT_PARAM_TOTAL] = PropValUtils.propStrToObject(propModelInitStr[i], thread.getInputParam()[i - Callable_Opt_Prevalence.OPT_PARAM_TOTAL].getClass());
                 } else {
@@ -130,26 +134,21 @@ public abstract class Abstract_Callable_Opt_Prevalence implements Callable<doubl
                 return ageClassifier.numClass() * 2;
             }
         };
-        
-        
+
         int[] numInGroup;
         int[] numInfect;
-        
-        
+
         numInGroup = new int[prevalClassifer.numClass()];
         numInfect = new int[prevalClassifer.numClass() * thread.getPop().getInfList().length];
         AbstractIndividualInterface[] allPerson = thread.getPop().getPop();
-        
-        
+
         for (AbstractIndividualInterface person : allPerson) {
             // Remote only
             int loc = ((Population_Remote_MetaPopulation) thread.getPop()).getCurrentLocation(person);
             int popType = ((int[]) ((Population_Remote_MetaPopulation) thread.getPop()).getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_POP_TYPE])[loc];
-            
-            
-            
-            if (pop_type_incl_for_residue == null 
-                    || Arrays.binarySearch(pop_type_incl_for_residue,popType)>=0) {
+
+            if (pop_type_incl_for_residue == null
+                    || Arrays.binarySearch(pop_type_incl_for_residue, popType) >= 0) {
                 int cI = prevalClassifer.classifyPerson(person);
                 numInGroup[cI]++;
                 if (person.getInfectionStatus()[0] != AbstractIndividualInterface.INFECT_S) {

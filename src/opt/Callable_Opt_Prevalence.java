@@ -40,9 +40,9 @@ public class Callable_Opt_Prevalence extends Abstract_Callable_Opt_Prevalence {
     public static final int OPT_PARAM_INDEX_AVE_INF_DUR_NG = OPT_PARAM_INDEX_AVE_INF_DUR_CT + 1;
 
     // Optional     
-    public static final int OPT_PRRAM_INDEX_SYM_SEEK = OPT_PARAM_INDEX_AVE_INF_DUR_NG + 1;
+    public static final int OPT_PRRAM_INDEX_NON_SRN_SETTING = OPT_PARAM_INDEX_AVE_INF_DUR_NG + 1;
 
-    public static final int OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_16_19 = OPT_PRRAM_INDEX_SYM_SEEK + 1;
+    public static final int OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_16_19 = OPT_PRRAM_INDEX_NON_SRN_SETTING + 1;
     public static final int OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_20_24 = OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_16_19 + 1;
     public static final int OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_25_29 = OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_20_24 + 1;
     public static final int OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_30_35 = OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_25_29 + 1;
@@ -219,13 +219,12 @@ public class Callable_Opt_Prevalence extends Abstract_Callable_Opt_Prevalence {
             outputPrint.println("Duration Sym (NG) = " + Arrays.toString((double[]) ng_inf.getParameter(key)));
         }
 
-        if (param.length > OPT_PRRAM_INDEX_SYM_SEEK) {
-
-            ((float[]) thread.getInputParam()[Thread_PopRun.PARAM_INDEX_SYMPTOM_TREAT_STAT])[0] = (float) param[OPT_PRRAM_INDEX_SYM_SEEK];
+        if (param.length > OPT_PRRAM_INDEX_NON_SRN_SETTING) {          
+            ((float[]) thread.getInputParam()[Thread_PopRun.PARAM_INDEX_NON_SRN_TEST_SETTING])[0] = (float) param[OPT_PRRAM_INDEX_NON_SRN_SETTING];
 
             if (outputPrint != null) {
-                outputPrint.println("Sym treatment stat  = "
-                        + Arrays.toString((float[]) thread.getInputParam()[Thread_PopRun.PARAM_INDEX_SYMPTOM_TREAT_STAT]));
+                outputPrint.println("Non-screening testing setting  = "
+                        + Arrays.toString((float[]) thread.getInputParam()[Thread_PopRun.PARAM_INDEX_NON_SRN_TEST_SETTING]));
             }
         }
 

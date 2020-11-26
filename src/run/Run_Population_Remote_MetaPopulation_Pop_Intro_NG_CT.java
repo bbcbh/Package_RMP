@@ -20,13 +20,13 @@ import static opt.Callable_Opt_Prevalence.OPT_PARAM_INDEX_TRAN_FEMALE_MALE_CT;
 import static opt.Callable_Opt_Prevalence.OPT_PARAM_INDEX_TRAN_FEMALE_MALE_NG;
 import static opt.Callable_Opt_Prevalence.OPT_PARAM_INDEX_TRAN_MALE_FEMALE_EXTRA_CT;
 import static opt.Callable_Opt_Prevalence.OPT_PARAM_INDEX_TRAN_MALE_FEMALE_EXTRA_NG;
-import static opt.Callable_Opt_Prevalence.OPT_PRRAM_INDEX_SYM_SEEK;
 import org.apache.commons.math3.distribution.AbstractRealDistribution;
 import org.apache.commons.math3.distribution.BetaDistribution;
 import population.Population_Remote_MetaPopulation;
 import random.RandomGenerator;
 import util.PersonClassifier;
 import util.PropValUtils;
+import static opt.Callable_Opt_Prevalence.OPT_PRRAM_INDEX_NON_SRN_SETTING;
 
 /**
  *
@@ -61,7 +61,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT extends Abstra
     public int NUM_STEPS = 360 * 50;
     public int SAMP_FREQ = 90;
 
-    double[] paramVal_Run = {        
+    double[] paramVal_Run = {
         // 0: OPT_PARAM_INDEX_TRAN_FEMALE_MALE_CT;
         0.285,
         // 1: OPT_PARAM_INDEX_TRAN_MALE_FEMALE_EXTRA_CT
@@ -74,7 +74,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT extends Abstra
         434.50,
         // 5: OPT_PARAM_INDEX_AVE_INF_DUR_NG 
         365.73,
-        // 6: OPT_PRRAM_INDEX_SYM_SEEK 
+        // 6: OPT_PRRAM_INDEX_NON_SRN_SETTING 
         0.0098,
         // 7: OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_16_19
         1,
@@ -83,8 +83,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT extends Abstra
         // 9: OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_25_29
         1,
         // 10: OPT_PARAM_INDEX_TRAVERLER_BEHAVIOUR_30_35
-        1,        
-    };
+        1,};
 
     //protected String[] threadParamValStr = new String[Thread_PopRun.PARAM_TOTAL];
     // For Beta distribution, 
@@ -143,9 +142,9 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT extends Abstra
         return paramVal_Run;
     }
 
-    protected Object[] generateParam() {        
-        int[] tranSD = new int[]{0,0};
-        
+    protected Object[] generateParam() {
+        int[] tranSD = new int[]{0, 0};
+
         Object[] generatedDistribution = {
             // Better trans                        
             // 0: OPT_PARAM_INDEX_TRAN_FEMALE_MALE_CT; 
@@ -168,9 +167,8 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT extends Abstra
             paramVal_Run[4],
             // 5: OPT_PARAM_INDEX_AVE_INF_DUR_NG 
             paramVal_Run[5],
-            // 6: OPT_PRRAM_INDEX_SYM_SEEK 
-            paramVal_Run[6],
-            // 7-10: Not used here        
+            // 6: OPT_PRRAM_INDEX_NON_SRN_SETTING 
+            paramVal_Run[6], // 7-10: Not used here        
         };
 
         return generatedDistribution;
@@ -432,14 +430,22 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT extends Abstra
         if (outputPrint != null) {
             outputPrint.println("Duration Sym (NG) = " + Arrays.toString((double[]) ng_inf.getParameter(key)));
         }
-        
-        
-        if (param.length > OPT_PRRAM_INDEX_SYM_SEEK) {
-            ((float[]) thread.getInputParam()[Thread_PopRun.PARAM_INDEX_SYMPTOM_TREAT_STAT])[0] = (float) param[OPT_PRRAM_INDEX_SYM_SEEK];
+
+        if (param.length > OPT_PRRAM_INDEX_NON_SRN_SETTING) {
+
+            if (Float.isNaN((float) param[OPT_PRRAM_INDEX_NON_SRN_SETTING])) {
+                String rawEnt = getParam_raw_string().get(OPT_PRRAM_INDEX_NON_SRN_SETTING);
+
+                thread.getInputParam()[Thread_PopRun.PARAM_INDEX_NON_SRN_TEST_SETTING]
+                        = PropValUtils.propStrToObject(rawEnt, float[].class);
+
+            } else {
+                ((float[]) thread.getInputParam()[Thread_PopRun.PARAM_INDEX_NON_SRN_TEST_SETTING])[0] = (float) param[OPT_PRRAM_INDEX_NON_SRN_SETTING];
+            }
 
             if (outputPrint != null) {
-                outputPrint.println("Sym treatment stat  = "
-                        + Arrays.toString((float[]) thread.getInputParam()[Thread_PopRun.PARAM_INDEX_SYMPTOM_TREAT_STAT]));
+                outputPrint.println("Non srn test setting = "
+                        + Arrays.toString((float[]) thread.getInputParam()[Thread_PopRun.PARAM_INDEX_NON_SRN_TEST_SETTING]));
             }
         }
 

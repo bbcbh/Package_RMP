@@ -26,6 +26,8 @@ import population.Population_Remote_MetaPopulation;
 import static population.Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_POP_SIZE;
 import random.MersenneTwisterRandomGenerator;
 import random.RandomGenerator;
+import relationship.RelationshipMap;
+import relationship.SingleRelationship;
 import util.ArrayUtilsRandomGenerator;
 import util.Default_Remote_MetaPopulation_AgeGrp_Classifier;
 import util.Factory_AwayDuration_Input;
@@ -110,6 +112,8 @@ import util.PropValUtils;
  *  - Add support for custom away duration
  * 20190501
  *  - Add support for change of treatment delay at specific time
+ * 20201126
+ *  - Add support for non-testing based test setting.
  * </pre>
  */
 public class Thread_PopRun implements Runnable {
@@ -134,8 +138,13 @@ public class Thread_PopRun implements Runnable {
     public static final int PARAM_INDEX_TESTING_RATE_BY_HOME_LOC = PARAM_INDEX_TESTING_RATE_BY_CLASSIFIER + 1;
     public static final int PARAM_INDEX_TESTING_TREATMENT_DELAY_BY_LOC = PARAM_INDEX_TESTING_RATE_BY_HOME_LOC + 1;
     public static final int PARAM_INDEX_TESTING_SENSITIVITY = PARAM_INDEX_TESTING_TREATMENT_DELAY_BY_LOC + 1;
-    public static final int PARAM_INDEX_SYMPTOM_TREAT_STAT = PARAM_INDEX_TESTING_SENSITIVITY + 1;
-    public static final int PARAM_TOTAL = PARAM_INDEX_SYMPTOM_TREAT_STAT + 1;
+    public static final int PARAM_INDEX_NON_SRN_TEST_SETTING = PARAM_INDEX_TESTING_SENSITIVITY + 1;
+    public static final int PARAM_TOTAL = PARAM_INDEX_NON_SRN_TEST_SETTING + 1;
+
+    public static final int NON_SRN_TEST_SETTING_SYM_TREAT_PROB = 0;
+    public static final int NON_SRN_TEST_SETTING_SYM_TREAT_DELAY_MIN = NON_SRN_TEST_SETTING_SYM_TREAT_PROB + 1;
+    public static final int NON_SRN_TEST_SETTING_SYM_TREAT_DELAY_RANGE = NON_SRN_TEST_SETTING_SYM_TREAT_DELAY_MIN + 1;
+    public static final int NON_SRN_TEST_CONTRACT_TRACE_PROB = NON_SRN_TEST_SETTING_SYM_TREAT_DELAY_RANGE + 1;
 
     public static final int TESTING_OPTION_USE_PROPORTION_TEST_COVERAGE = 0;
     public static final int TESTING_OPTION_FIX_TEST_SCHEDULE = TESTING_OPTION_USE_PROPORTION_TEST_COVERAGE + 1;
@@ -280,7 +289,7 @@ public class Thread_PopRun implements Runnable {
             new int[]{0, 111, 0, 122, 2, 191, 5, 327, 113, 405},},
         // 9: PARAM_INDEX_TESTING_SENSITIVITY
         0.98f,
-        // 10: PARAM_INDEX_SYMPTOM_TREAT_STAT
+        // 10: PARAM_INDEX_NON_SRN_TEST_SETTING
         // [probabilty of seek treatment from symptom, delay min, delay range}
         new float[]{0, 7, 0},};
 
@@ -725,18 +734,18 @@ public class Thread_PopRun implements Runnable {
 
                     pop.advanceTimeStep(1);
 
-                    float[] sym_stat = (float[]) inputParam[PARAM_INDEX_SYMPTOM_TREAT_STAT];
+                    float[] sym_stat = (float[]) inputParam[PARAM_INDEX_NON_SRN_TEST_SETTING];
 
                     for (int p = 0; p < pop.getPop().length; p++) {
                         if (pop.getPop()[p].getId() == personId[p] && !hasSyp[p]) {
                             // Only check if it is not a new person 
                             for (AbstractInfection inf : pop.getInfList()) {
-                                if (inf.hasSymptoms(pop.getPop()[p]) && pop.getRNG().nextFloat() < sym_stat[0]) {
+                                if (inf.hasSymptoms(pop.getPop()[p]) && pop.getRNG().nextFloat() < sym_stat[NON_SRN_TEST_SETTING_SYM_TREAT_PROB]) {
 
-                                    int sym_treatment_delay = (int) sym_stat[1];
+                                    int sym_treatment_delay = (int) sym_stat[NON_SRN_TEST_SETTING_SYM_TREAT_DELAY_MIN];
 
-                                    if (((int) sym_stat[2]) > 0) {
-                                        sym_treatment_delay += pop.getRNG().nextInt((int) sym_stat[2]);
+                                    if (((int) sym_stat[NON_SRN_TEST_SETTING_SYM_TREAT_DELAY_RANGE]) > 0) {
+                                        sym_treatment_delay += pop.getRNG().nextInt((int) sym_stat[NON_SRN_TEST_SETTING_SYM_TREAT_DELAY_RANGE]);
                                     }
 
                                     if (sym_treatment_delay >= 0) {
@@ -1214,6 +1223,45 @@ public class Thread_PopRun implements Runnable {
 
                         }
 
+                        if (NON_SRN_TEST_CONTRACT_TRACE_PROB
+                                < ((float[]) inputParam[PARAM_INDEX_NON_SRN_TEST_SETTING]).length) {
+                            float contract_trace_prob
+                                    = ((float[]) inputParam[PARAM_INDEX_NON_SRN_TEST_SETTING])[NON_SRN_TEST_CONTRACT_TRACE_PROB];
+
+                            // Contract tracing treatment
+                            if (pop.getRNG().nextFloat() < contract_trace_prob) {
+                                RelationshipMap relMap
+                                        = pop.getRelMap()[Population_Remote_MetaPopulation.RELMAP_GLOBAL_SEXUAL];
+
+                                if (relMap.containsVertex(rmp_person.getId())) {
+                                    int numEdges = relMap.degreeOf(rmp_person.getId());
+                                    SingleRelationship[] rel = relMap.edgesOf(rmp_person.getId()).toArray(new SingleRelationship[numEdges]);
+
+                                    for (SingleRelationship r : rel) {
+                                        int[] ids = r.getLinksValues();
+                                        Person_Remote_MetaPopulation partner
+                                                = (Person_Remote_MetaPopulation) pop.getPersonById(ids[0] == rmp_person.getId() ? ids[1] : ids[0]);
+
+                                        for (AbstractInfection inf : pop.getInfList()) {
+                                            if (inf instanceof TreatableInfectionInterface 
+                                                    &&  inf.isInfected(partner)) {
+                                                ((TreatableInfectionInterface) inf).applyTreatmentAt(partner, pop.getGlobalTime());
+                                                partner.setLastTreatedAt((int) partner.getAge());
+                                                if (indiv_hist[INDIV_HIST_TREAT] != null) {
+                                                    storeIndivdualHistory(indiv_hist[INDIV_HIST_TREAT], partner);
+                                                }
+
+                                            }
+                                        }
+
+                                    }
+
+                                }
+
+                            }
+
+                        }
+
                     } else {
                         // Miss out on treatment due to location
 
@@ -1315,8 +1363,23 @@ public class Thread_PopRun implements Runnable {
         }
 
         if (orgVal != null) {
-            ((Population_Remote_MetaPopulation) getPop()).getFields()[fieldIndex]
-                    = PropValUtils.propStrToObject(fieldEntry, orgVal.getClass());
+
+            try {
+                ((Population_Remote_MetaPopulation) getPop()).getFields()[fieldIndex]
+                        = PropValUtils.propStrToObject(fieldEntry, orgVal.getClass());
+            } catch (NumberFormatException ex) {
+
+                Object orgParam = ((Population_Remote_MetaPopulation) getPop()).getFields()[fieldIndex];
+                System.err.println(
+                        String.format("Error in parsing string at fieldIndex %d", fieldIndex));
+
+                System.err.println(String.format("String ->\n %s\n", fieldEntry));
+                System.err.println("Org Class = " + orgVal.getClass().getSimpleName());
+                System.err.println("Org Value = " + orgParam);
+
+                ex.printStackTrace(System.err);
+                System.exit(1);
+            }
 
         }
 

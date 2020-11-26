@@ -1479,7 +1479,7 @@ class Thread_PopRun_COVID19 implements Runnable {
                     if (isContactTesting) {
                         comply &= isValidTestCandidate(targetCandidiate);
                         if (comply) {
-                            insertTestIntoSchedule(targetCandidiate, interventionDelay, Math.min(srcTestType, 0) - 1);
+                            insertTestIntoSchedule(targetCandidiate, interventionDelay, Math.min(srcTestType, TEST_TYPE_CONTACT_BASE) - 1);
                         }
                     }
                     if (isContactQuarantine) {

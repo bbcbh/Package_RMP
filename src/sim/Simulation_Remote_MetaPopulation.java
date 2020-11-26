@@ -190,7 +190,12 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                     for (int i = 0; i < propModelInitStr.length; i++) {
                         if (propModelInitStr[i] != null && !propModelInitStr[i].isEmpty()) {
                             if (i < runNGCT.getRunParamValues().length) {
-                                runNGCT.getRunParamValues()[i] = Double.parseDouble(propModelInitStr[i]);
+                                try {
+                                    runNGCT.getRunParamValues()[i] = Double.parseDouble(propModelInitStr[i]);
+                                } catch (NumberFormatException ex) {                                    
+                                    runNGCT.getRunParamValues()[i] = Float.NaN;                                    
+                                    runNGCT.getParam_raw_string().put(i, propModelInitStr[i]);                                    
+                                }
                             } else if (i - runNGCT.getRunParamValues().length < runNGCT.getThreadParamValStr().length) {
                                 runNGCT.getThreadParamValStr()[i - runNGCT.getRunParamValues().length] = propModelInitStr[i];
                             } else {
@@ -233,8 +238,8 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
                 if (propModelInitStr != null) {
                     for (int i = 0; i < propModelInitStr.length; i++) {
                         if (propModelInitStr[i] != null && !propModelInitStr[i].isEmpty()) {
-                            if (i < runSyp.getRunParamValues().length) {
-                                runSyp.getRunParamValues()[i] = Double.parseDouble(propModelInitStr[i]);
+                            if (i < runSyp.getRunParamValues().length) {                                
+                                runSyp.getRunParamValues()[i] = Double.parseDouble(propModelInitStr[i]);                                
                             } else if (i - runSyp.getRunParamValues().length < runSyp.getThreadParamValStr().length) {
                                 runSyp.getThreadParamValStr()[i - runSyp.getRunParamValues().length] = propModelInitStr[i];
                             } else {

@@ -6,6 +6,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 
 /**
  * An abstract class to define share method for Run_Population_Remote_MetaPopulation_Pop_Intro_NG_CT and Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis
@@ -20,6 +21,8 @@ import java.util.Arrays;
  *   - Change from interface to abstract class, implementation of PopSelectionCSV methods
  * 20180907:
  *   - Add support for PROP_STORE_TESTING_HISTORY
+ * 20201126:
+ *   - Add support for RAW_STRING_MAPPING
  * </pre>
  */
 public abstract class Abstract_Run_IntroInfection {
@@ -29,6 +32,12 @@ public abstract class Abstract_Run_IntroInfection {
     protected String[] popParamValStr = new String[0];
     protected String[] threadParamValStr = new String[Thread_PopRun.PARAM_TOTAL];
     protected Integer[] popSelectionIndex = null;
+
+    protected HashMap<Integer, String> param_raw_string = new HashMap<>();
+
+    public HashMap<Integer, String> getParam_raw_string() {
+        return param_raw_string;
+    }
 
     protected boolean storeInfectionHistory = false;
     protected boolean storeTestingHistory = false;
