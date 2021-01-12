@@ -600,7 +600,7 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
                         int randAvailPt = getRNG().nextInt(availablePt[currentLoc][partnerGender]);
                         float condomUsage = condomUsageAll[currentLoc < condomUsageAll.length ? currentLoc : 0];
 
-                        if (getRNG().nextFloat() < condomUsage) {
+                        if (!(getRNG().nextFloat() < condomUsage)) {
                             AbstractIndividualInterface[] oneOffPartners = new AbstractIndividualInterface[2];
                             oneOffPartners[traveller.isMale() ? 0 : 1] = traveller;
                             oneOffPartners[partnerGender] = availableAllLocation[currentLoc][partnerGender][randAvailPt];
