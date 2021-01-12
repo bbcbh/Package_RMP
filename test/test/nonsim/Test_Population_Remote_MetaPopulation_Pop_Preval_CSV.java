@@ -44,6 +44,22 @@ public class Test_Population_Remote_MetaPopulation_Pop_Preval_CSV {
 
     public void decode() throws FileNotFoundException, IOException {
 
+        File[] existing_prevalSummaryFile = resultDir.listFiles(new FileFilter() {
+            @Override
+            public boolean accept(File file) {
+                return file.getName().startsWith(prevalByClassPrefix);
+            }
+        });
+
+        if (existing_prevalSummaryFile.length > 0) {
+            System.out.println(Integer.toString(existing_prevalSummaryFile.length)
+                    + " prevalence summary file"
+                    + (existing_prevalSummaryFile.length == 1 ? "" : "s") + " found at " + resultDir.getAbsolutePath()
+                    + ". Decoding skipped.");
+
+            return;
+        }
+
         System.out.print("Decoding results from " + resultDir.getAbsolutePath());
 
         File[] outputFiles = resultDir.listFiles(new FileFilter() {
@@ -141,6 +157,11 @@ public class Test_Population_Remote_MetaPopulation_Pop_Preval_CSV {
                         int[][] numPerson_total = new int[numInf][NUM_CLASS];
 
                         for (int i = 1; i < entries.length; i++) {
+                            if(i >= headerLine.length){
+                                System.err.println("Check error for header line "                                          
+                                        + " at " + outputPrevalCSV.toString());
+                            }
+                            
                             keyEnt = prevalenceHeaderPattern.matcher(headerLine[i]);
 
                             if (keyEnt.matches()) {
@@ -179,7 +200,7 @@ public class Test_Population_Remote_MetaPopulation_Pop_Preval_CSV {
                                 totalEnt[simNum][0] += numPerson_inf[inf_id][cI];
                                 totalEnt[simNum][1] += numPerson_total[inf_id][cI];
                             }
-                            
+
                             totalCount[inf_id].put(time, totalEnt);
 
                         }
@@ -209,46 +230,46 @@ public class Test_Population_Remote_MetaPopulation_Pop_Preval_CSV {
     protected void generateTotalPrevalenceCSV() throws IOException {
         for (int i = 0; i < totalCount.length; i++) {
             File prevalTotalFile = new File(resultDir, prevalTotalPrefix + Integer.toString(i) + ".csv");
-            
+
             if (prevalTotalFile.exists()) {
                 System.out.println("Prevalence for all already existed at " + prevalTotalFile.getAbsolutePath()
                         + ". File not generated. ");
             } else {
                 System.out.println("Generrating prevalence for all at " + prevalTotalFile.getAbsolutePath());
-                
+
                 Integer[] times = totalCount[i].keySet().toArray(new Integer[totalCount[i].keySet().size()]);
                 Arrays.sort(times);
-                
+
                 PrintWriter wri = new PrintWriter(new FileWriter(prevalTotalFile));
                 boolean header = true;
                 StringBuilder printEntry;
-                
+
                 for (Integer t : times) {
                     int[][] values = totalCount[i].get(t);
                     printEntry = new StringBuilder();
                     if (header) {
                         printEntry.append("Time");
-                        
+
                         for (int c = 0; c < values.length; c++) {
                             printEntry.append(",Sim ");
                             printEntry.append(c);
                         }
                         wri.println(printEntry.toString());
-                        
+
                         header = false;
                         printEntry = new StringBuilder();
-                        
+
                     }
                     printEntry.append(t.toString());
                     for (int[] value : values) {
                         int[] ent = Arrays.copyOf(value, value.length);
                         printEntry.append(",");
-                        printEntry.append(((float) ent[0]) / ent[1]) ;
+                        printEntry.append(((float) ent[0]) / ent[1]);
                     }
                     wri.println(printEntry.toString());
                 }
                 wri.close();
-                
+
             }
 
         }
@@ -384,18 +405,21 @@ public class Test_Population_Remote_MetaPopulation_Pop_Preval_CSV {
 
     public static void main(String[] arg) throws FileNotFoundException, IOException {
 
-        String baseDir = "C:\\Users\\Bhui\\OneDrive - UNSW\\RMP\\TTANGO\\TTANGO_Srn";
+        String[] baseDirs = {"C:\\Users\\bhui\\Desktop\\RMP\\Cal_H\\Sym", "C:\\Users\\bhui\\Desktop\\RMP\\Cal_H\\Matrix"};
 
-        File[] folders = new File(baseDir).listFiles(new FileFilter() {
-            @Override
-            public boolean accept(File file) {
-                return file.isDirectory();
+        for (String baseDir : baseDirs) {
+
+            File[] folders = new File(baseDir).listFiles(new FileFilter() {
+                @Override
+                public boolean accept(File file) {
+                    return file.isDirectory();
+                }
+            });
+            Test_Population_Remote_MetaPopulation_Pop_Preval_CSV decoder;
+            for (File f : folders) {
+                decoder = new Test_Population_Remote_MetaPopulation_Pop_Preval_CSV(f);
+                decoder.decode();
             }
-        });
-        Test_Population_Remote_MetaPopulation_Pop_Preval_CSV decoder;
-        for (File f : folders) {
-            decoder = new Test_Population_Remote_MetaPopulation_Pop_Preval_CSV(f);
-            decoder.decode();
         }
 
     }
