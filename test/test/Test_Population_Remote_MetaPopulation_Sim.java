@@ -12,9 +12,9 @@ public class Test_Population_Remote_MetaPopulation_Sim {
             //"Opt_NGCTBehav",   
             //"OptGA_NGCTBehav", 
             //"Syp_Sel_FC_CM_.*", 
-            "Srn_RPO_.*",                
-            //"Covid19_Test.*",            
-            //"-skipAnalysis -noZipRemove -clearPrevResult",                
+            //"Srn_RPO_.*",                
+            "Covid19_Test.*",            
+            "-skipAnalysis -noZipRemove -clearPrevResult",                
         };
 
         Simulation_Remote_MetaPopulation.main(baseDir);

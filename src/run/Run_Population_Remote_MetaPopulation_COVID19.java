@@ -21,6 +21,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 import population.Population_Remote_MetaPopulation_COVID19;
+import population.Population_Remote_MetaPopulation_COVID19_AS;
 import sim.SimulationInterface;
 import static sim.SimulationInterface.PROP_NUM_SIM_PER_SET;
 import static sim.SimulationInterface.PROP_NUM_SNAP;
@@ -249,6 +250,15 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
 
     }
 
+    public static final int COVID_POP_TYPE_DEFAULT = 0; // Population_Remote_MetaPopulation_COVID19
+    public static final int COVID_POP_TYPE_AGE_STURCTURED = 1;
+
+    private int COVID_Pop_Type = COVID_POP_TYPE_DEFAULT;
+
+    public void setCOVID_Pop_Type(int COVID_Pop_Type) {
+        this.COVID_Pop_Type = COVID_Pop_Type;
+    }
+
     protected final File baseDir;
     protected final String[] propModelInitStr;
     protected final Object[] propVal;
@@ -324,11 +334,19 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
                 }
 
                 // Set up population
-                Population_Remote_MetaPopulation_COVID19 pop = new Population_Remote_MetaPopulation_COVID19(rng.nextLong());
+                Population_Remote_MetaPopulation_COVID19 pop;
+
+                if (COVID_Pop_Type == COVID_POP_TYPE_AGE_STURCTURED) {
+                    pop = new Population_Remote_MetaPopulation_COVID19_AS(rng.nextLong());
+
+                } else {
+                    pop = new Population_Remote_MetaPopulation_COVID19(rng.nextLong());
+
+                }
 
                 // Population parameter
                 for (int f = 0; f < Math.min(propModelInitStr.length, pop.getFields().length); f++) {
-                    if (propModelInitStr[f] != null) {
+                    if (propModelInitStr[f] != null) {                        
                         pop.getFields()[f]
                                 = util.PropValUtils.propStrToObject(propModelInitStr[f], pop.getFieldClass(f));
                     }
