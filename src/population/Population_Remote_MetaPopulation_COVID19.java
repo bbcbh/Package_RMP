@@ -448,7 +448,7 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         }
     }
 
-    private void setContactOptionCore(AbstractIndividualInterface residentAdded, int householdId,
+    protected void setContactOptionCore(AbstractIndividualInterface residentAdded, int householdId,
             float[] householdSpreadDist, float[] nonHouseholdContactRateDist) {
 
         SingleRelationship rel;
