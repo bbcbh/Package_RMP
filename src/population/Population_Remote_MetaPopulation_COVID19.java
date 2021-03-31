@@ -463,23 +463,29 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         householdMap.addEdge(householdId, residentAdded.getId(), rel);
         rel.setDurations(Double.POSITIVE_INFINITY); // Never expires
 
-        contact_option_ent = new float[1 + householdSpreadDist.length * 2];
-        contact_option_ent[CONTACT_OPTIONS_NON_HOUSEHOLD_CONTACT_RATE]
-                = generateNonHouseholdContactRate(residentAdded, nonHouseholdContactRateDist);
-        int index = CONTACT_OPTIONS_CORE_HOUSEHOLD_PROB;
-        float cumul_prob = 0;
-        for (int i = 0; i < householdSpreadDist.length; i++) {
-            contact_option_ent[index] = cumul_prob + householdSpreadDist[i];
-            cumul_prob += householdSpreadDist[i];
-            index++;
-            if (index == CONTACT_OPTIONS_CORE_HOUSEHOLD_ID) {
-                contact_option_ent[index] = householdId;
-            } else {
-                contact_option_ent[index] = Float.NaN;
+        contact_option_ent = contactOptions.get(residentAdded.getId());
+
+        if (contact_option_ent == null) {
+            contact_option_ent = new float[1 + householdSpreadDist.length * 2];
+            contact_option_ent[CONTACT_OPTIONS_NON_HOUSEHOLD_CONTACT_RATE]
+                    = generateNonHouseholdContactRate(residentAdded, nonHouseholdContactRateDist);
+            int index = CONTACT_OPTIONS_CORE_HOUSEHOLD_PROB;
+            float cumul_prob = 0;
+            for (int i = 0; i < householdSpreadDist.length; i++) {
+                contact_option_ent[index] = cumul_prob + householdSpreadDist[i];
+                cumul_prob += householdSpreadDist[i];
+                index++;
+                if (index == CONTACT_OPTIONS_CORE_HOUSEHOLD_ID) {
+                    contact_option_ent[index] = householdId;
+                } else {
+                    contact_option_ent[index] = Float.NaN;
+                }
+                index++;
             }
-            index++;
+            contactOptions.put(residentAdded.getId(), contact_option_ent);
         }
-        contactOptions.put(residentAdded.getId(), contact_option_ent);
+        
+        contact_option_ent[CONTACT_OPTIONS_CORE_HOUSEHOLD_ID] = householdId;
     }
 
     @Override
@@ -707,7 +713,7 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
             Integer inQuarantine = inQuarantineUntil(p);
 
             boolean forcedInCoreHousehold = inQuarantine != null;
-            
+
             if (!forcedInCoreHousehold) {
                 Float[] inLockdownUntil = inLockdownUntil(p);
                 if (inLockdownUntil != null) {

@@ -402,16 +402,13 @@ public class Population_Remote_MetaPopulation_COVID19_AS
         }
 
         // Determine how many family with single non depdnents need to be added
-        HashMap<Integer, int[]> swapToPerform = new HashMap<>(); // K = candidate_id, V = [orginal house, new_house]        
+        //HashMap<Integer, int[]> swapToPerform = new HashMap<>(); // K = candidate_id, V = [orginal house, new_house]        
         int numFamilySingleWithDependent = 0;
         int numAdultInMultipleAdultsFamily = 0;
-        int[] numDependInMultipleDepdenentsFamily = new int[indivudual_map_by_loc.length];
 
-        for (int loc = 0; loc < indivudual_map_by_loc.length; loc++) {
-            LinkedList<Integer>[] indivudual_map_at_loc = indivudual_map_by_loc[loc];
+        for (LinkedList<Integer>[] indivudual_map_at_loc : indivudual_map_by_loc) {
             numFamilySingleWithDependent += indivudual_map_at_loc[INDIV_MAP_ADULT_SINGLE_WITH_DEPENDENT].size();
             numAdultInMultipleAdultsFamily += indivudual_map_at_loc[INDIV_MAP_ADULT_NO_DEPENDENT].size() + indivudual_map_at_loc[INDIV_MAP_ADULT_MULTI_PARENT].size();
-            numDependInMultipleDepdenentsFamily[loc] += indivudual_map_at_loc[INDIV_MAP_DEPENDENT_MULTI_WITH_ADULT].size();
         }
 
         int numSingleWithDependentToBeAdded = Math.round(
@@ -436,11 +433,10 @@ public class Population_Remote_MetaPopulation_COVID19_AS
                     idMultiAdultFamily_NextIndex++;
                 }
 
-                for (Integer p : indivudual_map_at_loc[INDIV_MAP_DEPENDENT_SINGLE_WITH_ADULT]) {
-                    idDepMultiDepFamily[loc]
-                            = indivudual_map_at_loc[INDIV_MAP_DEPENDENT_SINGLE_WITH_ADULT].toArray(new Integer[0]);
-                    idDepMultiDepFamily_NextIndex[loc] = idDepMultiDepFamily[loc].length;
-                }
+                idDepMultiDepFamily[loc]
+                        = indivudual_map_at_loc[INDIV_MAP_DEPENDENT_MULTI_WITH_ADULT].toArray(new Integer[0]);
+                idDepMultiDepFamily_NextIndex[loc] = idDepMultiDepFamily[loc].length;
+
             }
 
             while (numSingleWithDependentToBeAdded > 0
@@ -450,7 +446,11 @@ public class Population_Remote_MetaPopulation_COVID19_AS
 
                 int swapPosAdult = getRNG().nextInt(idMultiAdultFamily_NextIndex);
                 int candidate_adult_Id = idAdultMultiAdultFamily[swapPosAdult];
+
                 int loc = ((person.MoveablePersonInterface) this.getPersonById(candidate_adult_Id)).getHomeLocation();
+
+                float[] householdSpreadDist = householdSpreadByLoc[loc];
+                float[] nonHouseholdContactRateDist = nonHouseholdContactRateByLoc[loc];
 
                 if (idDepMultiDepFamily_NextIndex[loc] <= 0) {
                     // No more dependednt available to be swapped - try again using indivdual at other location
@@ -462,21 +462,25 @@ public class Population_Remote_MetaPopulation_COVID19_AS
 
                 } else {
 
-                    val = householdMap.edgesOf(candidate_adult_Id).iterator().next().getLinksValues();
+                    SingleRelationship org_adult_connection
+                            = householdMap.edgesOf(candidate_adult_Id).iterator().next();
+
+                    val = org_adult_connection.getLinksValues();
                     int candidate_adult_houseId = val[0] == candidate_adult_Id ? val[1] : val[0];
 
                     int swapPosDep = getRNG().nextInt(idDepMultiDepFamily_NextIndex[loc]);
                     int candidate_dep_Id = idDepMultiDepFamily[loc][swapPosDep];
-                    val = householdMap.edgesOf(candidate_dep_Id).iterator().next().getLinksValues();
+                    SingleRelationship org_dep_connection = householdMap.edgesOf(candidate_dep_Id).iterator().next();
+                    val = org_dep_connection.getLinksValues();
                     int candidate_dep_houseId = val[0] == candidate_dep_Id ? val[1] : val[0];
 
-                    // Move adult to dependent
-                    val = swapToPerform.get(candidate_adult_Id);
-                    if (val == null) {
-                        val = new int[]{candidate_adult_houseId, candidate_dep_houseId};
-                        swapToPerform.put(candidate_adult_Id, val);
-                    }
-                    val[1] = candidate_dep_houseId;
+                    // Move adult to dependent                   
+                    switchHousehold(householdMap, householdSpreadDist, nonHouseholdContactRateDist,
+                            candidate_adult_Id, candidate_dep_houseId, org_adult_connection);
+
+                    // Move dependent to adult       
+                    switchHousehold(householdMap, householdSpreadDist, nonHouseholdContactRateDist,
+                            candidate_dep_Id, candidate_adult_houseId, org_dep_connection);
 
                     // Check household number and update if need              
                     val = household_map_all_loc.get(candidate_adult_houseId);
@@ -486,29 +490,22 @@ public class Population_Remote_MetaPopulation_COVID19_AS
                     if (val[HOUSEHOLD_MAP_NUM_ADULT] == 1) {
                         idMultiAdultFamily_NextIndex--;
                         numFamilySingleWithDependent++;
-                        if (idMultiAdultFamily_NextIndex > 0) {
-                            idAdultMultiAdultFamily[swapPosAdult] = idAdultMultiAdultFamily[idMultiAdultFamily_NextIndex - 1];
-                            idAdultMultiAdultFamily[idMultiAdultFamily_NextIndex - 1] = -1;
+                        if (idMultiAdultFamily_NextIndex >= 0) {
+                            idAdultMultiAdultFamily[swapPosAdult] = idAdultMultiAdultFamily[idMultiAdultFamily_NextIndex];
+                            idAdultMultiAdultFamily[idMultiAdultFamily_NextIndex] = -1;
                         }
 
                     }
 
-                    // Move dependent to adult
-                    val = swapToPerform.get(candidate_dep_Id);
-                    if (val == null) {
-                        val = new int[]{candidate_dep_houseId, candidate_adult_houseId};
-                        swapToPerform.put(candidate_dep_Id, val);
-                    }
-                    val[1] = candidate_adult_houseId;
                     val = household_map_all_loc.get(candidate_dep_houseId);
                     val[HOUSEHOLD_MAP_NUM_ADULT]++;
                     val[HOUSEHOLD_MAP_NUM_DEPENDENT]--;
 
                     if (val[HOUSEHOLD_MAP_NUM_DEPENDENT] == 1) {
                         idDepMultiDepFamily_NextIndex[loc]--;
-                        if (idDepMultiDepFamily_NextIndex[loc] > 0) {
-                            idDepMultiDepFamily[loc][swapPosDep] = idDepMultiDepFamily[loc][idDepMultiDepFamily_NextIndex[loc] - 1];
-                            idDepMultiDepFamily[loc][idDepMultiDepFamily_NextIndex[loc] - 1] = -1;
+                        if (idDepMultiDepFamily_NextIndex[loc] >= 0) {
+                            idDepMultiDepFamily[loc][swapPosDep] = idDepMultiDepFamily[loc][idDepMultiDepFamily_NextIndex[loc]];
+                            idDepMultiDepFamily[loc][idDepMultiDepFamily_NextIndex[loc]] = -1;
                         }
 
                     }
@@ -519,17 +516,6 @@ public class Population_Remote_MetaPopulation_COVID19_AS
                 }
             }
 
-        }
-
-        for (Integer id : swapToPerform.keySet()) {
-            int[] ent = swapToPerform.get(id);
-            SingleRelationship org_connection = householdMap.edgesOf(id).iterator().next();
-            int loc = ((person.MoveablePersonInterface) this.getPersonById(id)).getHomeLocation();
-
-            float[] householdSpreadDist = householdSpreadByLoc[loc];
-            float[] nonHouseholdContactRateDist = nonHouseholdContactRateByLoc[loc];
-            switchHousehold(householdMap, householdSpreadDist, nonHouseholdContactRateDist,
-                    id, ent[1], org_connection);
         }
 
         // Checking  
