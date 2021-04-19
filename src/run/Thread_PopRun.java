@@ -6,6 +6,7 @@ import infection.GonorrhoeaInfection;
 import infection.TreatableInfectionInterface;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -1243,8 +1244,8 @@ public class Thread_PopRun implements Runnable {
                                                 = (Person_Remote_MetaPopulation) pop.getPersonById(ids[0] == rmp_person.getId() ? ids[1] : ids[0]);
 
                                         for (AbstractInfection inf : pop.getInfList()) {
-                                            if (inf instanceof TreatableInfectionInterface 
-                                                    &&  inf.isInfected(partner)) {
+                                            if (inf instanceof TreatableInfectionInterface
+                                                    && inf.isInfected(partner)) {
                                                 ((TreatableInfectionInterface) inf).applyTreatmentAt(partner, pop.getGlobalTime());
                                                 partner.setLastTreatedAt((int) partner.getAge());
                                                 if (indiv_hist[INDIV_HIST_TREAT] != null) {
@@ -1278,12 +1279,32 @@ public class Thread_PopRun implements Runnable {
         if (outputPri != null) {
             outputPri.println("Importing pop file from " + importFilePath.getAbsolutePath());
         }
+
         File tempPop = FileZipper.unzipFile(importFilePath, importFilePath.getParentFile());
 
-        try (ObjectInputStream oIStream = new ObjectInputStream(new BufferedInputStream(new FileInputStream(tempPop)))) {
+        try {
+            ObjectInputStream oIStream;
+            if (tempPop != null) {
+                oIStream = new ObjectInputStream(new BufferedInputStream(new FileInputStream(tempPop)));
+            } else {
+                byte[] arr = FileZipper.unzipFileToByteArray(importFilePath);
+                java.io.ByteArrayInputStream byte_input;
+                byte_input = new java.io.ByteArrayInputStream(arr);
+                oIStream = new ObjectInputStream(byte_input);
+            }
+
             pop = Population_Remote_MetaPopulation.decodeFromStream(oIStream);
+            oIStream.close();
+        } catch (Exception ex) {
+            System.err.println("Error in importing pop file from "
+                    + importFilePath.getAbsolutePath() + "(Temp file path = "
+                    + tempPop + ")");
+            throw ex;
         }
-        tempPop.delete();
+
+        if (tempPop != null) {
+            tempPop.delete();
+        }
 
     }
 

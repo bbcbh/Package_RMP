@@ -499,7 +499,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
                 
                 try {
                     thread.importPop();
-                } catch (IOException | ClassNotFoundException ex) {
+                } catch (IOException | ClassNotFoundException ex) {                  
                     ex.printStackTrace(System.err);
                 }
 
