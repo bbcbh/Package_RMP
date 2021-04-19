@@ -449,11 +449,18 @@ public class Population_Remote_MetaPopulation_COVID19_AS
 
                 int loc = ((person.MoveablePersonInterface) this.getPersonById(candidate_adult_Id)).getHomeLocation();
 
+                SingleRelationship org_adult_connection
+                        = householdMap.edgesOf(candidate_adult_Id).iterator().next();
+
+                val = org_adult_connection.getLinksValues();
+                int candidate_adult_houseId = val[0] == candidate_adult_Id ? val[1] : val[0];
+
                 float[] householdSpreadDist = householdSpreadByLoc[loc];
                 float[] nonHouseholdContactRateDist = nonHouseholdContactRateByLoc[loc];
 
-                if (idDepMultiDepFamily_NextIndex[loc] <= 0) {
-                    // No more dependednt available to be swapped - try again using indivdual at other location
+                if (idDepMultiDepFamily_NextIndex[loc] <= 0
+                        || household_map_all_loc.get(candidate_adult_houseId)[HOUSEHOLD_MAP_NUM_ADULT] == 1) {
+                    // Already living in a single adult household or No more dependednt available to be swapped - try again using indivdual at other location
                     idMultiAdultFamily_NextIndex--;
                     if (idMultiAdultFamily_NextIndex > 0) {
                         idAdultMultiAdultFamily[swapPosAdult] = idAdultMultiAdultFamily[idMultiAdultFamily_NextIndex - 1];
@@ -461,12 +468,6 @@ public class Population_Remote_MetaPopulation_COVID19_AS
                     }
 
                 } else {
-
-                    SingleRelationship org_adult_connection
-                            = householdMap.edgesOf(candidate_adult_Id).iterator().next();
-
-                    val = org_adult_connection.getLinksValues();
-                    int candidate_adult_houseId = val[0] == candidate_adult_Id ? val[1] : val[0];
 
                     int swapPosDep = getRNG().nextInt(idDepMultiDepFamily_NextIndex[loc]);
                     int candidate_dep_Id = idDepMultiDepFamily[loc][swapPosDep];
