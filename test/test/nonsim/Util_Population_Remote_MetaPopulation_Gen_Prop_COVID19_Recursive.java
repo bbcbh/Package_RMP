@@ -11,7 +11,7 @@ import org.w3c.dom.Element;
 import org.xml.sax.SAXException;
 import util.PropValUtils;
 
-public class Util_Population_Remote_MetaPopulation_GenProp_Recursive {
+public class Util_Population_Remote_MetaPopulation_Gen_Prop_COVID19_Recursive {
 
     private final String PROP_FILE_NAME = "simSpecificSim.prop";
 
@@ -58,7 +58,7 @@ public class Util_Population_Remote_MetaPopulation_GenProp_Recursive {
         }
 
         if (commonReplacementPropFile.exists()) {
-            Util_Population_Remote_MetaPopulation_GenProp_Recursive util;
+            Util_Population_Remote_MetaPopulation_Gen_Prop_COVID19_Recursive util;
             Document commonReplaceDoc = PropValUtils.parseXMLFile(commonReplacementPropFile);
             NodeList nList;
 
@@ -78,7 +78,7 @@ public class Util_Population_Remote_MetaPopulation_GenProp_Recursive {
             }
 
             for (File f : recursiveDir) {
-                util = new Util_Population_Remote_MetaPopulation_GenProp_Recursive();
+                util = new Util_Population_Remote_MetaPopulation_Gen_Prop_COVID19_Recursive();
                 File baseDir = new File(genDir, f.getName());
                 util.setReplacemenEntries(commonReplaceDoc);
                 util.genPropFile(baseDir, f);
