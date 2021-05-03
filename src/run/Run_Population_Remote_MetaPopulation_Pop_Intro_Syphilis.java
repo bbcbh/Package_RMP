@@ -307,7 +307,6 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
         if (NUM_SIM_TOTAL > 0 && NUM_SIM_TOTAL < popFiles.length) {
             popFiles = Arrays.copyOf(popFiles, NUM_SIM_TOTAL);
         }
-
         System.out.println(popFiles.length + " population file(s) will be used in simulation");
 
         ExecutorService executor = null;
