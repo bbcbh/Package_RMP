@@ -11,6 +11,12 @@ import org.w3c.dom.Element;
 import org.xml.sax.SAXException;
 import util.PropValUtils;
 
+/**
+ * 
+ * @author Ben Hui
+ * @deprecated  Use standardised procedure under PropFile_Factory instead.
+ */
+
 public class Util_Population_Remote_MetaPopulation_Gen_Prop_COVID19_Recursive {
 
     private final String PROP_FILE_NAME = "simSpecificSim.prop";

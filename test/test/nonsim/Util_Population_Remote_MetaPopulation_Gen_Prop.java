@@ -6,6 +6,12 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 
+/**
+ * 
+ * @author Ben Hui
+ * @deprecated  If possible, use standardised procedure under PropFile_Factory instead.
+ */
+
 public class Util_Population_Remote_MetaPopulation_Gen_Prop {
 
     public static File outputDir = new File("C:\\Users\\Bhui\\OneDrive - UNSW\\RMP\\GenProps");
