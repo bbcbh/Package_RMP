@@ -38,7 +38,7 @@ public class Util_Population_Remote_MetaPopulation_Gen_Prop_Syphilis {
 
     public static void main(String[] arg) throws IOException, SAXException, ParserConfigurationException, TransformerException {
         boolean genBaseline = true;
-        boolean genMassScreenSingleGrp = false;
+        boolean genMassScreenSingleGrp = !true;
 
         File base_prop_dir = DEFAULT_FILE_BASE_PROP_DIR;
         File target_prop_dir = DEFAULT_FILE_TARGET_DIR;
