@@ -16,6 +16,7 @@ import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -315,13 +316,14 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
 
         File previouStoreFile = new File(exportDir, FILENAME_COLLECTION_STORE);
 
-        final HashMap<Integer, int[]> collection_NumIndividuals; // Time, # New infection by sim
-        final HashMap<Integer, int[]> collection_NumInfected;
-        final HashMap<Integer, int[]> collection_NumInfectious;
-        final HashMap<Integer, int[]> collection_NewInfection;
-        final HashMap<Integer, int[]>[] collection_InfectionHistory; // [Sim_id] Id, Infection at
-
+        final HashMap<Integer, HashMap<Integer, Integer>> collection_NumIndividuals; // Time, # New infection by sim
+        final HashMap<Integer, HashMap<Integer, Integer>> collection_NumInfected;
+        final HashMap<Integer, HashMap<Integer, Integer>> collection_NumInfectious;
+        final HashMap<Integer, HashMap<Integer, Integer>> collection_NewInfection;
         final HashMap[] collectionsArray;
+
+        final HashMap<Integer, HashMap<Integer, int[]>> collection_InfectionHistory = new HashMap<>(); // [Sim_id] -> Id, Infection at
+        final HashMap<Integer, ArrayList<Integer>> timeToDX = new HashMap<>(); // SimId -> Array of time to Dx
 
         if (previouStoreFile.exists()) {
 
@@ -364,9 +366,6 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
                 collection_NewInfection, //collection_InfectionHistory
             };
         }
-
-        collection_InfectionHistory = new HashMap[popFiles.length];
-
         for (File importPop : popFiles) {
             int sId;
 
@@ -383,14 +382,14 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
                 numInExe = 0;
             }
 
+            timeToDX.put(sId, new ArrayList<>());
+
             // Check if there is a previous entry
             File infectionHistoryStore = new File(BASE_DIR_STR,
                     FILENAME_INFECTION_HISTORY_OBJ_PREFIX + "_" + sId + ".obj");
 
             if (isStoreInfectionHistory() && !infectionHistoryStore.exists()) {
-                collection_InfectionHistory[sId] = new HashMap<>();
-            } else {
-                collection_InfectionHistory[sId] = null;
+                collection_InfectionHistory.put(sId, new HashMap<>());
             }
 
             final File outputPopFile = new File(exportDir, "Sim_" + importPop.getName());
@@ -403,7 +402,6 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
             } else if (skipPop) {
                 //System.out.println("Simulation for pop file " + outputPopFile.getAbsolutePath() + " skipped due to popSelection.");
             } else {
-
                 PrintWriter outputPrint = null;
                 try {
                     outputPrint = new PrintWriter(new FileWriter(new File(exportDir, "output_" + sId + ".txt")));
@@ -411,6 +409,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
                     ex.printStackTrace(System.err);
                     outputPrint = new PrintWriter(System.out);
                 }
+                final ArrayList<Integer> timeToDiagsArr = timeToDX.get(sId);
 
                 // Generate thread
                 Thread_PopRun thread = new Thread_PopRun(outputPopFile, importPop, sId, NUM_STEPS) {
@@ -440,7 +439,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
                                 }
 
                                 HashMap<Integer, int[]> collection_InfectionHistoryEnt
-                                        = collection_InfectionHistory[super.getSimId()];
+                                        = collection_InfectionHistory.get(super.getSimId());
 
                                 if (collection_InfectionHistoryEnt != null) {
                                     int[] infectionHistoryEnt = collection_InfectionHistoryEnt.get(rmp.getId());
@@ -460,19 +459,28 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
                         }
 
                         if (!collection_NumIndividuals.containsKey(super.getPop().getGlobalTime())) {
-                            collection_NumIndividuals.put(super.getPop().getGlobalTime(), new int[numPopFiles]);
-                            collection_NumInfected.put(super.getPop().getGlobalTime(), new int[numPopFiles]);
-                            collection_NumInfectious.put(super.getPop().getGlobalTime(), new int[numPopFiles]);
+                            collection_NumIndividuals.put(super.getPop().getGlobalTime(), new HashMap<>());
+                            collection_NumInfected.put(super.getPop().getGlobalTime(), new HashMap<>());
+                            collection_NumInfectious.put(super.getPop().getGlobalTime(), new HashMap<>());
                         }
-                        collection_NumIndividuals.get(super.getPop().getGlobalTime())[super.getSimId()] = super.getPop().getPop().length;
-                        collection_NumInfected.get(super.getPop().getGlobalTime())[super.getSimId()] = numInfected;
-                        collection_NumInfectious.get(super.getPop().getGlobalTime())[super.getSimId()] = numInfectious;
+                        collection_NumIndividuals.get(super.getPop().getGlobalTime()).put(super.getSimId(), super.getPop().getPop().length);
+                        collection_NumInfected.get(super.getPop().getGlobalTime()).put(super.getSimId(), numInfected);
+                        collection_NumInfectious.get(super.getPop().getGlobalTime()).put(super.getSimId(), numInfectious);
 
                         if (!collection_NewInfection.containsKey(super.getPop().getGlobalTime())) {
-                            collection_NewInfection.put(super.getPop().getGlobalTime(), new int[numPopFiles]);
+                            collection_NewInfection.put(super.getPop().getGlobalTime(), new HashMap<>());
                         }
-                        collection_NewInfection.get(super.getPop().getGlobalTime())[super.getSimId()] = numNewInf;
+                        collection_NewInfection.get(super.getPop().getGlobalTime()).put(super.getSimId(), numNewInf);
 
+                    }
+
+                    @Override
+                    public void testingPerson(AbstractIndividualInterface person, HashMap<Integer, int[][]> treatmentSchdule,
+                            RandomGenerator testRNG, PersonClassifier notificationClassifier, int testing_option) {
+                        if (this.getPop().getInfList()[0].isInfectious(person)) {
+                            timeToDiagsArr.add((int) (person.getAge() - person.getLastInfectedAtAge(0)));
+                        }
+                        super.testingPerson(person, treatmentSchdule, testRNG, notificationClassifier, testing_option);
                     }
 
                 };
@@ -507,7 +515,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
                         numInExe++;
                     } else {
                         thread.run();
-                        exportCollectionFiles(exportDir, collectionsArray, collection_InfectionHistory);
+                        exportCollectionFiles(exportDir, collectionsArray, collection_InfectionHistory, timeToDX);
                     }
                 }
 
@@ -524,8 +532,9 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
                 }
 
                 executor = null;
-                exportCollectionFiles(exportDir, collectionsArray, collection_InfectionHistory);
+                exportCollectionFiles(exportDir, collectionsArray, collection_InfectionHistory, timeToDX);
             }
+
         }
         if (executor != null) {
             try {
@@ -537,7 +546,39 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
                 ex.printStackTrace(System.err);
             }
             executor = null;
-            exportCollectionFiles(exportDir, collectionsArray, collection_InfectionHistory);
+            exportCollectionFiles(exportDir, collectionsArray, collection_InfectionHistory, timeToDX);
+        }
+
+    }
+
+    public void exportCollectionFiles(File exportDir,
+            final HashMap[] collectionsArray,
+            HashMap<Integer, HashMap<Integer, int[]>> infectionHistory,
+            HashMap<Integer, ArrayList<Integer>> timeToDX) {
+
+        final HashMap[] infectionHistoryArr = new HashMap[infectionHistory.size()];
+        Integer[] keyArr = infectionHistory.keySet().toArray(new Integer[infectionHistory.size()]);
+        Arrays.sort(keyArr);
+        for (int i = 0; i < infectionHistoryArr.length; i++) {
+            infectionHistoryArr[i] = infectionHistory.get(keyArr[i]);
+        }
+        exportCollectionFiles(exportDir, collectionsArray, infectionHistoryArr);
+
+        for (Integer sId : timeToDX.keySet()) {
+            File srcFile = new File(exportDir, "Time2Diag_S" + Integer.toString(sId) + ".csv");
+            if (timeToDX.get(sId).size() > 0 && !srcFile.exists()) {
+                try {
+                    PrintWriter wri = new PrintWriter(srcFile);
+                    wri.println("Time to Dx (days)");
+                    for (Integer t2dx : timeToDX.get(sId)) {
+                        wri.println(t2dx);
+                    }
+                    wri.close();
+
+                } catch (IOException ex) {
+                    ex.printStackTrace(System.err);
+                }
+            }
         }
 
     }
@@ -572,7 +613,24 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
         }
 
     }
+    
+    
+    public static void collectionToCSV(HashMap<Integer, HashMap<Integer, Integer>> collection, PrintWriter pri) {
+        // Decode newInfectionCollection
+        Integer[] keys = collection.keySet().toArray(new Integer[collection.size()]);
+        Arrays.sort(keys);
+        for (Integer k : keys) {
+            HashMap<Integer, Integer> entRow = collection.get(k);
+            pri.print(k.intValue());
+            for (int ent : entRow.keySet()) {
+                pri.print(',');
+                pri.print(Integer.toString(entRow.get(ent)));
+            }
+            pri.println();
+        }
+    }
 
+    /*
     public static void collectionToCSV(HashMap<Integer, int[]> collection, PrintWriter pri) {
         // Decode newInfectionCollection
         Integer[] keys = collection.keySet().toArray(new Integer[collection.size()]);
@@ -587,6 +645,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
             pri.println();
         }
     }
+    */
 
     public static void collectionToCSV_StringKey(HashMap<String, int[]> collection, PrintWriter pri) {
         String[] keys = collection.keySet().toArray(new String[collection.size()]);

@@ -10,11 +10,11 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -173,6 +173,10 @@ public class Thread_PopRun implements Runnable {
     public static final String FILE_PREFIX_INCIDENCE = "incident_S";
     public static final String FILE_PREFIX_TEST_AND_NOTIFICATION = "test_and_notification_S";
     public static final String FILE_PREFIX_PREVALENCE = "prevalence_S";
+
+    public StringWriter WRI_INCIDENCE = new StringWriter();
+    public StringWriter WRI_TEST_AND_NOTIFICATION = new StringWriter();
+    public StringWriter WRI_PREVALENCE = new StringWriter();
 
     //private HashMap<Integer, int[]> indiv_history_infection = null; 
     //private HashMap<Integer, int[]> indiv_history_test = null; 
@@ -811,6 +815,29 @@ public class Thread_PopRun implements Runnable {
             outputPri.close();
         }
 
+        PrintWriter pri;
+        File fileStat;
+
+        try {
+            fileStat = new File(outputFilePath.getParent(), FILE_PREFIX_TEST_AND_NOTIFICATION + simId + ".csv");
+            pri = new PrintWriter(fileStat);
+            pri.write(WRI_TEST_AND_NOTIFICATION.toString());
+            pri.close();
+
+            fileStat = new File(outputFilePath.getParent(), FILE_PREFIX_INCIDENCE + simId + ".csv");
+            pri = new PrintWriter(fileStat);
+            pri.write(WRI_INCIDENCE.toString());
+            pri.close();
+
+            fileStat = new File(outputFilePath.getParent(), FILE_PREFIX_PREVALENCE + simId + ".csv");
+            pri = new PrintWriter(fileStat);
+            pri.write(WRI_TEST_AND_NOTIFICATION.toString());
+            pri.close();
+            
+        } catch (IOException ex) {
+            ex.printStackTrace(System.err);
+        }
+
     }
 
     protected void exportIndivdualHist(HashMap<Integer, int[]> histMap, String fName) throws FileNotFoundException {
@@ -914,9 +941,11 @@ public class Thread_PopRun implements Runnable {
         if (outputFilePath != null) {
             boolean writeFirstLine;
 
-            File prevalenceFileName = new File(outputFilePath.getParent(), FILE_PREFIX_PREVALENCE + simId + ".csv");
-            writeFirstLine = !prevalenceFileName.exists();
-            try (PrintWriter pri = new PrintWriter(new FileWriter(prevalenceFileName, true))) {
+            //File prevalenceFileName = new File(outputFilePath.getParent(), FILE_PREFIX_PREVALENCE + simId + ".csv");
+            //writeFirstLine = !prevalenceFileName.exists();
+            writeFirstLine = WRI_PREVALENCE.toString().isEmpty();
+
+            try (PrintWriter pri = new PrintWriter(WRI_PREVALENCE)) {
                 if (writeFirstLine) {
                     pri.print("Time");
                     for (int infId = 0; infId < num_infStatus.length; infId++) {
@@ -941,13 +970,12 @@ public class Thread_PopRun implements Runnable {
                 }
                 pri.println();
 
-            } catch (IOException ex) {
-                ex.printStackTrace(outputPri);
             }
 
-            File incidentFileName = new File(outputFilePath.getParent(), FILE_PREFIX_INCIDENCE + simId + ".csv");
-            writeFirstLine = !incidentFileName.exists();
-            try (PrintWriter pri = new PrintWriter(new FileWriter(incidentFileName, true))) {
+            //File incidentFileName = new File(outputFilePath.getParent(), FILE_PREFIX_INCIDENCE + simId + ".csv");
+            //writeFirstLine = !incidentFileName.exists();
+            writeFirstLine = WRI_INCIDENCE.toString().isEmpty();
+            try (PrintWriter pri = new PrintWriter(WRI_INCIDENCE)) {
                 if (writeFirstLine) {
                     pri.print("Time");
                     for (int infId = 0; infId < num_infStatus.length; infId++) {
@@ -964,16 +992,14 @@ public class Thread_PopRun implements Runnable {
                     pri.print(cumulativeIncident[i]);
                 }
                 pri.println();
-            } catch (IOException ex) {
-                ex.printStackTrace(outputPri);
             }
 
             // cumulativeTestAndNotification[infectionId][classId][1+infStatus]
-            File notificationFileName = new File(outputFilePath.getParent(),
-                    FILE_PREFIX_TEST_AND_NOTIFICATION + simId + ".csv");
-            writeFirstLine = !notificationFileName.exists();
+            //File notificationFileName = new File(outputFilePath.getParent(), FILE_PREFIX_TEST_AND_NOTIFICATION + simId + ".csv");
+            //writeFirstLine = !notificationFileName.exists();
+            writeFirstLine = WRI_TEST_AND_NOTIFICATION.toString().isEmpty();
 
-            try (PrintWriter pri = new PrintWriter(new FileWriter(notificationFileName, true))) {
+            try (PrintWriter pri = new PrintWriter(WRI_TEST_AND_NOTIFICATION)) {
                 if (writeFirstLine) {
                     pri.print("Time");
                     for (int infId = 0; infId < cumulativeTestAndNotification.length; infId++) {
@@ -998,11 +1024,8 @@ public class Thread_PopRun implements Runnable {
                 }
                 pri.println();
 
-            } catch (IOException ex) {
-                ex.printStackTrace(outputPri);
             }
         }
-
         getInputParam()[PARAM_INDEX_TESTING_RATE_BY_HOME_LOC] = org_Bool;
 
     }
