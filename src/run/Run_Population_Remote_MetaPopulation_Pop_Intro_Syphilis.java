@@ -323,7 +323,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
         final HashMap[] collectionsArray;
 
         final HashMap<Integer, HashMap<Integer, int[]>> collection_InfectionHistory = new HashMap<>(); // [Sim_id] -> Id, Infection at
-        final HashMap<Integer, ArrayList<Integer>> timeToDX = new HashMap<>(); // SimId -> Array of time to Dx
+        final HashMap<Integer, ArrayList<int[]>> timeToDX = new HashMap<>(); // SimId -> {[time, id, age, timeToDx]}
 
         if (previouStoreFile.exists()) {
 
@@ -409,7 +409,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
                     ex.printStackTrace(System.err);
                     outputPrint = new PrintWriter(System.out);
                 }
-                final ArrayList<Integer> timeToDiagsArr = timeToDX.get(sId);
+                final ArrayList<int[]> timeToDiagsArr = timeToDX.get(sId);
 
                 // Generate thread
                 Thread_PopRun thread = new Thread_PopRun(outputPopFile, importPop, sId, NUM_STEPS) {
@@ -478,7 +478,9 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
                     public void testingPerson(AbstractIndividualInterface person, HashMap<Integer, int[][]> treatmentSchdule,
                             RandomGenerator testRNG, PersonClassifier notificationClassifier, int testing_option) {
                         if (this.getPop().getInfList()[0].isInfectious(person)) {
-                            timeToDiagsArr.add((int) (person.getAge() - person.getLastInfectedAtAge(0)));
+                            int[] ent = new int[]{this.getPop().getGlobalTime(),  person.getId(), (int) person.getAge(),
+                            (int) (person.getAge() - person.getLastInfectedAtAge(0))};                            
+                            timeToDiagsArr.add(ent);
                         }
                         super.testingPerson(person, treatmentSchdule, testRNG, notificationClassifier, testing_option);
                     }
@@ -554,7 +556,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
     public void exportCollectionFiles(File exportDir,
             final HashMap[] collectionsArray,
             HashMap<Integer, HashMap<Integer, int[]>> infectionHistory,
-            HashMap<Integer, ArrayList<Integer>> timeToDX) {
+            HashMap<Integer, ArrayList<int[]>> timeToDX) {
 
         final HashMap[] infectionHistoryArr = new HashMap[infectionHistory.size()];
         Integer[] keyArr = infectionHistory.keySet().toArray(new Integer[infectionHistory.size()]);
@@ -569,9 +571,25 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
             if (timeToDX.get(sId).size() > 0 && !srcFile.exists()) {
                 try {
                     PrintWriter wri = new PrintWriter(srcFile);
-                    wri.println("Time to Dx (days)");
-                    for (Integer t2dx : timeToDX.get(sId)) {
-                        wri.println(t2dx);
+                    // int[] ent = new int[]{this.getPop().getGlobalTime(), person.getId(),  (int) person.getAge(), 
+                    //        (int) (person.getAge() - person.getLastInfectedAtAge(0))};                            
+                    wri.println("Time, PersonId, PersonAge, Time to Dx (days)");                    
+                    for (int[] t2dx : timeToDX.get(sId)) {                        
+                        String line = String.format("%d,%d,%d,%d", t2dx[0], t2dx[1],t2dx[2],t2dx[3]);
+                        
+                        /*                        
+                        boolean firstEntry = true;
+                        for(int ent : t2dx){
+                            if(!firstEntry){
+                                wri.print(',');
+                            }else{
+                                firstEntry = true;
+                            }
+                            wri.print(ent);
+                        }
+                        */
+                        
+                        wri.println(line);
                     }
                     wri.close();
 
