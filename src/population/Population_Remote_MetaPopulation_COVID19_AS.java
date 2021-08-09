@@ -3,8 +3,10 @@ package population;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.Objects;
 import java.util.Set;
 import person.AbstractIndividualInterface;
 import static population.Population_Remote_MetaPopulation_COVID19.RELMAP_HOUSEHOLD;
@@ -69,43 +71,16 @@ public class Population_Remote_MetaPopulation_COVID19_AS
         super.allolocateCoreHosuehold(householdSizeDistByLoc, householdSpreadByLoc, nonHouseholdContactRateByLoc);
 
         // Calculate age spread
-        /*
-        ArrayList<Integer>[] ageSpreadSummary = new ArrayList[AGE_GROUPING.length + 1]; // ArrayList of person id
-
-        // Indivdual         
-        for (int i = 0; i < ageSpreadSummary.length; i++) {
-            ageSpreadSummary[i] = new ArrayList<>();
-        }
-
-        for (AbstractIndividualInterface person : this.getPop()) {
-            int arrayId = Arrays.binarySearch(AGE_GROUPING, person.getAge());
-            if (arrayId < 0) {
-                arrayId = -(arrayId + 1);
-            }
-            ageSpreadSummary[arrayId].add(person.getId());
-        }
-         */
+        //System.out.println("===== Initial =====");
+        //printHouseholdAgeStructure();
         // Household
         RelationshipMap householdMap = getRelMap()[RELMAP_HOUSEHOLD];
         Integer[][] household_indices = ((Integer[][]) getFields()[FIELDS_REMOTE_METAPOP_COVID19_UNIQUE_HOUSEHOLD]);
 
-        final int HOUSEHOLD_MAP_NUM_ADULT = 0;
-        final int HOUSEHOLD_MAP_NUM_DEPENDENT = HOUSEHOLD_MAP_NUM_ADULT + 1;
-        final int LENGTH_HOUSEHOLD_MAP = HOUSEHOLD_MAP_NUM_DEPENDENT + 1;
-
         HashMap<Integer, int[]> household_map_all_loc = new HashMap<>();  // K = household id, V = [num_adult, num_dependent];
 
-        final int INDIV_MAP_ADULT_LONER = 0;
-        final int INDIV_MAP_ADULT_SINGLE_WITH_DEPENDENT = INDIV_MAP_ADULT_LONER + 1;             // Alone in household with multiple dependents
-        final int INDIV_MAP_ADULT_MULTI_PARENT = INDIV_MAP_ADULT_SINGLE_WITH_DEPENDENT + 1;      // In household with more than one adults and dependents
-        final int INDIV_MAP_ADULT_NO_DEPENDENT = INDIV_MAP_ADULT_MULTI_PARENT + 1;       // In household with no dependent 
-        final int INDIV_MAP_DEPENDENT_MULTI_WITH_ADULT = INDIV_MAP_ADULT_NO_DEPENDENT + 1;
-        final int INDIV_MAP_DEPENDENT_SINGLE_WITH_ADULT = INDIV_MAP_DEPENDENT_MULTI_WITH_ADULT + 1;
-        final int INDIV_MAP_DEPENDENT_ALONE = INDIV_MAP_DEPENDENT_SINGLE_WITH_ADULT + 1;     // Dependent who are living alone - will be 0 by the end
-        final int LENGTH_INDIV_MAP = INDIV_MAP_DEPENDENT_ALONE + 1;
-
-        LinkedList<Integer>[][] indivudual_map_by_loc = new LinkedList[household_indices.length][LENGTH_INDIV_MAP];
-        for (LinkedList<Integer>[] indivudual_map_at_loc : indivudual_map_by_loc) {
+        LinkedList<Integer>[][] indivdual_map_by_loc = new LinkedList[household_indices.length][LENGTH_INDIV_MAP];
+        for (LinkedList<Integer>[] indivudual_map_at_loc : indivdual_map_by_loc) {
             for (int type = 0; type < indivudual_map_at_loc.length; type++) {
                 indivudual_map_at_loc[type] = new LinkedList<>();
             }
@@ -135,10 +110,10 @@ public class Population_Remote_MetaPopulation_COVID19_AS
 
                 int listPt = isDependent(person.getAge()) ? INDIV_MAP_DEPENDENT_ALONE : INDIV_MAP_ADULT_LONER;
 
-                indiv_list = indivudual_map_by_loc[loc][listPt];
+                indiv_list = indivdual_map_by_loc[loc][listPt];
                 if (indiv_list == null) {
-                    indivudual_map_by_loc[loc][listPt] = new LinkedList<>();
-                    indiv_list = indivudual_map_by_loc[loc][listPt];
+                    indivdual_map_by_loc[loc][listPt] = new LinkedList<>();
+                    indiv_list = indivdual_map_by_loc[loc][listPt];
                 }
                 indiv_list.add(person.getId());
 
@@ -164,22 +139,11 @@ public class Population_Remote_MetaPopulation_COVID19_AS
 
                 int[] houseStat = household_map_all_loc.get(houseId);
                 if (houseStat == null) {
-                    // New household in map                     
-                    houseStat = new int[LENGTH_HOUSEHOLD_MAP];
+                    // New household in map                                
+                    houseStat = getHouseholdStat(householdMap, houseId);
                     household_map_all_loc.put(houseId, houseStat);
                     numHousehold++;
                     lastHouseholdNum = Math.min(lastHouseholdNum, houseId);
-                    Set<SingleRelationship> house_edges = householdMap.edgesOf(houseId);
-                    for (SingleRelationship house_edge : house_edges) {
-                        val = house_edge.getLinksValues();
-                        int memberId = val[0] == houseId ? val[1] : val[0];
-                        if (isDependent(this.getPersonById(memberId).getAge())) {
-                            houseStat[HOUSEHOLD_MAP_NUM_DEPENDENT]++;
-                        } else {
-                            houseStat[HOUSEHOLD_MAP_NUM_ADULT]++;
-                        }
-                    }
-
                     if (houseStat[HOUSEHOLD_MAP_NUM_ADULT] > 1) {
                         splitable_households.add(houseId);
                     }
@@ -216,7 +180,7 @@ public class Population_Remote_MetaPopulation_COVID19_AS
                         }
                     }
                 }
-                indiv_list = indivudual_map_by_loc[loc][listPt];
+                indiv_list = indivdual_map_by_loc[loc][listPt];
 
                 indiv_list.add(person.getId());
             }
@@ -249,13 +213,13 @@ public class Population_Remote_MetaPopulation_COVID19_AS
                 householdMap.removeEdge(rel);
                 int loc = ((person.MoveablePersonInterface) this.getPersonById(split_adult_id)).getHomeLocation();
 
-                indivudual_map_by_loc[loc][INDIV_MAP_ADULT_LONER].add(split_adult_id);
+                indivdual_map_by_loc[loc][INDIV_MAP_ADULT_LONER].add(split_adult_id);
                 boolean removeSuc;
 
                 if (household_map_all_loc.get(split_household_id)[HOUSEHOLD_MAP_NUM_DEPENDENT] == 0) {
-                    removeSuc = indivudual_map_by_loc[loc][INDIV_MAP_ADULT_NO_DEPENDENT].remove((Integer) split_adult_id);
+                    removeSuc = indivdual_map_by_loc[loc][INDIV_MAP_ADULT_NO_DEPENDENT].remove((Integer) split_adult_id);
                 } else {
-                    removeSuc = indivudual_map_by_loc[loc][INDIV_MAP_ADULT_MULTI_PARENT].remove((Integer) split_adult_id);
+                    removeSuc = indivdual_map_by_loc[loc][INDIV_MAP_ADULT_MULTI_PARENT].remove((Integer) split_adult_id);
                 }
 
                 if (!removeSuc) {
@@ -272,11 +236,11 @@ public class Population_Remote_MetaPopulation_COVID19_AS
                         int memId = v[0] == split_household_id ? v[1] : v[0];
                         if (!(isDependent(this.getPersonById(memId).getAge()))) {
                             if (household_map_all_loc.get(split_household_id)[HOUSEHOLD_MAP_NUM_DEPENDENT] > 0) {
-                                removeSuc = indivudual_map_by_loc[loc][INDIV_MAP_ADULT_MULTI_PARENT].remove((Integer) memId);
-                                indivudual_map_by_loc[loc][INDIV_MAP_ADULT_SINGLE_WITH_DEPENDENT].add(memId);
+                                removeSuc = indivdual_map_by_loc[loc][INDIV_MAP_ADULT_MULTI_PARENT].remove((Integer) memId);
+                                indivdual_map_by_loc[loc][INDIV_MAP_ADULT_SINGLE_WITH_DEPENDENT].add(memId);
                             } else {
-                                removeSuc = indivudual_map_by_loc[loc][INDIV_MAP_ADULT_NO_DEPENDENT].remove((Integer) memId);
-                                indivudual_map_by_loc[loc][INDIV_MAP_ADULT_LONER].add(memId);
+                                removeSuc = indivdual_map_by_loc[loc][INDIV_MAP_ADULT_NO_DEPENDENT].remove((Integer) memId);
+                                indivdual_map_by_loc[loc][INDIV_MAP_ADULT_LONER].add(memId);
                                 numLonerAlreadyInPop++;
                             }
                             if (!removeSuc) {
@@ -316,18 +280,20 @@ public class Population_Remote_MetaPopulation_COVID19_AS
             household_map_all_loc.put(newHousehold_index, val);
         }
 
+        //System.out.println("===== With loner household =====");
+        //printHouseholdAgeStructure();
         // Swap indivduals to reduce number of household with dependent living alone
         for (int loc = 0; loc < household_indices.length; loc++) {
 
             float[] householdSpreadDist = householdSpreadByLoc[loc];
             float[] nonHouseholdContactRateDist = nonHouseholdContactRateByLoc[loc];
 
-            LinkedList<Integer> list_dependent_alone = indivudual_map_by_loc[loc][INDIV_MAP_DEPENDENT_ALONE];
-            LinkedList<Integer> list_multi_adult = indivudual_map_by_loc[loc][INDIV_MAP_ADULT_MULTI_PARENT];
-            LinkedList<Integer> list_no_dependent = indivudual_map_by_loc[loc][INDIV_MAP_ADULT_NO_DEPENDENT];
-            LinkedList<Integer> list_single_adult_with_dependent = indivudual_map_by_loc[loc][INDIV_MAP_ADULT_SINGLE_WITH_DEPENDENT];
-            LinkedList<Integer> list_dependent_with_adults = indivudual_map_by_loc[loc][INDIV_MAP_DEPENDENT_MULTI_WITH_ADULT];
-            LinkedList<Integer> list_single_dependent_with_adult = indivudual_map_by_loc[loc][INDIV_MAP_DEPENDENT_SINGLE_WITH_ADULT];
+            LinkedList<Integer> list_dependent_alone = indivdual_map_by_loc[loc][INDIV_MAP_DEPENDENT_ALONE];
+            LinkedList<Integer> list_multi_adult = indivdual_map_by_loc[loc][INDIV_MAP_ADULT_MULTI_PARENT];
+            LinkedList<Integer> list_no_dependent = indivdual_map_by_loc[loc][INDIV_MAP_ADULT_NO_DEPENDENT];
+            LinkedList<Integer> list_single_adult_with_dependent = indivdual_map_by_loc[loc][INDIV_MAP_ADULT_SINGLE_WITH_DEPENDENT];
+            LinkedList<Integer> list_dependent_with_adults = indivdual_map_by_loc[loc][INDIV_MAP_DEPENDENT_MULTI_WITH_ADULT];
+            LinkedList<Integer> list_single_dependent_with_adult = indivdual_map_by_loc[loc][INDIV_MAP_DEPENDENT_SINGLE_WITH_ADULT];
 
             Integer[] dependent_alone_all = list_dependent_alone.toArray(new Integer[list_dependent_alone.size()]);
 
@@ -388,6 +354,7 @@ public class Population_Remote_MetaPopulation_COVID19_AS
                     } else {
                         list_dependent_with_adults.add(list_dependent_alone.removeFirst());
                     }
+
                 } else if (household_map_all_loc.get(orgDependhouseId)[HOUSEHOLD_MAP_NUM_ADULT] > 0) {
                     // Update dependent if no longer dependent alone (e.g. other family member already replace by an adult                    
                     if (household_map_all_loc.get(orgDependhouseId)[HOUSEHOLD_MAP_NUM_DEPENDENT] == 1) {
@@ -401,136 +368,213 @@ public class Population_Remote_MetaPopulation_COVID19_AS
             }
         }
 
-        // Determine how many family with single non depdnents need to be added
-        //HashMap<Integer, int[]> swapToPerform = new HashMap<>(); // K = candidate_id, V = [orginal house, new_house]        
-        int numFamilySingleWithDependent = 0;
-        int numAdultInMultipleAdultsFamily = 0;
+        //System.out.println("===== With loner household and every house with adult =====");
+        //printHouseholdAgeStructure();
+        
+        // Set single parent family
+        enforceMinAdultHousehold(1, HOUSEHOLD_SPREAD_SINGLE_WITH_CHILDREN,
+                household_indices,
+                household_map_all_loc,
+                numHousehold,
+                householdMap,
+                householdSpreadByLoc,
+                nonHouseholdContactRateByLoc);
 
-        for (LinkedList<Integer>[] indivudual_map_at_loc : indivudual_map_by_loc) {
-            numFamilySingleWithDependent += indivudual_map_at_loc[INDIV_MAP_ADULT_SINGLE_WITH_DEPENDENT].size();
-            numAdultInMultipleAdultsFamily += indivudual_map_at_loc[INDIV_MAP_ADULT_NO_DEPENDENT].size() + indivudual_map_at_loc[INDIV_MAP_ADULT_MULTI_PARENT].size();
+        System.out.println("===== With loner household, every house with adult and single parent =====");
+        printHouseholdAgeStructure();
+        
+        // Set two parents family
+        
+        enforceMinAdultHousehold(2, HOUSEHOLD_SPREAD_COUPLE_WITH_CHILDREN,
+                household_indices,
+                household_map_all_loc,
+                numHousehold,
+                householdMap,
+                householdSpreadByLoc,
+                nonHouseholdContactRateByLoc);
+
+        System.out.println("===== With loner household, every house with adult, and 1-2 parents =====");
+        printHouseholdAgeStructure();
+        
+
+        // Check household map 
+        if (!checkHouseholdMap(householdMap, household_map_all_loc)) {
+            System.out.println("Error in household map");
+            System.exit(1);
+        }
+
+        System.out.println("===== Final =====");
+        printHouseholdAgeStructure();
+
+        //Work in progress
+        System.exit(0);
+
+    }
+
+    protected void enforceMinAdultHousehold(int minAdult, int spreadIndex,
+            Integer[][] household_indices,
+            HashMap<Integer, int[]> household_map_all_loc,
+            int numHousehold,
+            RelationshipMap householdMap,
+            float[][] householdSpreadByLoc,
+            float[][] nonHouseholdContactRateByLoc) {
+
+        LinkedList<Integer>[] household_multi_dependent_multi_adult = new LinkedList[household_indices.length];
+        int numFamilyWithMinAdultWithDependent = 0;
+        int numFamilyMoreMinAdultWithDependent = 0;
+
+        for (int loc = 0; loc < household_indices.length; loc++) {
+            household_multi_dependent_multi_adult[loc] = new LinkedList<>();
+
+            for (Integer houseId : household_indices[loc]) {
+                int[] houseStat = household_map_all_loc.get(houseId);
+                if (houseStat[HOUSEHOLD_MAP_NUM_ADULT] == minAdult
+                        && houseStat[HOUSEHOLD_MAP_NUM_DEPENDENT] > 0) {
+                    numFamilyWithMinAdultWithDependent++;
+                }
+
+                if (houseStat[HOUSEHOLD_MAP_NUM_ADULT] > minAdult) {
+                    if (houseStat[HOUSEHOLD_MAP_NUM_DEPENDENT] > 1) {
+                        household_multi_dependent_multi_adult[loc].add(houseId);
+                        numFamilyMoreMinAdultWithDependent++;
+                    }
+                }
+            }
         }
 
         int numSingleWithDependentToBeAdded = Math.round(
-                numHousehold * household_spread[HOUSEHOLD_SPREAD_SINGLE_WITH_CHILDREN] / 100f - numFamilySingleWithDependent);
+                numHousehold * household_spread[spreadIndex] / 100f - numFamilyWithMinAdultWithDependent);
 
-        if (numSingleWithDependentToBeAdded > 0 && numAdultInMultipleAdultsFamily > 0) {
+        while (numSingleWithDependentToBeAdded > 0 && numFamilyMoreMinAdultWithDependent > 0) {
 
-            int[] idAdultMultiAdultFamily = new int[numAdultInMultipleAdultsFamily];
-            int idMultiAdultFamily_NextIndex = 0;
-
-            Integer[][] idDepMultiDepFamily = new Integer[indivudual_map_by_loc.length][];
-            int[] idDepMultiDepFamily_NextIndex = new int[indivudual_map_by_loc.length];
-
-            for (int loc = 0; loc < indivudual_map_by_loc.length; loc++) {
-                LinkedList<Integer>[] indivudual_map_at_loc = indivudual_map_by_loc[loc];
-                for (Integer p : indivudual_map_at_loc[INDIV_MAP_ADULT_NO_DEPENDENT]) {
-                    idAdultMultiAdultFamily[idMultiAdultFamily_NextIndex] = p;
-                    idMultiAdultFamily_NextIndex++;
-                }
-                for (Integer p : indivudual_map_at_loc[INDIV_MAP_ADULT_MULTI_PARENT]) {
-                    idAdultMultiAdultFamily[idMultiAdultFamily_NextIndex] = p;
-                    idMultiAdultFamily_NextIndex++;
-                }
-
-                idDepMultiDepFamily[loc]
-                        = indivudual_map_at_loc[INDIV_MAP_DEPENDENT_MULTI_WITH_ADULT].toArray(new Integer[0]);
-                idDepMultiDepFamily_NextIndex[loc] = idDepMultiDepFamily[loc].length;
-
+            // Randomly choose a random family with multiple adults, and delicate it to a single parent family
+            int singleParentHouseIndex = getRNG().nextInt(numFamilyMoreMinAdultWithDependent);
+            int loc = 0;
+            while (singleParentHouseIndex >= household_multi_dependent_multi_adult[loc].size()) {
+                loc++;
+                singleParentHouseIndex = singleParentHouseIndex - household_multi_dependent_multi_adult[loc].size();
             }
 
-            while (numSingleWithDependentToBeAdded > 0
-                    && idMultiAdultFamily_NextIndex > 0) {
+            Integer minAdultHouseNum = household_multi_dependent_multi_adult[loc].get(singleParentHouseIndex);
+            int[] houseStatMinAdult = household_map_all_loc.get(minAdultHouseNum);                                    
+            
+            int[] keepAdultAt =  new int[minAdult];
+            int keepAdultIndex = 0;
+            
+            for(int adultIndex = 0; 
+                    adultIndex < houseStatMinAdult[HOUSEHOLD_MAP_NUM_ADULT] && keepAdultIndex < keepAdultAt.length;
+                    adultIndex++){
+                if(getRNG().nextInt(houseStatMinAdult[HOUSEHOLD_MAP_NUM_ADULT] - adultIndex) <  minAdult -keepAdultIndex){
+                    keepAdultAt[keepAdultIndex] = adultIndex;
+                    keepAdultIndex++;
+                }
+                
+            }                                    
 
-                int[] val;
+            // Remove it from list - either becasuse it is a single parent or 
+            // no more suitable family to swap.
+            household_multi_dependent_multi_adult[loc].remove(singleParentHouseIndex);
+            numFamilyMoreMinAdultWithDependent--;
 
-                int swapPosAdult = getRNG().nextInt(idMultiAdultFamily_NextIndex);
-                int candidate_adult_Id = idAdultMultiAdultFamily[swapPosAdult];
+            SingleRelationship[] toReplaceWithDependent = new SingleRelationship[houseStatMinAdult[HOUSEHOLD_MAP_NUM_ADULT] 
+                    - minAdult];
+            int replacePt = 0;
+            int adult_rel_pt = 0;
 
-                int loc = ((person.MoveablePersonInterface) this.getPersonById(candidate_adult_Id)).getHomeLocation();
+            for (SingleRelationship rel : householdMap.edgesOf(minAdultHouseNum)) {
+                int p_id = rel.getLinksValues()[0] == minAdultHouseNum
+                        ? rel.getLinksValues()[1] : rel.getLinksValues()[0];
 
-                SingleRelationship org_adult_connection
-                        = householdMap.edgesOf(candidate_adult_Id).iterator().next();
+                if (!isDependent(getPersonById(p_id).getAge())) {
+                    if (Arrays.binarySearch(keepAdultAt, adult_rel_pt) < 0) {
+                        toReplaceWithDependent[replacePt] = rel;
+                        replacePt++;
+                    }
+                    adult_rel_pt++;
+                }
+            }
 
-                val = org_adult_connection.getLinksValues();
-                int candidate_adult_houseId = val[0] == candidate_adult_Id ? val[1] : val[0];
+            // Replace adult with dependent
+            for (int r = 0; r < toReplaceWithDependent.length
+                    && household_multi_dependent_multi_adult[loc].size() > 0; r++) {
 
-                float[] householdSpreadDist = householdSpreadByLoc[loc];
-                float[] nonHouseholdContactRateDist = nonHouseholdContactRateByLoc[loc];
+                SingleRelationship org_adult_connection = toReplaceWithDependent[r];
+                Integer candidate_adult_Id = org_adult_connection.getLinksValues()[0] == minAdultHouseNum
+                        ? org_adult_connection.getLinksValues()[1] : org_adult_connection.getLinksValues()[0];
 
-                if (idDepMultiDepFamily_NextIndex[loc] <= 0
-                        || household_map_all_loc.get(candidate_adult_houseId)[HOUSEHOLD_MAP_NUM_ADULT] == 1) {
-                    // Already living in a single adult household or No more dependednt available to be swapped - try again using indivdual at other location
-                    idMultiAdultFamily_NextIndex--;
-                    if (idMultiAdultFamily_NextIndex > 0) {
-                        idAdultMultiAdultFamily[swapPosAdult] = idAdultMultiAdultFamily[idMultiAdultFamily_NextIndex - 1];
-                        idAdultMultiAdultFamily[idMultiAdultFamily_NextIndex - 1] = -1;
+                Integer replaceHouseNum = minAdultHouseNum;
+                int replaceHouseIndex = -1;
+
+                while (Objects.equals(replaceHouseNum, minAdultHouseNum)) {
+                    replaceHouseIndex = getRNG().nextInt(household_multi_dependent_multi_adult[loc].size());
+                    replaceHouseNum = household_multi_dependent_multi_adult[loc].get(replaceHouseIndex);
+                }
+                if (!Objects.equals(replaceHouseNum, minAdultHouseNum)) {
+                    int[] houseStatReplace = household_map_all_loc.get(replaceHouseNum);
+                    int replaceDependentAt = getRNG().nextInt(houseStatReplace[HOUSEHOLD_MAP_NUM_DEPENDENT]);
+
+                    SingleRelationship org_dep_connection = null;
+                    int candidate_dep_Id = -1;
+
+                    for (SingleRelationship test_dep_connection : householdMap.edgesOf(replaceHouseNum)) {
+                        int test_candidate_dep_Id = test_dep_connection.getLinksValues()[0] == replaceHouseNum
+                                ? test_dep_connection.getLinksValues()[1] : test_dep_connection.getLinksValues()[0];
+
+                        if (isDependent(getPersonById(test_candidate_dep_Id).getAge())) {
+                            if (replaceDependentAt == 0) {
+                                org_dep_connection = test_dep_connection;
+                                candidate_dep_Id = test_candidate_dep_Id;
+
+                            }
+                            replaceDependentAt--;
+                        }
                     }
 
-                } else {
-
-                    int swapPosDep = getRNG().nextInt(idDepMultiDepFamily_NextIndex[loc]);
-                    int candidate_dep_Id = idDepMultiDepFamily[loc][swapPosDep];
-                    SingleRelationship org_dep_connection = householdMap.edgesOf(candidate_dep_Id).iterator().next();
-                    val = org_dep_connection.getLinksValues();
-                    int candidate_dep_houseId = val[0] == candidate_dep_Id ? val[1] : val[0];
+                    float[] householdSpreadDist = householdSpreadByLoc[loc];
+                    float[] nonHouseholdContactRateDist = nonHouseholdContactRateByLoc[loc];
 
                     // Move adult to dependent                   
                     switchHousehold(householdMap, householdSpreadDist, nonHouseholdContactRateDist,
-                            candidate_adult_Id, candidate_dep_houseId, org_adult_connection);
+                            candidate_adult_Id, replaceHouseNum, org_adult_connection);
+                    houseStatReplace[HOUSEHOLD_MAP_NUM_ADULT]++;
+                    houseStatMinAdult[HOUSEHOLD_MAP_NUM_ADULT]--;
 
                     // Move dependent to adult       
                     switchHousehold(householdMap, householdSpreadDist, nonHouseholdContactRateDist,
-                            candidate_dep_Id, candidate_adult_houseId, org_dep_connection);
+                            candidate_dep_Id, minAdultHouseNum, org_dep_connection);
+                    houseStatReplace[HOUSEHOLD_MAP_NUM_DEPENDENT]--;
+                    houseStatMinAdult[HOUSEHOLD_MAP_NUM_DEPENDENT]++;
 
-                    // Check household number and update if need              
-                    val = household_map_all_loc.get(candidate_adult_houseId);
-                    val[HOUSEHOLD_MAP_NUM_ADULT]--;
-                    val[HOUSEHOLD_MAP_NUM_DEPENDENT]++;
-
-                    if (val[HOUSEHOLD_MAP_NUM_ADULT] == 1) {
-                        idMultiAdultFamily_NextIndex--;
-                        numFamilySingleWithDependent++;
-                        if (idMultiAdultFamily_NextIndex >= 0) {
-                            idAdultMultiAdultFamily[swapPosAdult] = idAdultMultiAdultFamily[idMultiAdultFamily_NextIndex];
-                            idAdultMultiAdultFamily[idMultiAdultFamily_NextIndex] = -1;
-                        }
-
+                    if (houseStatMinAdult[HOUSEHOLD_MAP_NUM_ADULT] == 1) {
+                        numSingleWithDependentToBeAdded--;
+                        numFamilyWithMinAdultWithDependent++;
                     }
-
-                    val = household_map_all_loc.get(candidate_dep_houseId);
-                    val[HOUSEHOLD_MAP_NUM_ADULT]++;
-                    val[HOUSEHOLD_MAP_NUM_DEPENDENT]--;
-
-                    if (val[HOUSEHOLD_MAP_NUM_DEPENDENT] == 1) {
-                        idDepMultiDepFamily_NextIndex[loc]--;
-                        if (idDepMultiDepFamily_NextIndex[loc] >= 0) {
-                            idDepMultiDepFamily[loc][swapPosDep] = idDepMultiDepFamily[loc][idDepMultiDepFamily_NextIndex[loc]];
-                            idDepMultiDepFamily[loc][idDepMultiDepFamily_NextIndex[loc]] = -1;
-                        }
-
+                    if (houseStatReplace[HOUSEHOLD_MAP_NUM_DEPENDENT] <= 1) {
+                        household_multi_dependent_multi_adult[loc].remove(replaceHouseIndex);
+                        numFamilyMoreMinAdultWithDependent--;
                     }
-
-                    numSingleWithDependentToBeAdded = Math.round(
-                            numHousehold * household_spread[HOUSEHOLD_SPREAD_SINGLE_WITH_CHILDREN] / 100f
-                            - numFamilySingleWithDependent);
                 }
             }
-
+            //System.out.println("===== Force min parent attempt =====");
+            //printHouseholdAgeStructure();
         }
+    }
 
-        // Checking  
+    public void printHouseholdAgeStructure() {
+
+        Integer[][] household_indices = ((Integer[][]) getFields()[FIELDS_REMOTE_METAPOP_COVID19_UNIQUE_HOUSEHOLD]);
+        RelationshipMap householdMap = getRelMap()[RELMAP_HOUSEHOLD];
+
+        int numHousehold;
         HashMap<Integer, ArrayList<Integer>> households_by_adults = new HashMap<>();
-        HashMap<Integer, ArrayList<Integer>> households_by_children = new HashMap<>();
+        HashMap<Integer, ArrayList<Integer>> households_by_dependent = new HashMap<>();
         HashMap<Integer, ArrayList<Integer>> households_with_dependent = new HashMap<>();
         HashMap<Integer, ArrayList<Integer>> household_size_map_all_loc = new HashMap<>();  // K = size of household, V = {household_id};
-
         numHousehold = 0;
         household_size_map_all_loc.clear();
         households_by_adults.clear();
-        households_by_children.clear();
+        households_by_dependent.clear();
         households_with_dependent.clear();
-
         for (int loc = 0; loc < household_indices.length; loc++) {
             numHousehold += household_indices[loc].length;
             for (Integer houseId : household_indices[loc]) {
@@ -544,15 +588,22 @@ public class Population_Remote_MetaPopulation_COVID19_AS
                 ent.add(houseId);
                 int numAdults = 0;
                 int numDependent = 0;
+
+                int[] stat = getHouseholdStat(householdMap, houseId);
+                numAdults = stat[HOUSEHOLD_MAP_NUM_ADULT];
+                numDependent = stat[HOUSEHOLD_MAP_NUM_DEPENDENT];
+                /*
                 for (SingleRelationship rel : householdMap.edgesOf(houseId)) {
                     int[] val = rel.getLinksValues();
                     int personId = val[0] == houseId ? val[1] : val[0];
-                    if (!isDependent(this.getPersonById(personId).getAge())) {
+                    if (!Population_Remote_MetaPopulation_COVID19_AS.isDependent(
+                            this.getPersonById(personId).getAge())) {
                         numAdults++;
                     } else {
                         numDependent++;
                     }
                 }
+                 */
 
                 // Adult household
                 ent = households_by_adults.get(numAdults);
@@ -563,10 +614,10 @@ public class Population_Remote_MetaPopulation_COVID19_AS
                 ent.add(houseId);
 
                 // Children household
-                ent = households_by_children.get(numDependent);
+                ent = households_by_dependent.get(numDependent);
                 if (ent == null) {
                     ent = new ArrayList<>();
-                    households_by_children.put(numDependent, ent);
+                    households_by_dependent.put(numDependent, ent);
                 }
                 ent.add(houseId);
 
@@ -583,11 +634,8 @@ public class Population_Remote_MetaPopulation_COVID19_AS
             }
         }
 
-        System.out.println("===== Final =====");
-
-        System.out.println("For entire population (final):");
+        System.out.println("For entire population:");
         System.out.println(String.format("# household: %d", numHousehold));
-
         Integer[] householdSizeMapping = household_size_map_all_loc.keySet().toArray(new Integer[household_size_map_all_loc.size()]);
         Arrays.sort(householdSizeMapping);
         for (Integer hSM : householdSizeMapping) {
@@ -595,7 +643,6 @@ public class Population_Remote_MetaPopulation_COVID19_AS
             System.out.println(String.format("Household size of %d: %d (%.1f%% of household)", hSM, numHouse, 100f * numHouse / numHousehold));
         }
         System.out.println();
-
         Integer[] mapping;
         System.out.println("Number of adults in household");
         mapping = households_by_adults.keySet().toArray(new Integer[0]);
@@ -606,39 +653,157 @@ public class Population_Remote_MetaPopulation_COVID19_AS
                     hId, numHouse, 100f * numHouse / numHousehold));
         }
         System.out.println();
-
-        System.out.println("Number of children in household");
-        mapping = households_by_children.keySet().toArray(new Integer[0]);
+        System.out.println("Number of dependents in household");
+        mapping = households_by_dependent.keySet().toArray(new Integer[0]);
         Arrays.sort(mapping);
         for (Integer hId : mapping) {
-            int numHouse = households_by_children.get(hId).size();
-            System.out.println(String.format("Household with %d children: %d (%.1f%% of household)",
+            int numHouse = households_by_dependent.get(hId).size();
+            System.out.println(String.format("Household with %d dependent(s): %d (%.1f%% of household)",
                     hId, numHouse, 100f * numHouse / numHousehold));
         }
         System.out.println();
-
         System.out.println("Number of adults in household with dependent(s)");
         mapping = households_with_dependent.keySet().toArray(new Integer[0]);
         Arrays.sort(mapping);
         for (Integer hId : mapping) {
             int numHouse = households_with_dependent.get(hId).size();
-            System.out.println(String.format("Household with children(s) and %d adult(s): %d (%.1f%% of household)",
+            System.out.println(String.format("Household with dependent(s) and %d adult(s): %d (%.1f%% of household)",
                     hId, numHouse, 100f * numHouse / numHousehold));
         }
         System.out.println();
-
-        //Work in progress
-        System.exit(0);
-
     }
 
     protected void switchHousehold(RelationshipMap householdMap,
             float[] householdSpreadDist, float[] nonHouseholdContactRateDist,
             Integer candidate, int newHouseId,
             SingleRelationship org_connection) {
+
         setContactOptionCore(this.getPersonById(candidate), newHouseId,
                 householdSpreadDist, nonHouseholdContactRateDist);
         householdMap.removeEdge(org_connection);
+
+    }
+
+    private boolean checkHouseholdMap(RelationshipMap householdMap,
+            HashMap<Integer, int[]> household_map_all_loc) {
+
+        boolean match = true;
+
+        for (Integer houseId : household_map_all_loc.keySet()) {
+
+            int[] stat = getHouseholdStat(householdMap, houseId);
+            int[] ent = household_map_all_loc.get(houseId);
+
+            if (stat[0] != ent[0] || stat[1] != ent[1]) {
+                match = false;
+                System.out.println(String.format("Household stat inconsistency at Household #%d", houseId));
+                System.out.println("Household map = " + Arrays.toString(stat));
+                System.out.println("Stat entry = " + Arrays.toString(ent));
+            }
+
+        }
+
+        return match;
+
+    }
+
+    final int HOUSEHOLD_MAP_NUM_ADULT = 0;
+    final int HOUSEHOLD_MAP_NUM_DEPENDENT = HOUSEHOLD_MAP_NUM_ADULT + 1;
+    final int LENGTH_HOUSEHOLD_MAP = HOUSEHOLD_MAP_NUM_DEPENDENT + 1;
+
+    protected int[] getHouseholdStat(RelationshipMap householdMap, Integer houseId) {
+
+        int[] stat = new int[LENGTH_HOUSEHOLD_MAP];
+        for (SingleRelationship rel : householdMap.edgesOf(houseId)) {
+            int personId = rel.getLinks()[0] < 0 ? rel.getLinks()[1] : rel.getLinks()[0];
+            if (isDependent(getPersonById(personId).getAge())) {
+                stat[HOUSEHOLD_MAP_NUM_DEPENDENT]++;
+            } else {
+                stat[HOUSEHOLD_MAP_NUM_ADULT]++;
+            }
+        }
+        return stat;
+    }
+
+    final int INDIV_MAP_ADULT_LONER = 0;
+    final int INDIV_MAP_ADULT_SINGLE_WITH_DEPENDENT = INDIV_MAP_ADULT_LONER + 1;             // Alone in household with multiple dependents
+    final int INDIV_MAP_ADULT_MULTI_PARENT = INDIV_MAP_ADULT_SINGLE_WITH_DEPENDENT + 1;      // In household with more than one adults and dependents
+    final int INDIV_MAP_ADULT_NO_DEPENDENT = INDIV_MAP_ADULT_MULTI_PARENT + 1;               // In household with no dependent 
+    final int INDIV_MAP_DEPENDENT_MULTI_WITH_ADULT = INDIV_MAP_ADULT_NO_DEPENDENT + 1;
+    final int INDIV_MAP_DEPENDENT_SINGLE_WITH_ADULT = INDIV_MAP_DEPENDENT_MULTI_WITH_ADULT + 1;
+    final int INDIV_MAP_DEPENDENT_ALONE = INDIV_MAP_DEPENDENT_SINGLE_WITH_ADULT + 1;         // Dependent who are living alone - will be 0 by the end
+    final int LENGTH_INDIV_MAP = INDIV_MAP_DEPENDENT_ALONE + 1;
+
+    private LinkedList<Integer>[][] generateIndivdual_map_by_loc() {
+        RelationshipMap householdMap = getRelMap()[RELMAP_HOUSEHOLD];
+        Integer[][] household_indices = ((Integer[][]) getFields()[FIELDS_REMOTE_METAPOP_COVID19_UNIQUE_HOUSEHOLD]);
+        LinkedList<Integer>[][] indivudual_map_by_loc = new LinkedList[household_indices.length][LENGTH_INDIV_MAP];
+
+        for (LinkedList<Integer>[] indivudual_map_at_loc : indivudual_map_by_loc) {
+            for (int type = 0; type < indivudual_map_at_loc.length; type++) {
+                indivudual_map_at_loc[type] = new LinkedList<>();
+            }
+        }
+
+        for (AbstractIndividualInterface person : this.getPop()) {
+            int loc = ((person.MoveablePersonInterface) person).getHomeLocation();
+            LinkedList<Integer> indiv_list;
+            int[] val;
+
+            if (!householdMap.containsVertex(person.getId())) {
+                householdMap.addVertex(person.getId());
+            }
+            int deg = householdMap.degreeOf(person.getId());
+            if (deg == 0) { // No household - possibly error 
+                System.out.println("generateIndivudual_map_by_loc: Indivdual with no core household");
+            } else {
+                Iterator<SingleRelationship> edgeIt;
+                edgeIt = householdMap.edgesOf(person.getId()).iterator();
+                SingleRelationship edge = edgeIt.next();
+
+                if (deg > 1) { // Mulitple core household - possibly error
+                    System.out.println("generateIndivudual_map_by_loc: Multiple core household allocated previously. Removing extra edges.");
+                }
+
+                // Household id               
+                val = edge.getLinksValues();
+                int houseId = val[0] == person.getId() ? val[1] : val[0];
+                int[] houseStat = getHouseholdStat(householdMap, houseId);
+                int listPt = -1;
+
+                if (isDependent(person.getAge())) {
+                    if (houseStat[HOUSEHOLD_MAP_NUM_ADULT] == 0) {
+                        listPt = INDIV_MAP_DEPENDENT_ALONE;
+                    } else {
+                        if (houseStat[HOUSEHOLD_MAP_NUM_DEPENDENT] == 1) {
+                            listPt = INDIV_MAP_DEPENDENT_SINGLE_WITH_ADULT;
+                        } else {
+                            listPt = INDIV_MAP_DEPENDENT_MULTI_WITH_ADULT;
+                        }
+                    }
+                } else {
+                    if (houseStat[HOUSEHOLD_MAP_NUM_ADULT] == 1) {
+                        if (houseStat[HOUSEHOLD_MAP_NUM_DEPENDENT] == 0) {
+                            listPt = INDIV_MAP_ADULT_LONER;
+                        } else {
+                            listPt = INDIV_MAP_ADULT_SINGLE_WITH_DEPENDENT;
+                        }
+                    } else {
+                        if (houseStat[HOUSEHOLD_MAP_NUM_DEPENDENT] == 0) {
+                            listPt = INDIV_MAP_ADULT_NO_DEPENDENT;
+                        } else {
+                            listPt = INDIV_MAP_ADULT_MULTI_PARENT;
+                        }
+                    }
+                }
+
+                indiv_list = indivudual_map_by_loc[loc][listPt];
+                indiv_list.add(person.getId());
+            }
+        }
+
+        return indivudual_map_by_loc;
+
     }
 
 }

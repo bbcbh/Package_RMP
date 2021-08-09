@@ -478,8 +478,8 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
                     public void testingPerson(AbstractIndividualInterface person, HashMap<Integer, int[][]> treatmentSchdule,
                             RandomGenerator testRNG, PersonClassifier notificationClassifier, int testing_option) {
                         if (this.getPop().getInfList()[0].isInfectious(person)) {
-                            int[] ent = new int[]{this.getPop().getGlobalTime(),  person.getId(), (int) person.getAge(),
-                            (int) (person.getAge() - person.getLastInfectedAtAge(0))};                            
+                            int[] ent = new int[]{this.getPop().getGlobalTime(), person.getId(), (int) person.getAge(),
+                                (int) (person.getAge() - person.getLastInfectedAtAge(0))};
                             timeToDiagsArr.add(ent);
                         }
                         super.testingPerson(person, treatmentSchdule, testRNG, notificationClassifier, testing_option);
@@ -573,11 +573,12 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
                     PrintWriter wri = new PrintWriter(srcFile);
                     // int[] ent = new int[]{this.getPop().getGlobalTime(), person.getId(),  (int) person.getAge(), 
                     //        (int) (person.getAge() - person.getLastInfectedAtAge(0))};                            
-                    wri.println("Time, PersonId, PersonAge, Time to Dx (days)");                    
-                    for (int[] t2dx : timeToDX.get(sId)) {                        
-                        String line = String.format("%d,%d,%d,%d", t2dx[0], t2dx[1],t2dx[2],t2dx[3]);
-                        
-                        /*                        
+                    wri.println("Time, PersonId, PersonAge, Time to Dx (days)");
+                    for (int[] t2dx : timeToDX.get(sId)) {
+                        if (t2dx != null) {
+                            String line = String.format("%d,%d,%d,%d", t2dx[0], t2dx[1], t2dx[2], t2dx[3]);
+
+                            /*                        
                         boolean firstEntry = true;
                         for(int ent : t2dx){
                             if(!firstEntry){
@@ -587,9 +588,9 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
                             }
                             wri.print(ent);
                         }
-                        */
-                        
-                        wri.println(line);
+                             */
+                            wri.println(line);
+                        }
                     }
                     wri.close();
 
@@ -631,8 +632,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
         }
 
     }
-    
-    
+
     public static void collectionToCSV(HashMap<Integer, HashMap<Integer, Integer>> collection, PrintWriter pri) {
         // Decode newInfectionCollection
         Integer[] keys = collection.keySet().toArray(new Integer[collection.size()]);
@@ -663,8 +663,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
             pri.println();
         }
     }
-    */
-
+     */
     public static void collectionToCSV_StringKey(HashMap<String, int[]> collection, PrintWriter pri) {
         String[] keys = collection.keySet().toArray(new String[collection.size()]);
         Arrays.sort(keys);
