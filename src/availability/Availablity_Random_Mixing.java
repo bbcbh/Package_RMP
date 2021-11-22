@@ -7,7 +7,11 @@ import util.ArrayUtilsRandomGenerator;
 
 public class Availablity_Random_Mixing extends AbstractAvailability {
 
-    protected AbstractIndividualInterface[][] available;
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = -5005793046229048667L;
+	protected AbstractIndividualInterface[][] available;
     protected AbstractIndividualInterface[][] pairing;
 
     // Id, [genderIndex][columnIndex]

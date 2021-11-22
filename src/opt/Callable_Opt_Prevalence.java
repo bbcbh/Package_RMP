@@ -1,19 +1,15 @@
 package opt;
 
+import java.io.File;
+import java.io.PrintWriter;
+import java.util.Arrays;
+
 import infection.AbstractInfection;
 import infection.ChlamydiaInfection;
 import infection.GonorrhoeaInfection;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.Arrays;
-import person.AbstractIndividualInterface;
 import population.Population_Remote_MetaPopulation;
 import random.RandomGenerator;
 import run.Thread_PopRun;
-import util.Default_Remote_MetaPopulation_AgeGrp_Classifier;
-import util.PersonClassifier;
 
 /**
  *

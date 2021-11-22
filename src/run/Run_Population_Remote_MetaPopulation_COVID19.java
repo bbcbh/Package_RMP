@@ -356,7 +356,7 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
 
                 // Infection parameter
                 for (int f = pop.getFields().length; f < Math.min(propModelInitStr.length,
-                        pop.getFields().length + covid19.DIST_TOTAL); f++) {
+                        pop.getFields().length + COVID19_Remote_Infection.DIST_TOTAL); f++) {
                     if (propModelInitStr[f] != null) {
                         String key;
                         key = COVID19_Remote_Infection.PARAM_DIST_PARAM_INDEX_REGEX.replaceAll("999",
@@ -371,7 +371,7 @@ public class Run_Population_Remote_MetaPopulation_COVID19 {
                 thread.setInfList(new AbstractInfection[]{covid19});
 
                 // Thread parameter
-                int threadOffset = pop.getFields().length + covid19.DIST_TOTAL;
+                int threadOffset = pop.getFields().length + COVID19_Remote_Infection.DIST_TOTAL;
                 for (int f = threadOffset; f < Math.min(propModelInitStr.length, threadOffset + thread.getThreadParam().length); f++) {
                     if (propModelInitStr[f] != null) {
                         int threadIndex = f - threadOffset;

@@ -129,6 +129,8 @@ public class Util_Population_Remote_MetaPopulation_Gen_Prop_Syphilis {
                             coverageMatrix[i - 1][POP_REGIONAL][g] = Float.parseFloat(ent[i]);
                         }
                     }
+                    
+                    adj_reader.close();                   
 
                     StringBuilder adj_cov_entry = new StringBuilder();
                     adj_cov_entry.append(FIRST_COVERAGE);                    
@@ -196,7 +198,7 @@ public class Util_Population_Remote_MetaPopulation_Gen_Prop_Syphilis {
                     Document xml_src = PropValUtils.parseXMLFile(new File(template_dir, PROP_FILE_NAME));
                     NodeList nList_entry = xml_src.getElementsByTagName("entry");
 
-                    ArrayList<Element> replaceElement = new ArrayList();
+                    ArrayList<Element> replaceElement = new ArrayList<>();
 
                     boolean addElem = true;
 
@@ -241,7 +243,7 @@ public class Util_Population_Remote_MetaPopulation_Gen_Prop_Syphilis {
     private static void generateMassScreenSingleGrp(File template_dir,
             File target_prop_dir) throws NumberFormatException, FileNotFoundException, IOException {
         String line;
-        ArrayList<String> lines_src = new ArrayList();
+        ArrayList<String> lines_src = new ArrayList<>();
         BufferedReader srcReader = new BufferedReader(new FileReader(new File(template_dir, PROP_FILE_NAME)));
 
         while ((line = srcReader.readLine()) != null) {

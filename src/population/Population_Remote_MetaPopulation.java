@@ -1,19 +1,19 @@
 package population;
 
-import availability.AbstractAvailability;
-import availability.Availablity_Random_Mixing;
-import infection.AbstractInfection;
-import infection.ChlamydiaInfection;
-import infection.GonorrhoeaInfection;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
+
+import availability.AbstractAvailability;
+import availability.Availablity_Random_Mixing;
+import infection.AbstractInfection;
+import infection.ChlamydiaInfection;
+import infection.GonorrhoeaInfection;
 import person.AbstractIndividualInterface;
 import person.MoveablePersonInterface;
 import person.Person_Remote_MetaPopulation;
-import static population.Abstract_MetaPopulation.FIELDS_META_POP_AWAY_UNTIL_AGE;
 import random.MersenneTwisterRandomGenerator;
 import random.RandomGenerator;
 import relationship.RelationshipMap;
@@ -45,7 +45,11 @@ import util.PersonClassifier;
  */
 public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
 
-    public static final int FIELDS_REMOTE_METAPOP_POP_SIZE = LENGTH_FIELDS_META_POP;
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = -3857628295782320444L;
+	public static final int FIELDS_REMOTE_METAPOP_POP_SIZE = LENGTH_FIELDS_META_POP;
     public static final int FIELDS_REMOTE_METAPOP_POP_TYPE = FIELDS_REMOTE_METAPOP_POP_SIZE + 1;
     public static final int FIELDS_REMOTE_METAPOP_POP_CONNC = FIELDS_REMOTE_METAPOP_POP_TYPE + 1;
     public static final int FIELDS_REMOTE_METAPOP_AGE_GENDER_COMPOSITION = FIELDS_REMOTE_METAPOP_POP_CONNC + 1;
@@ -287,7 +291,8 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
         setInfList(infList);
     }
 
-    public void updateCollectionCurrentLocAgeBehavior() {
+    @SuppressWarnings("unchecked")
+	public void updateCollectionCurrentLocAgeBehavior() {
         int[][] pop_decom_collection = (int[][]) getFields()[FIELDS_REMOTE_METAPOP_AGE_GENDER_COMPOSITION];
         PersonClassifier age_classifier = (PersonClassifier) getFields()[FIELDS_REMOTE_METAPOP_AGE_GRP_CLASSIFIER];
         PersonClassifier behav_classifier = (PersonClassifier) getFields()[FIELDS_REMOTE_METAPOP_BEHAVOR_GRP_CLASSIFIER];
@@ -319,7 +324,8 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
         }
     }
 
-    public void updateCollectionHomeLocGenderAge() {
+    @SuppressWarnings("unchecked")
+	public void updateCollectionHomeLocGenderAge() {
         int[][] pop_decom_collection = (int[][]) getFields()[FIELDS_REMOTE_METAPOP_AGE_GENDER_COMPOSITION];
         PersonClassifier age_classifier = (PersonClassifier) getFields()[FIELDS_REMOTE_METAPOP_AGE_GRP_CLASSIFIER];
 
@@ -348,7 +354,8 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
         }
     }
 
-    public void updateCollectionHomeLocAgeGenderHomeOrAway() {
+    @SuppressWarnings("unchecked")
+	public void updateCollectionHomeLocAgeGenderHomeOrAway() {
         int[][] pop_decom_collection = (int[][]) getFields()[FIELDS_REMOTE_METAPOP_AGE_GENDER_COMPOSITION];
         PersonClassifier age_classifier = (PersonClassifier) getFields()[FIELDS_REMOTE_METAPOP_AGE_GRP_CLASSIFIER];
 
@@ -520,7 +527,6 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
                             for (int s = 0; s < collectionArr.length && numSeekOrBreakPartnership > 0; s++) {
                                 AbstractIndividualInterface seekOrBreak = collectionArr[s];
                                 boolean seeking = false;
-                                boolean breaking = false;
                                 if (getRNG().nextInt(collectionArr.length - s) < numSeekOrBreakPartnership) {
                                     boolean breakingPartnership = getRNG().nextInt(extraBelow + extraAbove) < extraBelow;
 
@@ -558,8 +564,6 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
                                             removeRelationship(getRelMap()[RELMAP_GLOBAL_SEXUAL],
                                                     (SingleRelationshipTimeStamp) toBeRemoved,
                                                     toBeRemoved.getLinks(getLocalData()));
-
-                                            breaking = true;
                                         }
                                     }
                                 }
@@ -712,7 +716,8 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
                                 }
 
                                 // Format: HashMap(Id, int[]{age_1, location_1 ...})
-                                HashMap<Integer, int[]> cir_move_map
+                                @SuppressWarnings("unchecked")
+								HashMap<Integer, int[]> cir_move_map
                                         = (HashMap<Integer, int[]>) getFields()[FIELDS_REMOTE_METAPOP_CIR_MOBILITY_MAP];
 
                                 int firstDest = dest;
@@ -762,7 +767,8 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
     protected int determineDestination(AbstractIndividualInterface person, boolean[] prev_destinations) {
         int dest = -1;
 
-        HashMap<Integer, int[]> cir_move_map
+        @SuppressWarnings("unchecked")
+		HashMap<Integer, int[]> cir_move_map
                 = (HashMap<Integer, int[]>) getFields()[FIELDS_REMOTE_METAPOP_CIR_MOBILITY_MAP];
 
         if (person instanceof MoveablePersonInterface) {
@@ -956,12 +962,14 @@ public class Population_Remote_MetaPopulation extends Abstract_MetaPopulation {
 
     // Include return home and circular movement
     public int predefinedMove() {
-        HashMap<Integer, Integer> return_home_map
+        @SuppressWarnings("unchecked")
+		HashMap<Integer, Integer> return_home_map
                 = (HashMap<Integer, Integer>) getFields()[FIELDS_META_POP_AWAY_UNTIL_AGE];
         int numberReturnHome = 0;
 
         // Format: HashMap(Id, int[]{age_1, location_1 ...})
-        HashMap<Integer, int[]> cir_move_map
+        @SuppressWarnings("unchecked")
+		HashMap<Integer, int[]> cir_move_map
                 = (HashMap<Integer, int[]>) getFields()[FIELDS_REMOTE_METAPOP_CIR_MOBILITY_MAP];
         int numberCirMove = 0;
 

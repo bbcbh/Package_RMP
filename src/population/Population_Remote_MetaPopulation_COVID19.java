@@ -27,7 +27,11 @@ import util.ArrayUtilsRandomGenerator;
  */
 public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_MetaPopulation {
 
-    public static final int FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS = LENGTH_FIELDS_REMOTE_META_POP;
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 2375837628195451217L;
+	public static final int FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS = LENGTH_FIELDS_REMOTE_META_POP;
     public static final int FIELDS_REMOTE_METAPOP_COVID19_UNIQUE_HOUSEHOLD = FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS + 1;
     public static final int FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_HOUSEHOLD = FIELDS_REMOTE_METAPOP_COVID19_UNIQUE_HOUSEHOLD + 1;
     public static final int FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_QUARANTINE = FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_HOUSEHOLD + 1;
@@ -210,7 +214,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         return minAgeForNextTest;
     }
 
-    private Integer[] currentlyInSameHouseholdAs(AbstractIndividualInterface p) {
+    @SuppressWarnings("unchecked")
+	private Integer[] currentlyInSameHouseholdAs(AbstractIndividualInterface p) {
 
         RelationshipMap housholdMap = getRelMap()[RELMAP_HOUSEHOLD];
         HashMap<Integer, Integer> currentlyAtHouseholdMap
@@ -249,7 +254,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         }
     }
 
-    public AbstractIndividualInterface[][] currentlyInSameHouseholdAsByType(AbstractIndividualInterface p) {
+    @SuppressWarnings("unchecked")
+	public AbstractIndividualInterface[][] currentlyInSameHouseholdAsByType(AbstractIndividualInterface p) {
         AbstractIndividualInterface[][] res = new AbstractIndividualInterface[HOUSEHOLD_TYPE_LENGTH][];
 
         LinkedList<AbstractIndividualInterface> current = new LinkedList<>();
@@ -401,7 +407,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
     public void allocateNonCoreHousehold() {
         // Setting non-core household options
         RelationshipMap householdMap = getRelMap()[RELMAP_HOUSEHOLD];
-        HashMap<Integer, float[]> contactOptions
+        @SuppressWarnings("unchecked")
+		HashMap<Integer, float[]> contactOptions
                 = (HashMap<Integer, float[]>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS];
 
         for (Integer r : contactOptions.keySet()) {
@@ -455,7 +462,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         float[] contact_option_ent;
 
         RelationshipMap householdMap = getRelMap()[RELMAP_HOUSEHOLD];
-        HashMap<Integer, float[]> contactOptions
+        @SuppressWarnings("unchecked")
+		HashMap<Integer, float[]> contactOptions
                 = (HashMap<Integer, float[]>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS];
 
         rel = new SingleRelationshipTimeStamp(
@@ -541,7 +549,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
         final int numOfPop = ((int[]) getFields()[FIELDS_REMOTE_METAPOP_POP_SIZE]).length;
         ArrayList<ArrayList<AbstractIndividualInterface>> currentlyAt = new ArrayList<>(numOfPop);
 
-        HashMap<Integer, Integer> currentlyInHousehold
+        @SuppressWarnings("unchecked")
+		HashMap<Integer, Integer> currentlyInHousehold
                 = (HashMap<Integer, Integer>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_HOUSEHOLD];
 
         RelationshipMap householdMap = getRelMap()[RELMAP_HOUSEHOLD];
@@ -668,7 +677,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
                 }
                 if (possibleNonHouseholdCandidate.size() > 0) {
 
-                    Float nh_contactRate = ((HashMap<Integer, float[]>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS]).get(infected.getId())[CONTACT_OPTIONS_NON_HOUSEHOLD_CONTACT_RATE];
+                    @SuppressWarnings("unchecked")
+					Float nh_contactRate = ((HashMap<Integer, float[]>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS]).get(infected.getId())[CONTACT_OPTIONS_NON_HOUSEHOLD_CONTACT_RATE];
 
                     int numContact = nh_contactRate.intValue();
 
@@ -703,7 +713,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
     protected void assignCurrentlyAtHousehold(AbstractIndividualInterface p) {
 
-        HashMap<Integer, Integer> currentlyInHousehold
+        @SuppressWarnings("unchecked")
+		HashMap<Integer, Integer> currentlyInHousehold
                 = (HashMap<Integer, Integer>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_HOUSEHOLD];
 
         HashSet<SingleRelationship> tempEdges = TEMP_EDGES;
@@ -725,7 +736,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
             if (forcedInCoreHousehold) {
                 movePerson(p, ((Person_Remote_MetaPopulation) p).getHomeLocation(), -1);
 
-                float[] contactOption = ((HashMap<Integer, float[]>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS]).get(p.getId());
+                @SuppressWarnings("unchecked")
+				float[] contactOption = ((HashMap<Integer, float[]>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS]).get(p.getId());
 
                 currentlyInHousehold.put(p.getId(),
                         (int) contactOption[CONTACT_OPTIONS_CORE_HOUSEHOLD_ID]);
@@ -737,7 +749,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
                 }
 
                 RelationshipMap householdMap = getRelMap()[RELMAP_HOUSEHOLD];
-                HashMap<Integer, float[]> contactOptions
+                @SuppressWarnings("unchecked")
+				HashMap<Integer, float[]> contactOptions
                         = (HashMap<Integer, float[]>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS];
 
                 boolean requireTempEdge = true;
@@ -800,7 +813,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
     }
 
     public Number[] inQuarantine(AbstractIndividualInterface p) {
-        HashMap<Integer, Number[]> quarantineMap
+        @SuppressWarnings("unchecked")
+		HashMap<Integer, Number[]> quarantineMap
                 = (HashMap<Integer, Number[]>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_QUARANTINE];
         Number[] quarantineEnt = quarantineMap.get(p.getId());
 
@@ -1014,7 +1028,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
             }
         }
 
-        HashMap<Integer, float[]> contactOptions
+        @SuppressWarnings("unchecked")
+		HashMap<Integer, float[]> contactOptions
                 = (HashMap<Integer, float[]>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CONTACT_OPTIONS];
 
         contactOptions.put(newPerson.getId(), contactOptions.get(removedPerson.getId()));
@@ -1246,7 +1261,8 @@ public class Population_Remote_MetaPopulation_COVID19 extends Population_Remote_
 
         int[] numInQuarantine = new int[numStat[NUM_STAT_NUM_IN_LOC].length];
         int[] numInIsolation = new int[numStat[NUM_STAT_NUM_IN_LOC].length];
-        HashMap<Integer, Number[]> quarantineMap
+        @SuppressWarnings("unchecked")
+		HashMap<Integer, Number[]> quarantineMap
                 = (HashMap<Integer, Number[]>) getFields()[FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_QUARANTINE];
 
         for (Integer pid : quarantineMap.keySet()) {

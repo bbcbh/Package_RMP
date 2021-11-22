@@ -1,12 +1,11 @@
 package opt;
 
+import java.io.File;
+
+import org.apache.commons.math3.distribution.AbstractRealDistribution;
+
 import infection.AbstractInfection;
 import infection.GeneralSEIRSInfection;
-import static infection.GeneralSEIRSInfection.PARAM_INDEX_TRAN_FEMALE_MALE;
-import java.io.File;
-import org.apache.commons.math3.distribution.AbstractRealDistribution;
-import org.apache.commons.math3.distribution.BetaDistribution;
-import org.apache.commons.math3.distribution.GammaDistribution;
 import population.Population_Remote_MetaPopulation;
 import random.RandomGenerator;
 import run.Thread_PopRun;

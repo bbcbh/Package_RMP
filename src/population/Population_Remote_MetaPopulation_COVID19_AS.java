@@ -3,13 +3,11 @@ package population;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Objects;
-import java.util.Set;
+
 import person.AbstractIndividualInterface;
-import static population.Population_Remote_MetaPopulation_COVID19.RELMAP_HOUSEHOLD;
 import relationship.RelationshipMap;
 import relationship.SingleRelationship;
 
@@ -23,7 +21,11 @@ import relationship.SingleRelationship;
 public class Population_Remote_MetaPopulation_COVID19_AS
         extends Population_Remote_MetaPopulation_COVID19 {
 
-    // From 2076.0 Census of Population and Housing: Characteristics of Aboriginal and Torres Strait Islander Australians, 2011
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 744424706512765730L;
+	// From 2076.0 Census of Population and Housing: Characteristics of Aboriginal and Torres Strait Islander Australians, 2011
     // 20760_2011.xls    
     public static final int HOUSEHOLD_SPREAD_COUPLE_WITH_CHILDREN = 0;
     public static final int HOUSEHOLD_SPREAD_SINGLE_WITH_CHILDREN = 1;
@@ -79,7 +81,8 @@ public class Population_Remote_MetaPopulation_COVID19_AS
 
         HashMap<Integer, int[]> household_map_all_loc = new HashMap<>();  // K = household id, V = [num_adult, num_dependent];
 
-        LinkedList<Integer>[][] indivdual_map_by_loc = new LinkedList[household_indices.length][LENGTH_INDIV_MAP];
+        @SuppressWarnings("unchecked")
+		LinkedList<Integer>[][] indivdual_map_by_loc = new LinkedList[household_indices.length][LENGTH_INDIV_MAP];
         for (LinkedList<Integer>[] indivudual_map_at_loc : indivdual_map_by_loc) {
             for (int type = 0; type < indivudual_map_at_loc.length; type++) {
                 indivudual_map_at_loc[type] = new LinkedList<>();
@@ -419,7 +422,8 @@ public class Population_Remote_MetaPopulation_COVID19_AS
             float[][] householdSpreadByLoc,
             float[][] nonHouseholdContactRateByLoc) {
 
-        LinkedList<Integer>[] household_multi_dependent_multi_adult = new LinkedList[household_indices.length];
+        @SuppressWarnings("unchecked")
+		LinkedList<Integer>[] household_multi_dependent_multi_adult = new LinkedList[household_indices.length];
         int numFamilyWithMinAdultWithDependent = 0;
         int numFamilyMoreMinAdultWithDependent = 0;
 
@@ -734,10 +738,12 @@ public class Population_Remote_MetaPopulation_COVID19_AS
     final int INDIV_MAP_DEPENDENT_ALONE = INDIV_MAP_DEPENDENT_SINGLE_WITH_ADULT + 1;         // Dependent who are living alone - will be 0 by the end
     final int LENGTH_INDIV_MAP = INDIV_MAP_DEPENDENT_ALONE + 1;
 
-    private LinkedList<Integer>[][] generateIndivdual_map_by_loc() {
+    @SuppressWarnings("unused")
+	private LinkedList<Integer>[][] generateIndivdual_map_by_loc() {
         RelationshipMap householdMap = getRelMap()[RELMAP_HOUSEHOLD];
         Integer[][] household_indices = ((Integer[][]) getFields()[FIELDS_REMOTE_METAPOP_COVID19_UNIQUE_HOUSEHOLD]);
-        LinkedList<Integer>[][] indivudual_map_by_loc = new LinkedList[household_indices.length][LENGTH_INDIV_MAP];
+        @SuppressWarnings("unchecked")
+		LinkedList<Integer>[][] indivudual_map_by_loc = new LinkedList[household_indices.length][LENGTH_INDIV_MAP];
 
         for (LinkedList<Integer>[] indivudual_map_at_loc : indivudual_map_by_loc) {
             for (int type = 0; type < indivudual_map_at_loc.length; type++) {

@@ -181,7 +181,8 @@ public class Thread_PopRun implements Runnable {
     //private HashMap<Integer, int[]> indiv_history_infection = null; 
     //private HashMap<Integer, int[]> indiv_history_test = null; 
     //private HashMap<Integer, int[]> indiv_history_treatment = null; 
-    private HashMap<Integer, int[]>[] indiv_hist = new HashMap[INDIV_HIST_PREFIX.length];
+    @SuppressWarnings("unchecked")
+	private HashMap<Integer, int[]>[] indiv_hist = new HashMap[INDIV_HIST_PREFIX.length];
 
     protected Object[] inputParam = new Object[]{
         // 0: PARAM_INDEX_INFECTIONS
@@ -322,7 +323,11 @@ public class Thread_PopRun implements Runnable {
 
     private class DEFAULT_TESTING_CLASSIFIER implements PersonClassifier {
 
-        int numLoc = 5;
+        /**
+		 * 
+		 */
+		private static final long serialVersionUID = -8825632507498481033L;
+		int numLoc = 5;
         int numGender = 2;
         int numAgeGrp = 4;
 
@@ -382,7 +387,11 @@ public class Thread_PopRun implements Runnable {
 
     private class DEFAULT_PREVAL_CLASSIFIER implements PersonClassifier {
 
-        PersonClassifier ageGrpClassifier = new Default_Remote_MetaPopulation_AgeGrp_Classifier();
+        /**
+		 * 
+		 */
+		private static final long serialVersionUID = 7788502067480749376L;
+		PersonClassifier ageGrpClassifier = new Default_Remote_MetaPopulation_AgeGrp_Classifier();
 
         @Override
         public int classifyPerson(AbstractIndividualInterface p) {
@@ -440,7 +449,7 @@ public class Thread_PopRun implements Runnable {
                 AbstractIndividualInterface[][] testing_person = null;
 
                 // Treatment
-                HashMap<Integer, int[][]> treatmentSchdule = new HashMap();
+                HashMap<Integer, int[][]> treatmentSchdule = new HashMap<>();
 
                 long tic = System.currentTimeMillis();
                 pop.getFields()[Population_Remote_MetaPopulation.FIELDS_REMOTE_METAPOP_INFECTION_LIST] = modelledInfections;
@@ -475,7 +484,12 @@ public class Thread_PopRun implements Runnable {
 
                 if (testByClassifier == null) {
                     incidenceClassifier = new PersonClassifier() {
-                        @Override
+                        /**
+						 * 
+						 */
+						private static final long serialVersionUID = -7863384946480503348L;
+
+						@Override
                         public int classifyPerson(AbstractIndividualInterface p) {
                             return p.isMale() ? 0 : 1;
                         }
@@ -486,7 +500,12 @@ public class Thread_PopRun implements Runnable {
                         }
                     };
                     notificationClassifier = new PersonClassifier() {
-                        @Override
+                        /**
+						 * 
+						 */
+						private static final long serialVersionUID = 1358938486156194774L;
+
+						@Override
                         public int classifyPerson(AbstractIndividualInterface p) {
                             return p.isMale() ? 0 : 1;
                         }
@@ -1030,7 +1049,8 @@ public class Thread_PopRun implements Runnable {
 
     }
 
-    public ArrayList<AbstractIndividualInterface> generateTestingSchedule(RandomGenerator testRNG,
+    @SuppressWarnings("unchecked")
+	public ArrayList<AbstractIndividualInterface> generateTestingSchedule(RandomGenerator testRNG,
             float[] testRatebyClassifier) {
 
         PersonClassifier testByClassifier = (PersonClassifier) getInputParam()[PARAM_INDEX_TESTING_CLASSIFIER];

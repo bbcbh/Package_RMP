@@ -262,6 +262,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
                     System.out.println("Input parameter #" + Integer.toString(key)
                             + " = " + Double.toString(value));
                 }
+                reader.close();
 
             } catch (IOException ex) {
                 ex.printStackTrace(System.err);
@@ -276,7 +277,8 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
         return paramVal_Run;
     }
 
-    public void runSimulation() {
+    @SuppressWarnings("unchecked")
+	public void runSimulation() {
         File importDir, exportDir;
         File[] popFiles;
 
@@ -312,7 +314,8 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
 
         ExecutorService executor = null;
         int numInExe = 0;
-        final int numPopFiles = popFiles.length;
+        @SuppressWarnings("unused")
+		final int numPopFiles = popFiles.length;
 
         File previouStoreFile = new File(exportDir, FILENAME_COLLECTION_STORE);
 
@@ -320,30 +323,32 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
         final HashMap<Integer, HashMap<Integer, Integer>> collection_NumInfected;
         final HashMap<Integer, HashMap<Integer, Integer>> collection_NumInfectious;
         final HashMap<Integer, HashMap<Integer, Integer>> collection_NewInfection;
-        final HashMap[] collectionsArray;
+        final HashMap<Integer, HashMap<Integer, Integer>>[] collectionsArray;
 
         final HashMap<Integer, HashMap<Integer, int[]>> collection_InfectionHistory = new HashMap<>(); // [Sim_id] -> Id, Infection at
         final HashMap<Integer, ArrayList<int[]>> timeToDX = new HashMap<>(); // SimId -> {[time, id, age, timeToDx]}
 
         if (previouStoreFile.exists()) {
 
-            HashMap[] collectionsArrayRead;
+            HashMap<Integer, HashMap<Integer, Integer>>[] collectionsArrayRead;
 
             try {
                 ObjectInputStream objIn = new ObjectInputStream(new FileInputStream(previouStoreFile));
-                collectionsArrayRead = (HashMap[]) objIn.readObject();
+                collectionsArrayRead = (HashMap<Integer, HashMap<Integer, Integer>>[]) 
+                		objIn.readObject();
 
                 Files.move(previouStoreFile.toPath(),
                         new File(exportDir, FILENAME_COLLECTION_STORE
                                 + "_" + Long.toString(System.currentTimeMillis())).toPath(),
                         StandardCopyOption.ATOMIC_MOVE
                 );
+                objIn.close();
 
             } catch (IOException | ClassNotFoundException ex) {
                 ex.printStackTrace(System.err);
                 collectionsArrayRead = new HashMap[NUM_COLLECTION];
                 for (int i = 0; i < collectionsArrayRead.length; i++) {
-                    collectionsArrayRead[i] = new HashMap();
+                    collectionsArrayRead[i] = new HashMap<>();
                 }
             }
 
@@ -354,10 +359,10 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
             collection_NewInfection = collectionsArrayRead[3];
 
         } else {
-            collection_NumIndividuals = new HashMap(); // Time, # New infection by sim
-            collection_NumInfected = new HashMap();
-            collection_NumInfectious = new HashMap();
-            collection_NewInfection = new HashMap();
+            collection_NumIndividuals = new HashMap<>(); // Time, # New infection by sim
+            collection_NumInfected = new HashMap<>();
+            collection_NumInfectious = new HashMap<>();
+            collection_NewInfection = new HashMap<>();
 
             collectionsArray = new HashMap[]{
                 collection_NumIndividuals,
@@ -553,7 +558,8 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
 
     }
 
-    public void exportCollectionFiles(File exportDir,
+    @SuppressWarnings("rawtypes")
+	public void exportCollectionFiles(File exportDir,
             final HashMap[] collectionsArray,
             HashMap<Integer, HashMap<Integer, int[]>> infectionHistory,
             HashMap<Integer, ArrayList<int[]>> timeToDX) {
@@ -602,7 +608,8 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
 
     }
 
-    public void exportCollectionFiles(
+    @SuppressWarnings("rawtypes")
+	public void exportCollectionFiles(
             File exportDir,
             final HashMap[] collectionsArray,
             final HashMap[] infectionHistory) {
@@ -678,7 +685,8 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
         }
     }
 
-    public static void decodeCollectionFile(File baseDir) throws FileNotFoundException, IOException, ClassNotFoundException {
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+	public static void decodeCollectionFile(File baseDir) throws FileNotFoundException, IOException, ClassNotFoundException {
         String[] collectionFileName = new String[]{
             FILENAME_NUM_IN_POP_CSV,
             FILENAME_NUM_INFECTED_CSV,
@@ -699,7 +707,8 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
                 try (PrintWriter pri = new PrintWriter(new File(baseDir, collectionFileName[i]))) {
                     run.Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis.collectionToCSV(collectionsArrayRead[i], pri);
                 }
-            }
+            }            
+            objIn.close();
 
             suc = true;
         }
@@ -713,7 +722,11 @@ public class Run_Population_Remote_MetaPopulation_Pop_Intro_Syphilis extends Abs
 
     private class CLASSIFIER_SYPHILIS_PREVAL implements PersonClassifier {
 
-        AbstractFieldsArrayPopulation pop;
+        /**
+		 * 
+		 */
+		private static final long serialVersionUID = 7679301826184937421L;
+		AbstractFieldsArrayPopulation pop;
 
         public CLASSIFIER_SYPHILIS_PREVAL(AbstractFieldsArrayPopulation pop) {
             this.pop = pop;

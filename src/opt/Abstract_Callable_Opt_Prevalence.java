@@ -117,7 +117,11 @@ public abstract class Abstract_Callable_Opt_Prevalence implements Callable<doubl
         loadParameters(thread, param);
         thread.run();
         PersonClassifier prevalClassifer = new PersonClassifier() {
-            PersonClassifier ageClassifier = new Default_Remote_MetaPopulation_AgeGrp_Classifier();
+            /**
+			 * 
+			 */
+			private static final long serialVersionUID = -7688653624043564633L;
+			PersonClassifier ageClassifier = new Default_Remote_MetaPopulation_AgeGrp_Classifier();
 
             @Override
             public int classifyPerson(AbstractIndividualInterface p) {

@@ -45,13 +45,15 @@ public class Util_Population_Remote_MetaPopulation_Select_OptPop {
                         Double.parseDouble(ent[0]), Double.parseDouble(ent[1])});
                     lnNum++;
                 }
+                constraintReader2.close();
             }
 
             File preSimplexFile = new File(RES_DIR, "ParamSimplex.obj");
             System.out.println("Reading previous simplex....");
 
             double[][] sX = null;
-            double[][] sR = null;
+            @SuppressWarnings("unused")
+			double[][] sR = null;
 
             try (ObjectInputStream objStr = new ObjectInputStream(new FileInputStream(preSimplexFile))) {
                 sX = (double[][]) objStr.readObject();

@@ -9,7 +9,12 @@ import person.AbstractIndividualInterface;
  */
 public class Factory_AwayDuration implements Serializable{        
     
-    public Factory_AwayDuration(){
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 5655897987734071117L;
+
+	public Factory_AwayDuration(){
         
     }
     

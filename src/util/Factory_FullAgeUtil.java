@@ -12,7 +12,12 @@ public class Factory_FullAgeUtil {
 
     public static PersonClassifier genFullAgeClassifier() {
         return new PersonClassifier() {
-            @Override
+            /**
+			 * 
+			 */
+			private static final long serialVersionUID = 3621333932681618521L;
+
+			@Override
             public int classifyPerson(AbstractIndividualInterface p) {
                 return Math.min((int) p.getAge() / AbstractIndividualInterface.ONE_YEAR_INT, MAX_AGE-1);
             }

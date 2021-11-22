@@ -10,7 +10,11 @@ import person.AbstractIndividualInterface;
  * @author Ben Hui
  */
 public class Factory_Relationship_Duration_Max implements Serializable{
-    // From GOANNA, for all
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 6291070444233387796L;
+	// From GOANNA, for all
     int[][] numPartLastYearLimit = new int[][]{new int[]{0, 1, 2, 5}, new int[]{1,2,5,10}};
     int[] numPartnerLikelihood = new int[]{8, 8+46, 8+46+38, 8+46+38+7}; 
         

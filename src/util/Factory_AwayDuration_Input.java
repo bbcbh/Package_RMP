@@ -8,7 +8,11 @@ import random.RandomGenerator;
  * @author Ben Hui
  */
 public class Factory_AwayDuration_Input extends Factory_AwayDuration{
-    int minDuration = 14;
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 792472691079333573L;
+	int minDuration = 14;
     int variation = 6*30 -14;
 
     public Factory_AwayDuration_Input() {

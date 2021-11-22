@@ -5,7 +5,12 @@ import random.RandomGenerator;
 
 public class Factory_Population_Decomposition implements Serializable{
 
-    // Default - from 3238.0 Estimates and Projections, Aboriginal and Torres Strait Islander Australians, 2001 to 2026    
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 5046699137149862469L;
+
+	// Default - from 3238.0 Estimates and Projections, Aboriginal and Torres Strait Islander Australians, 2001 to 2026    
     // 2011 data
     public static final int[] POP_COMPOSITION_REMOTE_2011 = {
         // Male: 15-19, 20-24, 25-29, 30-34 .... 70-74, 75+

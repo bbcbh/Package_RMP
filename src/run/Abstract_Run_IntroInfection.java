@@ -78,7 +78,7 @@ public abstract class Abstract_Run_IntroInfection {
 
         try {
             try (BufferedReader lines = new BufferedReader(new FileReader(csv))) {
-                arr = new ArrayList();
+                arr = new ArrayList<>();
                 String line;
                 while ((line = lines.readLine()) != null) {
                     arr.add(Integer.parseInt(line));

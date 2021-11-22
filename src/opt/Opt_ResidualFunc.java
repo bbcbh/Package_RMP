@@ -80,7 +80,8 @@ public class Opt_ResidualFunc extends AbstractResidualFunc {
             optOutputDir.mkdirs();
         }
 
-        Future<double[]>[] res_collection = new Future[popFiles.length];
+        @SuppressWarnings("unchecked")
+		Future<double[]>[] res_collection = new Future[popFiles.length];
 
         for (int i = 0; i < popFiles.length; i++) {
             if (executor == null) {

@@ -4,9 +4,9 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.nio.file.CopyOption;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+
 import javax.swing.JFileChooser;
 
 public class Test_Population_Remote_MetaPopulation_Sel_Pop {
@@ -79,6 +79,7 @@ public class Test_Population_Remote_MetaPopulation_Sel_Pop {
                  */
                 counter++;
             }
+            reader.close();
 
             System.out.println(counter + " sets copied.");
         }

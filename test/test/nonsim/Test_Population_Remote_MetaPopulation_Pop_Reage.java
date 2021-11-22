@@ -55,7 +55,7 @@ public class Test_Population_Remote_MetaPopulation_Pop_Reage {
                 if (p.getAge() >= startReage) {
                     int diff = ((int) p.getAge()) - startReage;
                     int div = diff / reageRange;
-                    int rem = diff - div * reageRange;
+                    //int rem = diff - div * reageRange;
                     int newAge = div * reageRange + rng.nextInt(reageRange) + startReage;
                     int ageDiff = (int) (newAge - p.getAge());
 

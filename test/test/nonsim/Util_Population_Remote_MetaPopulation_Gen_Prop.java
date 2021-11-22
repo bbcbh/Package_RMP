@@ -40,7 +40,7 @@ public class Util_Population_Remote_MetaPopulation_Gen_Prop {
 
     public void genPropFile() throws IOException {
         // Read Prop File
-        ArrayList<String> lineStore = new ArrayList();
+        ArrayList<String> lineStore = new ArrayList<>();
         BufferedReader reader = new BufferedReader(new FileReader(basePropFile));
         System.out.println("Reading from " + basePropFile);
         String line;

@@ -8,7 +8,12 @@ import person.AbstractIndividualInterface;
  */
 public class Default_Remote_MetaPopulation_Infection_Intro_Classifier implements PersonClassifier {
 
-    public Default_Remote_MetaPopulation_Infection_Intro_Classifier() {
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 9174957982560104230L;
+
+	public Default_Remote_MetaPopulation_Infection_Intro_Classifier() {
     }
 
     @Override

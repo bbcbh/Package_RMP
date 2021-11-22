@@ -369,21 +369,17 @@ class Thread_PopRun_COVID19 implements Runnable {
 
         }
 
-        if (FILE_REGEX_POP_SNAP != null) {
-            try {
-                popStatCSV = new PrintWriter(new File(baseDir, String.format(FILE_REGEX_POP_SNAP,
-                        this.threadId)));
+        try {
+		    popStatCSV = new PrintWriter(new File(baseDir, String.format(FILE_REGEX_POP_SNAP,
+		            this.threadId)));
 
-            } catch (FileNotFoundException ex) {
-                ex.printStackTrace(System.err);
-                popStatCSV = pri;
+		} catch (FileNotFoundException ex) {
+		    ex.printStackTrace(System.err);
+		    popStatCSV = pri;
 
-            }
+		}
 
-            pop.printPopulationSnapHeader(popStatCSV);
-        } else {
-            popStatCSV = null;
-        }
+		pop.printPopulationSnapHeader(popStatCSV);
 
         pri.flush();
 
@@ -735,7 +731,8 @@ class Thread_PopRun_COVID19 implements Runnable {
                                             || testType == TEST_TYPE_EXIT_LOCKDOWN) {
 
                                         // Leave quarantine immediately
-                                        HashMap<Integer, Number[]> qMap
+                                        @SuppressWarnings("unchecked")
+										HashMap<Integer, Number[]> qMap
                                                 = ((HashMap<Integer, Number[]>) pop.getFields()[Population_Remote_MetaPopulation_COVID19.FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_QUARANTINE]);
 
                                         qMap.remove(rmp.getId());
@@ -779,7 +776,8 @@ class Thread_PopRun_COVID19 implements Runnable {
                         }
 
                         if (putInQuarantine != null) {
-                            HashMap<Integer, Number[]> qMap
+                            @SuppressWarnings("unchecked")
+							HashMap<Integer, Number[]> qMap
                                     = ((HashMap<Integer, Number[]>) pop.getFields()[Population_Remote_MetaPopulation_COVID19.FIELDS_REMOTE_METAPOP_COVID19_CURRENTLY_IN_QUARANTINE]);
 
                             float[][][] triggeredQuarantineEffect = (float[][][]) getThreadParam()[THREAD_PARAM_TRIGGRRED_QUARANTINE_EFFECT];

@@ -4,7 +4,12 @@ import person.AbstractIndividualInterface;
 
 public class Default_Remote_MetaPopulation_AgeGrp_Classifier implements PersonClassifier {
 
-    public Default_Remote_MetaPopulation_AgeGrp_Classifier() {
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = -3041890112933595553L;
+
+	public Default_Remote_MetaPopulation_AgeGrp_Classifier() {
 
     }
 

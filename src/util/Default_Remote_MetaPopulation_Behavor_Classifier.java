@@ -5,7 +5,12 @@ import person.Person_Remote_MetaPopulation;
 
 public class Default_Remote_MetaPopulation_Behavor_Classifier implements PersonClassifier {
 
-    public Default_Remote_MetaPopulation_Behavor_Classifier() {
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = -5795207504232367227L;
+
+	public Default_Remote_MetaPopulation_Behavor_Classifier() {
     }
 
     @Override

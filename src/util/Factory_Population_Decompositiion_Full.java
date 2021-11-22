@@ -6,7 +6,12 @@ package util;
  */
 public class Factory_Population_Decompositiion_Full extends Factory_Population_Decomposition {
 
-    public static final int[] ALL_POP_COMPOSITION_REMOTE_2019 = {
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = -8691976896319508148L;
+
+	public static final int[] ALL_POP_COMPOSITION_REMOTE_2019 = {
         // Male: 0 - 65+ , single year
         1577, 1572, 1558, 1537, 1601, 1628, 1623, 1576, 1671, 1582, 1572, 1573, 1476, 1461, 1400, 1397, 1430, 1390, 1406, 1414,
         1297, 1274, 1246, 1316, 1278, 1314, 1369, 1320, 1380, 1335, 1244, 1185, 1203, 1231, 1130, 1123, 1084, 1019, 974, 925,

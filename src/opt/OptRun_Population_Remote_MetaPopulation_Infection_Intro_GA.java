@@ -51,6 +51,7 @@ public class OptRun_Population_Remote_MetaPopulation_Infection_Intro_GA extends 
                     Double.parseDouble(ent[0]), Double.parseDouble(ent[1])});
                 lnNum++;
             }
+            constraintReader2.close();
         }
         //</editor-fold>
 

@@ -11,7 +11,11 @@ import random.RandomGenerator;
  */
 public abstract class Abstract_MetaPopulation extends AbstractFieldsArrayPopulation {
 
-    public static final int FIELDS_META_RNG_INFECTION = LENGTH_FIELDS;
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 5093108335415250635L;
+	public static final int FIELDS_META_RNG_INFECTION = LENGTH_FIELDS;
     public static final int FIELDS_META_POP_CURRENT_LOCATION = FIELDS_META_RNG_INFECTION + 1;
     public static final int FIELDS_META_POP_AWAY_UNTIL_AGE = FIELDS_META_POP_CURRENT_LOCATION + 1;
     public static final int LENGTH_FIELDS_META_POP = FIELDS_META_POP_AWAY_UNTIL_AGE + 1;
@@ -34,7 +38,8 @@ public abstract class Abstract_MetaPopulation extends AbstractFieldsArrayPopulat
     }
 
     public int getCurrentLocation(AbstractIndividualInterface person) {
-        HashMap<Integer, Integer> map
+        @SuppressWarnings("unchecked")
+		HashMap<Integer, Integer> map
                 = (HashMap<Integer, Integer>) getFields()[FIELDS_META_POP_CURRENT_LOCATION];
         
         if(map.containsKey(person.getId())){
@@ -45,7 +50,8 @@ public abstract class Abstract_MetaPopulation extends AbstractFieldsArrayPopulat
     }
 
     public int isAwayFromHomeUntilAge(AbstractIndividualInterface person) {
-        HashMap<Integer, Integer> map
+        @SuppressWarnings("unchecked")
+		HashMap<Integer, Integer> map
                 = (HashMap<Integer, Integer>) getFields()[FIELDS_META_POP_AWAY_UNTIL_AGE];
 
         if (map.containsKey(person.getId())) {
@@ -56,9 +62,11 @@ public abstract class Abstract_MetaPopulation extends AbstractFieldsArrayPopulat
     }    
 
     public void movePerson(AbstractIndividualInterface person, int locId, int utilAge) {
-        HashMap<Integer, Integer> mapCurrentLocation
+        @SuppressWarnings("unchecked")
+		HashMap<Integer, Integer> mapCurrentLocation
                 = (HashMap<Integer, Integer>) getFields()[FIELDS_META_POP_CURRENT_LOCATION];
-        HashMap<Integer, Integer> mapAwayUntilAge
+        @SuppressWarnings("unchecked")
+		HashMap<Integer, Integer> mapAwayUntilAge
                 = (HashMap<Integer, Integer>) getFields()[FIELDS_META_POP_AWAY_UNTIL_AGE];                        
         
         mapCurrentLocation.put(person.getId(), locId);
@@ -73,9 +81,11 @@ public abstract class Abstract_MetaPopulation extends AbstractFieldsArrayPopulat
 
     public void removePersonFromPopulation(AbstractIndividualInterface person) {
         getLocalData().remove(person.getId());
-        HashMap<Integer, Integer> mapCurrentLocation
+        @SuppressWarnings("unchecked")
+		HashMap<Integer, Integer> mapCurrentLocation
                 = (HashMap<Integer, Integer>) getFields()[FIELDS_META_POP_CURRENT_LOCATION];
-        HashMap<Integer, Integer> mapAwayUntilAge
+        @SuppressWarnings("unchecked")
+		HashMap<Integer, Integer> mapAwayUntilAge
                 = (HashMap<Integer, Integer>) getFields()[FIELDS_META_POP_AWAY_UNTIL_AGE];         
 
         mapCurrentLocation.remove(person.getId());      

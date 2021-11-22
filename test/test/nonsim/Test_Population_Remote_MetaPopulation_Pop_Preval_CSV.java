@@ -42,7 +42,8 @@ public class Test_Population_Remote_MetaPopulation_Pop_Preval_CSV {
         this.resultDir = resultDir;
     }
 
-    public void decode() throws FileNotFoundException, IOException {
+    @SuppressWarnings("unchecked")
+	public void decode() throws FileNotFoundException, IOException {
 
         File[] existing_prevalSummaryFile = resultDir.listFiles(new FileFilter() {
             @Override
@@ -208,6 +209,7 @@ public class Test_Population_Remote_MetaPopulation_Pop_Preval_CSV {
                     }
 
                 }
+                reader.close();
 
             }
 
@@ -330,7 +332,8 @@ public class Test_Population_Remote_MetaPopulation_Pop_Preval_CSV {
         }
     }
 
-    protected void decodeFromOutputTxt() throws IOException, NumberFormatException {
+    @SuppressWarnings("unchecked")
+	protected void decodeFromOutputTxt() throws IOException, NumberFormatException {
 
         File[] outputFiles = resultDir.listFiles(new FileFilter() {
             @Override
@@ -372,7 +375,7 @@ public class Test_Population_Remote_MetaPopulation_Pop_Preval_CSV {
                 while ((line = reader.readLine()) != null) {
                     Matcher m = outputlinePattern.matcher(line);
                     if (m.matches()) {
-                        Integer time = new Integer(m.group(1));
+                        Integer time = Integer.parseInt(m.group(1)); //new Integer(m.group(1));
                         int infId = Integer.parseInt(m.group(2));
                         String[] entryByClass = m.group(3).split(",");
 
@@ -398,6 +401,7 @@ public class Test_Population_Remote_MetaPopulation_Pop_Preval_CSV {
                     }
 
                 }
+                reader.close();
 
             }
         }

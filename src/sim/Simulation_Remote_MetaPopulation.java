@@ -59,7 +59,7 @@ public class Simulation_Remote_MetaPopulation implements SimulationInterface {
     public static final String[] PROP_NAME_RMP = {
         "PROP_RMP_SIM_TYPE", "PROP_STORE_INFECTION_HISTORY", "PROP_STORE_TESTING_HISTORY", "PROP_STORE_TREATMENT_HISTORY",
         "PROP_RMP_OPT_TARGET", "PROP_RMP_OPT_WEIGHT",};
-    public static final Class[] PROP_CLASS_RMP = {
+    public static final Class<?>[] PROP_CLASS_RMP = {
         Integer.class, // 0 = NG_CT, 1 = Syphilis
         Boolean.class,
         Boolean.class,

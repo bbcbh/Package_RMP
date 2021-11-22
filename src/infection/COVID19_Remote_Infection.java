@@ -21,7 +21,11 @@ import random.RandomGenerator;
  */
 public class COVID19_Remote_Infection extends AbstractInfectionWithPatientMapping {
 
-    public static final String[] INFECTION_STATE = new String[]{"Infected", "Immume"};
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 6075074964797168948L;
+	public static final String[] INFECTION_STATE = new String[]{"Infected", "Immume"};
     public static final int STATUS_INFECTED = 0;
     public static final int STATUS_IMMUNED = STATUS_INFECTED + 1;
 

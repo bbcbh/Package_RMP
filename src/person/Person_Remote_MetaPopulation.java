@@ -18,7 +18,11 @@ import util.Indivdual_PartnerHistoryInterface;
 public class Person_Remote_MetaPopulation implements AbstractIndividualInterface,
         Serializable, LongFieldsInterface, TreatablePersonInterface, Indivdual_PartnerHistoryInterface, MoveablePersonInterface {
 
-    public static final int PERSON_ID = 0;
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 938173184440940632L;
+	public static final int PERSON_ID = 0;
     public static final int PERSON_GENDER = PERSON_ID + 1;
     public static final int PERSON_ENTER_POP_AT = PERSON_GENDER + 1;
     public static final int PERSON_CURRENT_AGE = PERSON_ENTER_POP_AT + 1;
@@ -98,7 +102,7 @@ public class Person_Remote_MetaPopulation implements AbstractIndividualInterface
     }
 
     @Override
-    public Comparable getParameter(String id) {
+    public Comparable<?> getParameter(String id) {
         try {
             return getParameter(Integer.parseInt(id));
         } catch (NumberFormatException ex) {
@@ -112,7 +116,7 @@ public class Person_Remote_MetaPopulation implements AbstractIndividualInterface
     }
 
     @Override
-    public Comparable setParameter(String id, Comparable value) {
+    public Comparable<?> setParameter(String id, Comparable<?> value) {
         try {
             int idN = Integer.parseInt(id);
             long valueN = ((Number) value).longValue();

@@ -434,6 +434,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
                         wri[fileIndex].println();
                     }
                 }
+                reader.close();
             }
         }
 
@@ -486,6 +487,7 @@ public class Run_Population_Remote_MetaPopulation_Pop_Analysis {
                     lastline = currentline;
                     currentline = nextLine;
                 }
+                reader.close();
 
                 if (lastline != null && currentline != null) {
                     String[] lastLineArr = lastline.split(",");
