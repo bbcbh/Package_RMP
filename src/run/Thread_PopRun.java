@@ -850,7 +850,7 @@ public class Thread_PopRun implements Runnable {
 
             fileStat = new File(outputFilePath.getParent(), FILE_PREFIX_PREVALENCE + simId + ".csv");
             pri = new PrintWriter(fileStat);
-            pri.write(WRI_TEST_AND_NOTIFICATION.toString());
+            pri.write(WRI_PREVALENCE.toString());
             pri.close();
             
         } catch (IOException ex) {

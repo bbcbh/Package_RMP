@@ -1,0 +1,4 @@
+Manifest-Version: 1.0
+Main-Class: sim.Simulation_Remote_MetaPopulation
+Class-Path: . Package_RMP_lib/commons-math3-3.6.1.jar Package_RMP_lib/jgrapht-core-1.0.1.jar
+
