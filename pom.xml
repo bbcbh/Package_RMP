@@ -21,9 +21,9 @@
 	<distributionManagement>
    		<repository>
      			<id>github</id>
-     		<name>GitHub Apache Maven Package BaseModel</name>
-     		<url>https://maven.pkg.github.com/bbcbh/*</url>
-   		</repository>
+     			<name>GitHub Apache Maven Package on GitHub</name>
+     			<url>https://maven.pkg.github.com/bbcbh/*</url>
+   			</repository>
   	</distributionManagement>
 	<dependencies>
 		<dependency>
