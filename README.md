@@ -34,7 +34,7 @@ The behavior of the simulation depends on the settings in the simSpecificSim.pro
 * **PROP_RMP_SIM_TYPE = 4:** Performs model optimization using a genetic algorithm (GA).
 * **PROP_RMP_SIM_TYPE = 5:** Simulates the transmission of COVID-19 in remote Indigenous communities.
 
-### Publications
+## Publications
 
 **Journal paper**
 
