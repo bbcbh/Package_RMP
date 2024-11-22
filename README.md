@@ -1,8 +1,17 @@
-Java class package for IBM (Individual-Based Modeling) of meta-populations in remote Indigenous communities, developed by Ben Hui at the Kirby Institute.
+# Package_RMP
+
+Java class package for IBM (Individual-Based Modeling) of meta-populations in remote Indigenous communities. 
 
 This model has been utilized in various projects, including investigations into the impact of mobility on STI transmission, the dynamics of syphilis outbreaks, and the spread of COVID-19 in these communities.
 
-**Running of model:**
+As this model is no longer in active development, detailed documentation for the full usage of each simulation type is limited (and often unnecessary as it is largely replaced by later models). However, additional usage information is 
+available upon request.
+
+## Maintainers and developers
+
+* Ben Hui (bhui@kirby.unsw.edu.au)
+
+## Usage 
 
 To run the model, the typical approach is to execute the main method from the Simulation_Remote_MetaPopulation class, using a command such as:
 
@@ -25,9 +34,18 @@ The behavior of the simulation depends on the settings in the simSpecificSim.pro
 * **PROP_RMP_SIM_TYPE = 4:** Performs model optimization using a genetic algorithm (GA).
 * **PROP_RMP_SIM_TYPE = 5:** Simulates the transmission of COVID-19 in remote Indigenous communities.
 
-As this model is no longer in active development, detailed documentation for the full usage of each simulation type is limited (and often unnecessary as it is largely replaced by later models). However, additional usage information is available upon request.
+### Publications
 
-**Addtional info Syphilis model**
+**Journal paper**
+
+* Hui BB, Ward JS, Guy R, Law MG, Gray RT, Regan DG. Impact of Testing Strategies to Combat a Major Syphilis Outbreak Among Australian Aboriginal and Torres Strait Islander Peoples: A Mathematical Modeling Study. Open Forum Infect Dis. 2022;9(5):ofac119.
+* Hui BB, Brown D, Chisholm RH, Geard N, McVernon J, Regan DG. Modelling testing and response strategies for COVID-19 outbreaks in remote Australian Aboriginal communities. BMC Infect Dis. 2021;21(1):929.
+* Hui BB, Ryder N, Su J-Y, Ward J, Chen MY, Donovan B, et al. Exploring the benefits of molecular testing for gonorrhoea antibiotic resistance surveillance in remote settings. PloS one. 2015;10(7):e0133202.
+
+**Report**
+* Hui B; Regan D; Gray R, 2019, Modelling of the infectious syphilis outbreak in Indigenous Australians: guidance for Multi-Jurisdictional Syphilis Outbreak Working Group. (https://www.kirby.unsw.edu.au/research/reports/modelling-infectious-syphilis-outbreak-indigenous-australians)
+
+### Addtional information specific for syphilis model
 
 The project was funded to provide guidance to the Multi-Jurisdictional Syphilis Outbreak Working Group (MJSO) and the AHPPC Enhanced Response Governance Group (the Governance Group) to assist in the roll out of the national Enhanced Response and developing activity work plans in Aboriginal Community Controlled Health Services and other settings. The MJSO and Governance Group provided surveillance data and feedback on the modelling methods and characteristics of the scenarios implemented. The working group consists of the following members:  
 
